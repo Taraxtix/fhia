@@ -1,0 +1,11 @@
+# Editor
+*.swap
+.vscode
+.idea
+
+# Cargo
+/target
+Cargo.lock
+
+# Test source code
+test.fhia
