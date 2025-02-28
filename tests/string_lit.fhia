@@ -1,0 +1,8 @@
+"" // Empty string
+
+"TEST" // Classic string
+
+"\n\t\r\0\x10\u{00ffFF}\"" // Escape sequences
+
+"multiline \
+string"

@@ -1,12 +1,13 @@
 use std::{
     fmt::{Debug, Display},
     fs::read_to_string,
-    io,
+    io::{self},
+    str::pattern::Pattern,
 };
 
 use regex::Regex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Position {
     line: usize,
     column: usize,
@@ -18,14 +19,14 @@ impl Display for Position {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Span {
     pub start: Position,
     pub end: Position,
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Ident(String),
 
@@ -40,6 +41,8 @@ pub enum Token {
     MutPtr,    // *mut
     ConstAddr, // &const
     MutAddr,   // &mut
+
+    Const,
 
     //Operators
     Plus,
@@ -100,7 +103,8 @@ impl Display for Token {
 pub struct Lexer<'a> {
     path: &'a str,
     source: String,
-    pos: usize,
+    idx: usize,
+    pos: Position,
 }
 
 impl<'a> Lexer<'a> {
@@ -108,15 +112,202 @@ impl<'a> Lexer<'a> {
         Ok(Self {
             path,
             source: read_to_string(path)?,
-            pos: 0,
+            idx: 0,
+            pos: Position { line: 0, column: 0 },
         })
+    }
+
+    fn report_error(&self, pos: Position, msg: &str) -> ! {
+        eprintln!("[ERROR]: {}:{}: Lexing Error: {}", self.path, pos, msg);
+        std::process::exit(1);
+    }
+
+    /// Consume and return the matching prefix of the given pattern
+    fn consume(&mut self, pattern: impl Pattern) -> Option<&str> {
+        let src = &self.source[self.idx..];
+        let mut matcher = src.matches(pattern);
+        match matcher.next() {
+            Some(m) if m.is_prefix_of(src) => {
+                self.idx += m.len();
+                self.pos.line += m.matches('\n').count();
+                self.pos.column = m.len() - m.rfind('\n').unwrap_or(0);
+                Some(m)
+            }
+            _ => None,
+        }
+    }
+
+    /// Consume leading whitespaces returning true if it consumed any
+    ///
+    /// Whitespaces includes tabs, newlines, and spaces
+    #[inline]
+    fn consume_whitespace(&mut self) -> bool {
+        self.consume(&Regex::new(r"\s+").unwrap()).is_some()
+    }
+
+    /// Consume leading single line comment returning true if it consumed any
+    #[inline]
+    fn consume_line_comment(&mut self) -> bool {
+        self.consume(&Regex::new(r"//[^\n]*").unwrap()).is_some()
+    }
+
+    /// Consume leading block comment returning true if it consumed any
+    #[inline]
+    fn consume_block_comment(&mut self) -> bool {
+        self.consume(&Regex::new(r"/\*(.|\n)*?\*/").unwrap())
+            .is_some()
+    }
+
+    fn escape_byte_escape_sequences(&mut self, lit: &mut String, start: Position) {
+        let escape_byte_regex = Regex::new(r"\\x[0-9a-fA-F]{2}").unwrap();
+        while let Some((idx, str)) = lit.match_indices(&escape_byte_regex).next() {
+            let code = u8::from_str_radix(&str[2..], 16).unwrap();
+            if code > 0x7F {
+                self.report_error(
+                    start,
+                    format!(
+                        "invalid byte escape sequence ({:#02X?}) in string literal",
+                        code
+                    )
+                    .as_str(),
+                );
+            }
+            lit.replace_range(idx..idx + str.len(), (code as char).to_string().as_str());
+        }
+    }
+
+    fn escape_unicode_escape_sequences(&mut self, lit: &mut String, start: Position) {
+        let escape_unicode_regex = Regex::new(r"\\u\{[0-9a-fA-F]*\}").unwrap();
+        while let Some((idx, str)) = lit.match_indices(&escape_unicode_regex).next() {
+            if str.len() < 5 {
+                self.report_error(start, "empty unicode escape sequence in string literal");
+            }
+            if str.len() > 10 {
+                self.report_error(start, "overlong unicode escape sequence in string literal: must be at most 6 hexadecimal digits");
+            }
+            let unicode = u32::from_str_radix(&str[3..str.len() - 1], 16).unwrap();
+            if unicode > 0x10FFFF {
+                self.report_error(
+                    start,
+                    format!(
+                        "invalid unicode escape sequence ({:#06X?}) in string literal: must be at most 0x10FFFF",
+                        unicode
+                    )
+                    .as_str(),
+                );
+            }
+            lit.replace_range(
+                idx..idx + str.len(),
+                char::from_u32(unicode)
+                    .unwrap_or_else(|| {
+                        self.report_error(
+                            start.clone(),
+                            format!("invalid unicode escape sequence ({:#06X?}) in string literal: Does not corresponds to a valid unicode code point", unicode)
+                                .as_str(),
+                        )
+                    })
+                    .to_string()
+                    .as_str(),
+            );
+        }
+    }
+
+    /// Consume a string literal returning `(Span, Token::StrLit(lit))` if it consumed any
+    fn consume_string_literal(&mut self) -> Option<(Span, Token)> {
+        let start = self.pos.clone();
+        let str = self.consume(&Regex::new(r#""([^"\\]|\\.|\\\n)*""#).unwrap())?;
+        let mut lit = str[1..str.len() - 1]
+            .replace("\\\n", "")
+            .replace("\\\"", "\"")
+            .replace("\\n", "\n")
+            .replace("\\t", "\t")
+            .replace("\\r", "\r")
+            .replace("\\0", "\0");
+
+        self.escape_byte_escape_sequences(&mut lit, start.clone());
+        self.escape_unicode_escape_sequences(&mut lit, start.clone());
+
+        Some((
+            Span {
+                start,
+                end: self.pos.clone(),
+            },
+            Token::StrLit(lit),
+        ))
     }
 }
 
-impl<'a> Iterator for Lexer<'a> {
+impl Iterator for Lexer<'_> {
     type Item = (Span, Token);
 
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        // Reached end of source
+        if self.idx >= self.source.len() {
+            return None;
+        }
+
+        // Skip whitespaces and comments
+        if self.consume_whitespace() || self.consume_line_comment() || self.consume_block_comment()
+        {
+            return self.next();
+        }
+
+        Some(self.consume_string_literal().unwrap_or_else(|| {
+            self.report_error(
+                self.pos.clone(),
+                format!(
+                    "unknown token: {}",
+                    &self.source[self.idx..].split_whitespace().next().unwrap()
+                )
+                .as_str(),
+            )
+        }))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_whitespaces() {
+        //Content of the file: "\r\t\n "
+        let mut lexer = Lexer::new("tests/whitespaces.fhia").unwrap();
+        assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_comments() {
+        let mut lexer = Lexer::new("tests/comments.fhia").unwrap();
+        assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let mut lexer = Lexer::new("tests/string_lit.fhia").unwrap();
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::StrLit("".to_string()));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::StrLit("TEST".to_string()));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(
+            token.unwrap().1,
+            Token::StrLit("\n\t\r\0\x10\u{00ffFF}\"".to_string())
+        );
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(
+            token.unwrap().1,
+            Token::StrLit("multiline string".to_string())
+        );
+
+        assert_eq!(lexer.next(), None);
     }
 }

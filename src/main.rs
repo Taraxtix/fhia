@@ -1,4 +1,4 @@
-#![feature(string_into_chars, pattern)]
+#![feature(string_into_chars, pattern, assert_matches)]
 
 mod lexer;
 
