@@ -33,8 +33,8 @@ pub enum Token {
     //Literals
     ILit(i32),
     FLit(f64),
-    StrLit(String),
-    CharLit(char),
+    StrLit(String), //X
+    CharLit(char),  //X
     BoolLit(bool),
 
     ConstPtr,  // *const
@@ -90,8 +90,8 @@ pub enum Token {
     Dot,
 
     // Ignored
-    Whitespace,
-    Comment,
+    Whitespace, //X
+    Comment,    //X
 }
 
 impl Display for Token {
@@ -113,7 +113,7 @@ impl<'a> Lexer<'a> {
             path,
             source: read_to_string(path)?,
             idx: 0,
-            pos: Position { line: 0, column: 0 },
+            pos: Position { line: 1, column: 1 },
         })
     }
 
@@ -215,14 +215,20 @@ impl<'a> Lexer<'a> {
     /// Consume a string literal returning `(Span, Token::StrLit(lit))` if it consumed any
     fn consume_string_literal(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let str = self.consume(&Regex::new(r#""([^"\\]|\\.|\\\n)*""#).unwrap())?;
+        let str = self.consume(&Regex::new(r#""([^"\\\n]|\\.|\\\n|)*("|.$|\n)"#).unwrap())?;
+
+        if !str.ends_with('\"') || "\\\"".is_suffix_of(str) || "\n".is_suffix_of(str) {
+            self.report_error(start, "unterminated string literal");
+        }
+
         let mut lit = str[1..str.len() - 1]
             .replace("\\\n", "")
-            .replace("\\\"", "\"")
-            .replace("\\n", "\n")
             .replace("\\t", "\t")
             .replace("\\r", "\r")
-            .replace("\\0", "\0");
+            .replace("\\0", "\0")
+            .replace("\\n", "\n")
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\\");
 
         self.escape_byte_escape_sequences(&mut lit, start.clone());
         self.escape_unicode_escape_sequences(&mut lit, start.clone());
@@ -233,6 +239,35 @@ impl<'a> Lexer<'a> {
                 end: self.pos.clone(),
             },
             Token::StrLit(lit),
+        ))
+    }
+
+    fn consume_char_literal(&mut self) -> Option<(Span, Token)> {
+        let start = self.pos.clone();
+        let str = self.consume(&Regex::new(r#"'([^'\\]|\\.)*'"#).unwrap())?;
+        let mut lit = str[1..str.len() - 1]
+            .replace("\\'", "'")
+            .replace("\\n", "\n")
+            .replace("\\t", "\t")
+            .replace("\\r", "\r")
+            .replace("\\0", "\0");
+
+        self.escape_byte_escape_sequences(&mut lit, start.clone());
+        self.escape_unicode_escape_sequences(&mut lit, start.clone());
+
+        if lit.is_empty() {
+            self.report_error(start, "empty char literal");
+        }
+        if lit.chars().count() > 1 {
+            self.report_error(start, "overlong char literal");
+        }
+
+        Some((
+            Span {
+                start,
+                end: self.pos.clone(),
+            },
+            Token::CharLit(lit.chars().next().unwrap()),
         ))
     }
 }
@@ -252,39 +287,89 @@ impl Iterator for Lexer<'_> {
             return self.next();
         }
 
-        Some(self.consume_string_literal().unwrap_or_else(|| {
-            self.report_error(
-                self.pos.clone(),
-                format!(
-                    "unknown token: {}",
-                    &self.source[self.idx..].split_whitespace().next().unwrap()
-                )
-                .as_str(),
-            )
-        }))
+        Some(
+            self.consume_string_literal()
+                .or(self.consume_char_literal())
+                .unwrap_or_else(|| {
+                    self.report_error(
+                        self.pos.clone(),
+                        format!(
+                            "unknown token: {}",
+                            &self.source[self.idx..].split_whitespace().next().unwrap()
+                        )
+                        .as_str(),
+                    )
+                }),
+        )
     }
 }
 
 #[cfg(test)]
 mod test {
+    use std::process::{Command, Output, Stdio};
+
+    use std::ffi::OsStr;
+
     use super::*;
+
+    fn capture_output(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Output {
+        Command::new("cargo")
+            .arg("build")
+            .spawn()
+            .expect("Failed to launch `cargo build`")
+            .wait()
+            .expect("Failed to wait on `cargo build`");
+
+        Command::new("target/debug/fhia")
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to launch the compiler with requested arguments")
+            .wait_with_output()
+            .expect("Failed to wait on the compiler with requested arguments")
+    }
+
+    fn _capture_stdout(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> String {
+        capture_output(args)
+            .stdout
+            .iter()
+            .map(|c| *c as char)
+            .collect::<String>()
+    }
+
+    fn capture_stderr(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> String {
+        capture_output(args)
+            .stderr
+            .iter()
+            .map(|c| *c as char)
+            .collect::<String>()
+    }
+
+    #[test]
+    fn test_unknown_token() {
+        assert_eq!(
+            capture_stderr(["tests/incorrect/unknown_token.fhia"]),
+            "[ERROR]: tests/incorrect/unknown_token.fhia:1:1: Lexing Error: unknown token: \\unknown_token\n"
+        )
+    }
 
     #[test]
     fn test_whitespaces() {
         //Content of the file: "\r\t\n "
-        let mut lexer = Lexer::new("tests/whitespaces.fhia").unwrap();
+        let mut lexer = Lexer::new("tests/correct/whitespaces.fhia").unwrap();
         assert_eq!(lexer.next(), None);
     }
 
     #[test]
     fn test_comments() {
-        let mut lexer = Lexer::new("tests/comments.fhia").unwrap();
+        let mut lexer = Lexer::new("tests/correct/comments.fhia").unwrap();
         assert_eq!(lexer.next(), None);
     }
 
     #[test]
     fn test_string_literal() {
-        let mut lexer = Lexer::new("tests/string_lit.fhia").unwrap();
+        let mut lexer = Lexer::new("tests/correct/string_lit.fhia").unwrap();
 
         let token = lexer.next();
         assert!(token.is_some());
@@ -307,6 +392,56 @@ mod test {
             token.unwrap().1,
             Token::StrLit("multiline string".to_string())
         );
+
+        assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_unterminated_string_literal() {
+        let stdout = _capture_stdout(["tests/incorrect/unterminated_string_lit.fhia"]);
+        assert_eq!(stdout, "");
+        let capture = capture_stderr(["tests/incorrect/unterminated_string_lit.fhia"]);
+        assert_eq!(
+            capture,
+            "[ERROR]: tests/incorrect/unterminated_string_lit.fhia:1:1: Lexing Error: unterminated string literal\n"
+        )
+    }
+
+    #[test]
+    fn test_char_literal() {
+        let mut lexer = Lexer::new("tests/correct/char_lit.fhia").unwrap();
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('T'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\n'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\t'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\r'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\0'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\x10'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\u{00ffFF}'));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::CharLit('\''));
 
         assert_eq!(lexer.next(), None);
     }
