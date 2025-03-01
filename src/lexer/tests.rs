@@ -219,3 +219,25 @@ fn test_int_literal() {
     assert!(lexer.next().is_none());
 }
 
+#[test]
+fn test_ptr_ops() {
+    let mut lexer = Lexer::new("tests/correct/ptr_ops.fhia").unwrap();
+
+    let token = lexer.next();
+    assert!(token.is_some());
+    assert_eq!(token.unwrap().1, Token::MutDeref);
+
+    let token = lexer.next();
+    assert!(token.is_some());
+    assert_eq!(token.unwrap().1, Token::MutRef);
+
+    let token = lexer.next();
+    assert!(token.is_some());
+    assert_eq!(token.unwrap().1, Token::ConstDeref);
+
+    let token = lexer.next();
+    assert!(token.is_some());
+    assert_eq!(token.unwrap().1, Token::ConstRef);
+
+    assert!(lexer.next().is_none());
+}

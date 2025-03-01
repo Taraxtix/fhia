@@ -40,10 +40,10 @@ pub enum Token {
     CharLit(char),  //X
     BoolLit(bool),
 
-    ConstPtr,  // *const
-    MutPtr,    // *mut
-    ConstAddr, // &const
-    MutAddr,   // &mut
+    ConstDeref, // *const
+    MutDeref,   // *mut
+    ConstRef,   // &const
+    MutRef,     // &mut
 
     Const,
 
@@ -324,6 +324,22 @@ impl<'a> Lexer<'a> {
             }),
         ))
     }
+
+    fn consume_ptr_ops(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            match self.consume(&Regex::new(r"(\*|&)(const|mut)").unwrap())? {
+                "*const" => Token::ConstDeref,
+                "&const" => Token::ConstRef,
+                "*mut" => Token::MutDeref,
+                "&mut" => Token::MutRef,
+                _ => unreachable!(),
+            },
+        ))
+    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -346,6 +362,7 @@ impl Iterator for Lexer<'_> {
                 .or(self.consume_char_lit())
                 .or(self.consume_f_lit())
                 .or(self.consume_int_lit())
+                .or(self.consume_ptr_ops())
                 .unwrap_or_else(|| {
                     self.report_error(
                         self.pos.clone(),
