@@ -28,60 +28,60 @@ pub struct Span {
     pub end: Position,
 }
 
-#[allow(dead_code)]
+// #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Ident(String),
 
     //Literals
-    ILit(i32),      //X
-    FLit(f64),      //X
-    StrLit(String), //X
-    CharLit(char),  //X
+    ILit(i32),
+    FLit(f64),
+    StrLit(String),
+    CharLit(char),
     BoolLit(bool),
 
-    ConstDeref, // *const //X
-    MutDeref,   // *mut   //X
-    ConstRef,   // &const //X
-    MutRef,     // &mut   //X
+    ConstDeref, // *const
+    MutDeref,   // *mut
+    ConstRef,   // &const
+    MutRef,     // &mut
 
-    Const,
+    Mut,
 
     //Operators
-    Plus,         //X
-    PlusAssign,   //X
-    Increment,    //X
-    Minus,        //X
-    Decrement,    //X
-    MinusAssign,  //X
-    Times,        //X
-    TimesAssign,  //X
-    Power,        //X
-    Divide,       //X
-    DivideAssign, //X
-    Modulo,       //X
-    ModuloAssign, //X
-    LAnd,         //X
-    BAnd,         //X
-    AndAssign,    //X
-    LOr,          //X
-    BOr,          //X
-    OrAssign,     //X
-    LNot,         //X
-    NEqual,       //X
-    LAngle,       //X
-    LShift,       //X
-    LShiftAssign, //X
-    LEq,          //X
-    RAngle,       //X
-    RShift,       //X
-    RShiftAssign, //X
-    GEq,          //X
-    Equal,        //X
-    Assign,       //X
-    BNeg,         //X
-    Xor,          //X
-    XorAssign,    //X
+    Plus,
+    PlusAssign,
+    Increment,
+    Minus,
+    Decrement,
+    MinusAssign,
+    Times,
+    TimesAssign,
+    Power,
+    Divide,
+    DivideAssign,
+    Modulo,
+    ModuloAssign,
+    LAnd,
+    BAnd,
+    AndAssign,
+    LOr,
+    BOr,
+    OrAssign,
+    LNot,
+    NEqual,
+    LAngle,
+    LShift,
+    LShiftAssign,
+    LEq,
+    RAngle,
+    RShift,
+    RShiftAssign,
+    GEq,
+    Equal,
+    Assign,
+    BNeg,
+    Xor,
+    XorAssign,
 
     // Delimiters
     LBracket,
@@ -96,8 +96,8 @@ pub enum Token {
     Dot,
 
     // Ignored
-    Whitespace, //X
-    Comment,    //X
+    Whitespace,
+    Comment,
 }
 
 impl Display for Token {
@@ -391,6 +391,68 @@ impl<'a> Lexer<'a> {
             },
         ))
     }
+
+    fn consume_delims(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            match self.consume(&Regex::new(r"[\[\].(){};,.:]").unwrap())? {
+                "[" => Token::LBracket,
+                "]" => Token::RBracket,
+                "(" => Token::LParen,
+                ")" => Token::RParen,
+                "{" => Token::LBrace,
+                "}" => Token::RBrace,
+                ";" => Token::Semicolon,
+                "," => Token::Comma,
+                "." => Token::Dot,
+                ":" => Token::Colon,
+                _ => unreachable!(),
+            },
+        ))
+    }
+
+    fn consume_bool_lit(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            match self.consume(&Regex::new(r"true|false").unwrap())? {
+                "true" => Token::BoolLit(true),
+                "false" => Token::BoolLit(false),
+                _ => unreachable!(),
+            },
+        ))
+    }
+
+    fn consume_modifiers(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            match self.consume(&Regex::new(r"mut").unwrap())? {
+                "mut" => Token::Mut,
+                _ => unreachable!(),
+            },
+        ))
+    }
+
+    fn consume_ident(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            Token::Ident(
+                self.consume(&Regex::new(r"\w[\w_-]*").unwrap())?
+                    .to_string(),
+            ),
+        ))
+    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -410,11 +472,15 @@ impl Iterator for Lexer<'_> {
 
         Some(
             self.consume_str_lit()
-                .or(self.consume_char_lit())
-                .or(self.consume_f_lit())
-                .or(self.consume_int_lit())
-                .or(self.consume_ptr_ops())
-                .or(self.consume_ops())
+                .or_else(|| self.consume_char_lit())
+                .or_else(|| self.consume_f_lit())
+                .or_else(|| self.consume_int_lit())
+                .or_else(|| self.consume_ptr_ops())
+                .or_else(|| self.consume_ops())
+                .or_else(|| self.consume_delims())
+                .or_else(|| self.consume_bool_lit())
+                .or_else(|| self.consume_modifiers())
+                .or_else(|| self.consume_ident())
                 .unwrap_or_else(|| {
                     self.report_error(
                         self.pos.clone(),

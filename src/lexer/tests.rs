@@ -228,3 +228,72 @@ fn test_ops() {
 
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn test_delim() {
+    let expected = vec![
+        Token::LBracket,
+        Token::RBracket,
+        Token::LParen,
+        Token::RParen,
+        Token::LBrace,
+        Token::RBrace,
+        Token::Semicolon,
+        Token::Comma,
+        Token::Dot,
+        Token::Colon,
+    ];
+
+    let actual = Lexer::new("tests/lexer/correct/delim.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn test_bool_literal() {
+    let expected = vec![Token::BoolLit(true), Token::BoolLit(false)];
+
+    let actual = Lexer::new("tests/lexer/correct/bool_lit.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn test_modifier() {
+    let expected = vec![Token::Mut];
+
+    let actual = Lexer::new("tests/lexer/correct/modifier.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn test_ident() {
+    let expected = vec![
+        Token::Ident("ident".to_string()),
+        Token::Ident("dbg".to_string()),
+        Token::Ident("long_ident".to_string()),
+        Token::Ident("ident-with-dash".to_string()),
+        Token::Ident("two".to_string()),
+        Token::Ident("idents".to_string()),
+        Token::Ident("two".to_string()),
+        Token::Plus,
+        Token::Ident("idents".to_string()),
+    ];
+
+    let actual = Lexer::new("tests/lexer/correct/ident.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, actual);
+}
