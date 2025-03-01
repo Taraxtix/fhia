@@ -165,11 +165,7 @@ impl<'a> Lexer<'a> {
             if code > 0x7F {
                 self.report_error(
                     start,
-                    format!(
-                        "invalid byte escape sequence ({:#02X?}) in string literal",
-                        code
-                    )
-                    .as_str(),
+                    format!("invalid byte escape sequence ({:#02X?}) in literal", code).as_str(),
                 );
             }
             lit.replace_range(idx..idx + str.len(), (code as char).to_string().as_str());
@@ -180,17 +176,17 @@ impl<'a> Lexer<'a> {
         let escape_unicode_regex = Regex::new(r"\\u\{[0-9a-fA-F]*\}").unwrap();
         while let Some((idx, str)) = lit.match_indices(&escape_unicode_regex).next() {
             if str.len() < 5 {
-                self.report_error(start, "empty unicode escape sequence in string literal");
+                self.report_error(start, "empty unicode escape sequence in literal");
             }
             if str.len() > 10 {
-                self.report_error(start, "overlong unicode escape sequence in string literal: must be at most 6 hexadecimal digits");
+                self.report_error(start, "overlong unicode escape sequence in literal: must be at most 6 hexadecimal digits");
             }
             let unicode = u32::from_str_radix(&str[3..str.len() - 1], 16).unwrap();
             if unicode > 0x10FFFF {
                 self.report_error(
                     start,
                     format!(
-                        "invalid unicode escape sequence ({:#06X?}) in string literal: must be at most 0x10FFFF",
+                        "invalid unicode escape sequence ({:#06X?}) in literal: must be at most 0x10FFFF",
                         unicode
                     )
                     .as_str(),
@@ -202,7 +198,7 @@ impl<'a> Lexer<'a> {
                     .unwrap_or_else(|| {
                         self.report_error(
                             start.clone(),
-                            format!("invalid unicode escape sequence ({:#06X?}) in string literal: Does not corresponds to a valid unicode code point", unicode)
+                            format!("invalid unicode escape sequence ({:#06X?}) in literal: Does not corresponds to a valid unicode code point", unicode)
                                 .as_str(),
                         )
                     })
@@ -217,7 +213,7 @@ impl<'a> Lexer<'a> {
         let start = self.pos.clone();
         let str = self.consume(&Regex::new(r#""([^"\\\n]|\\.|\\\n|)*("|.$|\n)"#).unwrap())?;
 
-        if !str.ends_with('\"') || "\\\"".is_suffix_of(str) || "\n".is_suffix_of(str) {
+        if !str.ends_with('\"') || "\\\"".is_suffix_of(str) {
             self.report_error(start, "unterminated string literal");
         }
 
@@ -244,7 +240,12 @@ impl<'a> Lexer<'a> {
 
     fn consume_char_lit(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let str = self.consume(&Regex::new(r#"'([^'\\]|\\.)*'"#).unwrap())?;
+        let str = self.consume(&Regex::new(r#"'([^'\\]|\\.)*('|$|\n)"#).unwrap())?;
+
+        if !str.ends_with('\'') || "\\'".is_suffix_of(str) {
+            self.report_error(start, "unterminated char literal");
+        }
+
         let mut lit = str[1..str.len() - 1]
             .replace("\\'", "'")
             .replace("\\n", "\n")
@@ -367,6 +368,8 @@ mod test {
     fn capture_output(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Output {
         Command::new("cargo")
             .arg("build")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to launch `cargo build`")
             .wait()
@@ -450,8 +453,6 @@ mod test {
 
     #[test]
     fn test_unterminated_string_literal() {
-        let stdout = _capture_stdout(["tests/incorrect/unterminated_string_lit.fhia"]);
-        assert_eq!(stdout, "");
         let capture = capture_stderr(["tests/incorrect/unterminated_string_lit.fhia"]);
         assert_eq!(
             capture,
@@ -496,6 +497,24 @@ mod test {
         assert_eq!(token.unwrap().1, Token::CharLit('\''));
 
         assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_unterminated_char_literal() {
+        let capture = capture_stderr(["tests/incorrect/unterminated_char_lit.fhia"]);
+        assert_eq!(
+            capture,
+            "[ERROR]: tests/incorrect/unterminated_char_lit.fhia:1:1: Lexing Error: unterminated char literal\n"
+        )
+    }
+
+    #[test]
+    fn test_overlong_char_literal() {
+        let capture = capture_stderr(["tests/incorrect/overlong_char_lit.fhia"]);
+        assert_eq!(
+            capture,
+            "[ERROR]: tests/incorrect/overlong_char_lit.fhia:1:1: Lexing Error: overlong char literal\n"
+        )
     }
 
     #[test]
