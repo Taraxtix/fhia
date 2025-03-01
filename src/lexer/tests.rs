@@ -43,21 +43,21 @@ fn capture_stderr(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> String {
 #[test]
 fn test_unknown_token() {
     assert_eq!(
-        capture_stderr(["tests/incorrect/unknown_token.fhia"]),
-        "[ERROR]: tests/incorrect/unknown_token.fhia:1:1: Lexing Error: unknown token: \\unknown_token\n"
+        capture_stderr(["tests/lexer/incorrect/unknown_token.fhia"]),
+        "[ERROR]: tests/lexer/incorrect/unknown_token.fhia:1:1: Lexing Error: unknown token: \\unknown_token\n"
     )
 }
 
 #[test]
 fn test_whitespaces() {
     //Content of the file: "\r\t\n "
-    let mut lexer = Lexer::new("tests/correct/whitespaces.fhia").unwrap();
+    let mut lexer = Lexer::new("tests/lexer/correct/whitespaces.fhia").unwrap();
     assert_eq!(lexer.next(), None);
 }
 
 #[test]
 fn test_comments() {
-    let mut lexer = Lexer::new("tests/correct/comments.fhia").unwrap();
+    let mut lexer = Lexer::new("tests/lexer/correct/comments.fhia").unwrap();
     assert_eq!(lexer.next(), None);
 }
 
@@ -70,7 +70,7 @@ fn test_string_literal() {
         Token::StrLit("multiline string".to_string()),
     ];
 
-    let actual = Lexer::new("tests/correct/string_lit.fhia")
+    let actual = Lexer::new("tests/lexer/correct/string_lit.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();
@@ -80,10 +80,10 @@ fn test_string_literal() {
 
 #[test]
 fn test_unterminated_string_literal() {
-    let capture = capture_stderr(["tests/incorrect/unterminated_string_lit.fhia"]);
+    let capture = capture_stderr(["tests/lexer/incorrect/unterminated_string_lit.fhia"]);
     assert_eq!(
         capture,
-        "[ERROR]: tests/incorrect/unterminated_string_lit.fhia:1:1: Lexing Error: unterminated string literal\n"
+        "[ERROR]: tests/lexer/incorrect/unterminated_string_lit.fhia:1:1: Lexing Error: unterminated string literal\n"
     )
 }
 
@@ -100,7 +100,7 @@ fn test_char_literal() {
         Token::CharLit('\''),
     ];
 
-    let actual = Lexer::new("tests/correct/char_lit.fhia")
+    let actual = Lexer::new("tests/lexer/correct/char_lit.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();
@@ -110,19 +110,19 @@ fn test_char_literal() {
 
 #[test]
 fn test_unterminated_char_literal() {
-    let capture = capture_stderr(["tests/incorrect/unterminated_char_lit.fhia"]);
+    let capture = capture_stderr(["tests/lexer/incorrect/unterminated_char_lit.fhia"]);
     assert_eq!(
         capture,
-        "[ERROR]: tests/incorrect/unterminated_char_lit.fhia:1:1: Lexing Error: unterminated char literal\n"
+        "[ERROR]: tests/lexer/incorrect/unterminated_char_lit.fhia:1:1: Lexing Error: unterminated char literal\n"
     )
 }
 
 #[test]
 fn test_overlong_char_literal() {
-    let capture = capture_stderr(["tests/incorrect/overlong_char_lit.fhia"]);
+    let capture = capture_stderr(["tests/lexer/incorrect/overlong_char_lit.fhia"]);
     assert_eq!(
         capture,
-        "[ERROR]: tests/incorrect/overlong_char_lit.fhia:1:1: Lexing Error: overlong char literal\n"
+        "[ERROR]: tests/lexer/incorrect/overlong_char_lit.fhia:1:1: Lexing Error: overlong char literal\n"
     )
 }
 
@@ -136,7 +136,7 @@ fn test_float_literal() {
         Token::FLit(69.),
     ];
 
-    let actual = Lexer::new("tests/correct/flit.fhia")
+    let actual = Lexer::new("tests/lexer/correct/flit.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();
@@ -157,7 +157,7 @@ fn test_int_literal() {
         Token::ILit(0xdEaD),
     ];
 
-    let actual = Lexer::new("tests/correct/ilit.fhia")
+    let actual = Lexer::new("tests/lexer/correct/ilit.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();
@@ -174,7 +174,7 @@ fn test_ptr_ops() {
         Token::ConstRef,
     ];
 
-    let actual = Lexer::new("tests/correct/ptr_ops.fhia")
+    let actual = Lexer::new("tests/lexer/correct/ptr_ops.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();
