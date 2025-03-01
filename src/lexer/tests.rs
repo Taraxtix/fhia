@@ -181,3 +181,50 @@ fn test_ptr_ops() {
 
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn test_ops() {
+    let expected = vec![
+        Token::PlusAssign,
+        Token::Increment,
+        Token::Plus,
+        Token::MinusAssign,
+        Token::Decrement,
+        Token::Minus,
+        Token::TimesAssign,
+        Token::Power,
+        Token::Times,
+        Token::DivideAssign,
+        Token::Divide,
+        Token::ModuloAssign,
+        Token::Modulo,
+        Token::LAnd,
+        Token::AndAssign,
+        Token::BAnd,
+        Token::LOr,
+        Token::OrAssign,
+        Token::BOr,
+        Token::LNot,
+        Token::NEqual,
+        Token::LAngle,
+        Token::LShiftAssign,
+        Token::LShift,
+        Token::LEq,
+        Token::RAngle,
+        Token::RShiftAssign,
+        Token::RShift,
+        Token::GEq,
+        Token::Equal,
+        Token::Assign,
+        Token::XorAssign,
+        Token::Xor,
+        Token::BNeg,
+    ];
+
+    let actual = Lexer::new("tests/lexer/correct/ops.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, actual);
+}

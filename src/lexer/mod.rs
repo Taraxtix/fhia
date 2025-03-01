@@ -40,45 +40,48 @@ pub enum Token {
     CharLit(char),  //X
     BoolLit(bool),
 
-    ConstDeref, // *const
-    MutDeref,   // *mut
-    ConstRef,   // &const
-    MutRef,     // &mut
+    ConstDeref, // *const //X
+    MutDeref,   // *mut   //X
+    ConstRef,   // &const //X
+    MutRef,     // &mut   //X
 
     Const,
 
     //Operators
-    Plus,
-    PlusAssign,
-    Increment,
-    Minus,
-    Decrement,
-    MinusAssign,
-    Times,
-    TimesAssign,
-    Divide,
-    DivideAssign,
-    Modulo,
-    ModuloAssign,
-    LAnd,
-    BAnd,
-    AndAssign,
-    LOr,
-    BOr,
-    OrAssign,
-    LNot,
-    NEqual,
-    LAngle,
-    LShift,
-    LEq,
-    RAngle,
-    RShift,
-    GEq,
-    Equal,
-    Assign,
-    BNeg,
-    Xor,
-    XorAssign,
+    Plus,         //X
+    PlusAssign,   //X
+    Increment,    //X
+    Minus,        //X
+    Decrement,    //X
+    MinusAssign,  //X
+    Times,        //X
+    TimesAssign,  //X
+    Power,        //X
+    Divide,       //X
+    DivideAssign, //X
+    Modulo,       //X
+    ModuloAssign, //X
+    LAnd,         //X
+    BAnd,         //X
+    AndAssign,    //X
+    LOr,          //X
+    BOr,          //X
+    OrAssign,     //X
+    LNot,         //X
+    NEqual,       //X
+    LAngle,       //X
+    LShift,       //X
+    LShiftAssign, //X
+    LEq,          //X
+    RAngle,       //X
+    RShift,       //X
+    RShiftAssign, //X
+    GEq,          //X
+    Equal,        //X
+    Assign,       //X
+    BNeg,         //X
+    Xor,          //X
+    XorAssign,    //X
 
     // Delimiters
     LBracket,
@@ -340,6 +343,54 @@ impl<'a> Lexer<'a> {
             },
         ))
     }
+
+    fn consume_ops(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            match self
+                .consume(&Regex::new(r"[<>]{2}=|[+*|&<>=-]{2}|[+*/%|&!<>^-]=?|[~=]").unwrap())?
+            {
+                "+=" => Token::PlusAssign,
+                "++" => Token::Increment,
+                "+" => Token::Plus,
+                "-=" => Token::MinusAssign,
+                "--" => Token::Decrement,
+                "-" => Token::Minus,
+                "*=" => Token::TimesAssign,
+                "**" => Token::Power,
+                "*" => Token::Times,
+                "/=" => Token::DivideAssign,
+                "/" => Token::Divide,
+                "%=" => Token::ModuloAssign,
+                "%" => Token::Modulo,
+                "&&" => Token::LAnd,
+                "&=" => Token::AndAssign,
+                "&" => Token::BAnd,
+                "||" => Token::LOr,
+                "|=" => Token::OrAssign,
+                "|" => Token::BOr,
+                "!" => Token::LNot,
+                "!=" => Token::NEqual,
+                "<" => Token::LAngle,
+                "<<=" => Token::LShiftAssign,
+                "<<" => Token::LShift,
+                "<=" => Token::LEq,
+                ">" => Token::RAngle,
+                ">>=" => Token::RShiftAssign,
+                ">>" => Token::RShift,
+                ">=" => Token::GEq,
+                "==" => Token::Equal,
+                "=" => Token::Assign,
+                "^=" => Token::XorAssign,
+                "^" => Token::Xor,
+                "~" => Token::BNeg,
+                _ => unreachable!(),
+            },
+        ))
+    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -363,6 +414,7 @@ impl Iterator for Lexer<'_> {
                 .or(self.consume_f_lit())
                 .or(self.consume_int_lit())
                 .or(self.consume_ptr_ops())
+                .or(self.consume_ops())
                 .unwrap_or_else(|| {
                     self.report_error(
                         self.pos.clone(),
