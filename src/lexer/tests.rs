@@ -63,31 +63,19 @@ fn test_comments() {
 
 #[test]
 fn test_string_literal() {
-    let mut lexer = Lexer::new("tests/correct/string_lit.fhia").unwrap();
+    let expected = vec![
+        Token::StrLit("".to_string()),
+        Token::StrLit("TEST".to_string()),
+        Token::StrLit("\n\t\r\0\x10\u{00ffFF}\"".to_string()),
+        Token::StrLit("multiline string".to_string()),
+    ];
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::StrLit("".to_string()));
+    let actual = Lexer::new("tests/correct/string_lit.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::StrLit("TEST".to_string()));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(
-        token.unwrap().1,
-        Token::StrLit("\n\t\r\0\x10\u{00ffFF}\"".to_string())
-    );
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(
-        token.unwrap().1,
-        Token::StrLit("multiline string".to_string())
-    );
-
-    assert_eq!(lexer.next(), None);
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -101,41 +89,23 @@ fn test_unterminated_string_literal() {
 
 #[test]
 fn test_char_literal() {
-    let mut lexer = Lexer::new("tests/correct/char_lit.fhia").unwrap();
+    let expected = vec![
+        Token::CharLit('T'),
+        Token::CharLit('\n'),
+        Token::CharLit('\t'),
+        Token::CharLit('\r'),
+        Token::CharLit('\0'),
+        Token::CharLit('\x10'),
+        Token::CharLit('\u{00ffFF}'),
+        Token::CharLit('\''),
+    ];
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('T'));
+    let actual = Lexer::new("tests/correct/char_lit.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\n'));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\t'));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\r'));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\0'));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\x10'));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\u{00ffFF}'));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::CharLit('\''));
-
-    assert_eq!(lexer.next(), None);
+    assert_eq!(expected, actual);
 }
 
 #[test]
@@ -158,86 +128,56 @@ fn test_overlong_char_literal() {
 
 #[test]
 fn test_float_literal() {
-    let mut lexer = Lexer::new("tests/correct/flit.fhia").unwrap();
+    let expected = vec![
+        Token::FLit(69.42),
+        Token::FLit(00000.42),
+        Token::FLit(00069.42),
+        Token::FLit(0.42),
+        Token::FLit(69.),
+    ];
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::FLit(69.42));
+    let actual = Lexer::new("tests/correct/flit.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::FLit(00000.42));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::FLit(00069.42));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::FLit(0.42));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::FLit(69.));
-
-    assert_eq!(lexer.next(), None);
+    assert_eq!(expected, actual);
 }
 
 #[test]
 #[allow(clippy::mixed_case_hex_literals)]
 fn test_int_literal() {
-    let mut lexer = Lexer::new("tests/correct/ilit.fhia").unwrap();
+    let expected = vec![
+        Token::ILit(6942),
+        Token::ILit(6942),
+        Token::ILit(0o467),
+        Token::ILit(0b101),
+        Token::ILit(0xdead),
+        Token::ILit(0xDEAD),
+        Token::ILit(0xdEaD),
+    ];
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(6942));
+    let actual = Lexer::new("tests/correct/ilit.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(6942));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(0o467));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(0b101));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(0xdead));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(0xDEAD));
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ILit(0xDeAd));
-
-    assert!(lexer.next().is_none());
+    assert_eq!(expected, actual);
 }
 
 #[test]
 fn test_ptr_ops() {
-    let mut lexer = Lexer::new("tests/correct/ptr_ops.fhia").unwrap();
+    let expected = vec![
+        Token::MutDeref,
+        Token::MutRef,
+        Token::ConstDeref,
+        Token::ConstRef,
+    ];
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::MutDeref);
+    let actual = Lexer::new("tests/correct/ptr_ops.fhia")
+        .unwrap()
+        .map(|t| t.1)
+        .collect::<Vec<_>>();
 
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::MutRef);
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ConstDeref);
-
-    let token = lexer.next();
-    assert!(token.is_some());
-    assert_eq!(token.unwrap().1, Token::ConstRef);
-
-    assert!(lexer.next().is_none());
+    assert_eq!(expected, actual);
 }
