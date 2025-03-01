@@ -32,7 +32,7 @@ pub enum Token {
 
     //Literals
     ILit(i32),
-    FLit(f64),
+    FLit(f64),      //X
     StrLit(String), //X
     CharLit(char),  //X
     BoolLit(bool),
@@ -117,7 +117,7 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    fn report_error(&self, pos: Position, msg: &str) -> ! {
+    fn report_error(&self, pos: Position, msg: impl Display) -> ! {
         eprintln!("[ERROR]: {}:{}: Lexing Error: {}", self.path, pos, msg);
         std::process::exit(1);
     }
@@ -213,7 +213,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Consume a string literal returning `(Span, Token::StrLit(lit))` if it consumed any
-    fn consume_string_literal(&mut self) -> Option<(Span, Token)> {
+    fn consume_str_lit(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let str = self.consume(&Regex::new(r#""([^"\\\n]|\\.|\\\n|)*("|.$|\n)"#).unwrap())?;
 
@@ -242,7 +242,7 @@ impl<'a> Lexer<'a> {
         ))
     }
 
-    fn consume_char_literal(&mut self) -> Option<(Span, Token)> {
+    fn consume_char_lit(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let str = self.consume(&Regex::new(r#"'([^'\\]|\\.)*'"#).unwrap())?;
         let mut lit = str[1..str.len() - 1]
@@ -270,6 +270,22 @@ impl<'a> Lexer<'a> {
             Token::CharLit(lit.chars().next().unwrap()),
         ))
     }
+
+    fn consume_f_lit(&mut self) -> Option<(Span, Token)> {
+        Some((
+            Span {
+                start: self.pos.clone(),
+                end: self.pos.clone(),
+            },
+            Token::FLit(
+                self.consume(&Regex::new(r"([0-9]+\.[0-9]*)|(\.[0-9]+)").unwrap())?
+                    .parse::<f64>()
+                    .unwrap_or_else(|e| {
+                        self.report_error(self.pos.clone(), format!("invalid float literal {}", e));
+                    }),
+            ),
+        ))
+    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -288,8 +304,9 @@ impl Iterator for Lexer<'_> {
         }
 
         Some(
-            self.consume_string_literal()
-                .or(self.consume_char_literal())
+            self.consume_str_lit()
+                .or(self.consume_char_lit())
+                .or(self.consume_f_lit())
                 .unwrap_or_else(|| {
                     self.report_error(
                         self.pos.clone(),
@@ -442,6 +459,33 @@ mod test {
         let token = lexer.next();
         assert!(token.is_some());
         assert_eq!(token.unwrap().1, Token::CharLit('\''));
+
+        assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    fn test_float_literal() {
+        let mut lexer = Lexer::new("tests/correct/flit.fhia").unwrap();
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::FLit(69.42));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::FLit(00000.42));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::FLit(00069.42));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::FLit(0.42));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::FLit(69.));
 
         assert_eq!(lexer.next(), None);
     }
