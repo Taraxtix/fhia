@@ -1,0 +1,7 @@
+6942 // Decimal
+06942 // Decimal
+0o467 // Octal
+0b101 // Binary
+0xdead // Lowercase Hexadecimal
+0xDEAD // Uppercase Hexadecimal
+0xDeAd // Mixedcase Hexadecimal

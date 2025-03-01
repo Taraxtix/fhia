@@ -31,7 +31,7 @@ pub enum Token {
     Ident(String),
 
     //Literals
-    ILit(i32),
+    ILit(i32),      //X
     FLit(f64),      //X
     StrLit(String), //X
     CharLit(char),  //X
@@ -286,6 +286,40 @@ impl<'a> Lexer<'a> {
             ),
         ))
     }
+
+    fn consume_int_lit(&mut self) -> Option<(Span, Token)> {
+        let span = Span {
+            start: self.pos.clone(),
+            end: self.pos.clone(),
+        };
+        let lit = self.consume(&Regex::new(r"(0[obx][0-9a-fA-F]+)|[0-9]+").unwrap())?;
+        Some((
+            span,
+            Token::ILit(match &lit[0..2] {
+                "0b" => i32::from_str_radix(&lit[2..], 2).unwrap_or_else(|e| {
+                    self.report_error(
+                        self.pos.clone(),
+                        format!("invalid binary integer literal {}", e),
+                    )
+                }),
+                "0o" => i32::from_str_radix(&lit[2..], 8).unwrap_or_else(|e| {
+                    self.report_error(
+                        self.pos.clone(),
+                        format!("invalid octal integer literal {}", e),
+                    )
+                }),
+                "0x" => i32::from_str_radix(&lit[2..], 16).unwrap_or_else(|e| {
+                    self.report_error(
+                        self.pos.clone(),
+                        format!("invalid hexadecimal integer literal {}", e),
+                    )
+                }),
+                _ => lit.parse::<i32>().unwrap_or_else(|e| {
+                    self.report_error(self.pos.clone(), format!("invalid integer literal {}", e))
+                }),
+            }),
+        ))
+    }
 }
 
 impl Iterator for Lexer<'_> {
@@ -307,6 +341,7 @@ impl Iterator for Lexer<'_> {
             self.consume_str_lit()
                 .or(self.consume_char_lit())
                 .or(self.consume_f_lit())
+                .or(self.consume_int_lit())
                 .unwrap_or_else(|| {
                     self.report_error(
                         self.pos.clone(),
@@ -488,5 +523,39 @@ mod test {
         assert_eq!(token.unwrap().1, Token::FLit(69.));
 
         assert_eq!(lexer.next(), None);
+    }
+
+    #[test]
+    #[allow(clippy::mixed_case_hex_literals)]
+    fn test_int_literal() {
+        let mut lexer = Lexer::new("tests/correct/ilit.fhia").unwrap();
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(6942));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(6942));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(0o467));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(0b101));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(0xdead));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(0xDEAD));
+
+        let token = lexer.next();
+        assert!(token.is_some());
+        assert_eq!(token.unwrap().1, Token::ILit(0xDeAd));
     }
 }
