@@ -28,7 +28,6 @@ pub struct Span {
     pub end: Position,
 }
 
-// #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Ident(String),
@@ -94,10 +93,6 @@ pub enum Token {
     Semicolon,
     Colon,
     Dot,
-
-    // Ignored
-    Whitespace,
-    Comment,
 }
 
 impl Display for Token {
@@ -300,30 +295,40 @@ impl<'a> Lexer<'a> {
             end: self.pos.clone(),
         };
         let lit = self.consume(&Regex::new(r"(0[obx][0-9a-fA-F]+)|[0-9]+").unwrap())?;
+
         Some((
             span,
-            Token::ILit(match &lit[0..2] {
-                "0b" => i32::from_str_radix(&lit[2..], 2).unwrap_or_else(|e| {
-                    self.report_error(
-                        self.pos.clone(),
-                        format!("invalid binary integer literal {}", e),
-                    )
-                }),
-                "0o" => i32::from_str_radix(&lit[2..], 8).unwrap_or_else(|e| {
-                    self.report_error(
-                        self.pos.clone(),
-                        format!("invalid octal integer literal {}", e),
-                    )
-                }),
-                "0x" => i32::from_str_radix(&lit[2..], 16).unwrap_or_else(|e| {
-                    self.report_error(
-                        self.pos.clone(),
-                        format!("invalid hexadecimal integer literal {}", e),
-                    )
-                }),
-                _ => lit.parse::<i32>().unwrap_or_else(|e| {
+            Token::ILit(if lit.len() >= 2 {
+                match &lit[0..2] {
+                    "0b" => i32::from_str_radix(&lit[2..], 2).unwrap_or_else(|e| {
+                        self.report_error(
+                            self.pos.clone(),
+                            format!("invalid binary integer literal {}", e),
+                        )
+                    }),
+                    "0o" => i32::from_str_radix(&lit[2..], 8).unwrap_or_else(|e| {
+                        self.report_error(
+                            self.pos.clone(),
+                            format!("invalid octal integer literal {}", e),
+                        )
+                    }),
+                    "0x" => i32::from_str_radix(&lit[2..], 16).unwrap_or_else(|e| {
+                        self.report_error(
+                            self.pos.clone(),
+                            format!("invalid hexadecimal integer literal {}", e),
+                        )
+                    }),
+                    _ => lit.parse::<i32>().unwrap_or_else(|e| {
+                        self.report_error(
+                            self.pos.clone(),
+                            format!("invalid integer literal {}", e),
+                        )
+                    }),
+                }
+            } else {
+                lit.parse::<i32>().unwrap_or_else(|e| {
                     self.report_error(self.pos.clone(), format!("invalid integer literal {}", e))
-                }),
+                })
             }),
         ))
     }
