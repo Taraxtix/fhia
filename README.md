@@ -19,12 +19,12 @@ Everything can be either:
 
   An expression followed by a semicolon is a statement evaluates to `()`.
 
-  A block is also an expression, it is a sequence of expressions between `{` and `}`, every expression in a block except the last expression must end with a semicolon.
+  A block is also an expression, it is a sequence of expressions between `{` and `}`, every expression in a block except the last expression must evaluate to `()` or `!`.
 
 - A function definition :
 
 ```fhia
-<name> [pattern*] [: return_type] => <expr>
+let <name> [pattern*] [: <return_type>] = <expr>
 ```
 
 Where:
@@ -34,10 +34,13 @@ Where:
   - `<ident> [: <type>]` is a variable name of type `<type>` (if not specified, the type is inferred if possible)
   - `literal` A literal value
   - `_` is a wildcard pattern
+  If no patterns are specified, the function takes no arguments and is essentially a constant variable
 - `<return_type>` is the type of the return value of the function (if not specified, the type is inferred if possible)
 - `<expr>` is the expression that evaluates to the return value of the function
 
-A function can have multiple definitions, that matches different patterns, but all definitions must have matching types.
+A function can have multiple definitions, that matches different patterns.
+
+Additionally, you can define a mutable variable with `let mut <name> = <expr>`.
 
 ### Types
 
