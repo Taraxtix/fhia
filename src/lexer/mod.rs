@@ -119,6 +119,7 @@ pub enum Token {
     ConstRef, // &const
     MutRef,   // &mut
     Array { ty: Box<Token>, size: Box<Token> },
+    Wildcard,
 }
 
 impl Token {
@@ -147,6 +148,7 @@ impl Token {
                 | Token::MutRef
                 | Token::Array { .. }
                 | Token::Bang
+                | Token::Wildcard
         )
     }
 }
@@ -395,7 +397,7 @@ impl<'a> Lexer<'a> {
                 start: self.pos.clone(),
                 end: self.pos.clone(),
             },
-            match self.consume(&Regex::new(r"\[.+;[^]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)").unwrap())? {
+            match self.consume(&Regex::new(r"\[.+;[^]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)|_").unwrap())? {
                 "i8" => Token::I8,
                 "i16" => Token::I16,
                 "i32" => Token::I32,
@@ -416,6 +418,7 @@ impl<'a> Lexer<'a> {
                 "()" => Token::Unit,
                 "&const" => Token::ConstRef,
                 "&mut" => Token::MutRef,
+                "_" => Token::Wildcard,
                 array_str if array_str.starts_with('[') => {
                     let array_str = &array_str[1..array_str.len() - 1];
                     let (ty, size) = array_str.rsplit_once(';').map(|c| (c.0.to_string(), c.1.to_string())).unwrap();

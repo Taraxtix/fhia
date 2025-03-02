@@ -199,6 +199,8 @@ fn test_types() {
             }),
             size: Box::new(Token::ILit(10)),
         },
+        Token::Wildcard,
+        Token::Bang,
     ];
 
     let actual = Lexer::new("tests/lexer/correct/types.fhia")
