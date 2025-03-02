@@ -161,10 +161,10 @@ impl Display for Token {
 }
 
 pub struct Lexer<'a> {
-    path: &'a str,
+    pub path: &'a str,
     source: String,
     idx: usize,
-    pos: Position,
+    pub pos: Position,
 }
 
 impl<'a> Lexer<'a> {

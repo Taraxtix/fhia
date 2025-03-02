@@ -1,11 +1,13 @@
 #![feature(string_into_chars, pattern, assert_matches)]
 
 mod lexer;
+mod parser;
 
-use clap::Parser;
+use clap::Parser as clapParser;
 use lexer::Lexer;
+use parser::Expr;
 
-#[derive(Parser, Debug)]
+#[derive(clapParser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Input file to compile
@@ -34,7 +36,24 @@ fn main() {
         std::process::exit(1);
     });
 
-    for (span, token) in lexer {
-        println!("from {} to {}: {token}", span.start, span.end);
+    if args.lexer && args.parser {
+        println!(
+            "Cannot print both lexer and parser output only one of `--lexer | -l` or `--parser | -p` can be provided"
+        );
+        std::process::exit(1);
+    }
+
+    if args.lexer {
+        for (span, token) in lexer {
+            println!("from {} to {}: {token}", span.start, span.end);
+        }
+        return;
+    }
+
+    let exprs = Expr::parse(lexer);
+
+    if args.parser {
+        println!("{exprs:?}");
+        // return;
     }
 }
