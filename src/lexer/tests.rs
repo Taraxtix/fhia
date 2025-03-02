@@ -294,10 +294,17 @@ fn test_bool_literal() {
 }
 
 #[test]
-fn test_modifier() {
-    let expected = vec![Token::Mut];
+fn test_keywords() {
+    let expected = vec![
+        Token::Mut,
+        Token::Let,
+        Token::If,
+        Token::Else,
+        Token::While,
+        Token::For,
+    ];
 
-    let actual = Lexer::new("tests/lexer/correct/modifier.fhia")
+    let actual = Lexer::new("tests/lexer/correct/keywords.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();

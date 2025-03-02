@@ -39,7 +39,13 @@ pub enum Token {
     CharLit(char),
     BoolLit(bool),
 
+    //Keywords
     Mut,
+    Let,
+    If,
+    Else,
+    While,
+    For,
 
     //Operators
     Plus,
@@ -536,14 +542,19 @@ impl<'a> Lexer<'a> {
         ))
     }
 
-    fn consume_modifiers(&mut self) -> Option<(Span, Token)> {
+    fn consume_keywords(&mut self) -> Option<(Span, Token)> {
         Some((
             Span {
                 start: self.pos.clone(),
                 end: self.pos.clone(),
             },
-            match self.consume(&Regex::new(r"mut").unwrap())? {
+            match self.consume(&Regex::new(r"mut|let|if|else|while|for").unwrap())? {
                 "mut" => Token::Mut,
+                "let" => Token::Let,
+                "if" => Token::If,
+                "else" => Token::Else,
+                "while" => Token::While,
+                "for" => Token::For,
                 _ => unreachable!(),
             },
         ))
@@ -587,7 +598,7 @@ impl Iterator for Lexer<'_> {
                 .or_else(|| self.consume_ops())
                 .or_else(|| self.consume_delims())
                 .or_else(|| self.consume_bool_lit())
-                .or_else(|| self.consume_modifiers())
+                .or_else(|| self.consume_keywords())
                 .or_else(|| self.consume_ident())
                 .unwrap_or_else(|| {
                     self.report_error(
