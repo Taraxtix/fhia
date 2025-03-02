@@ -166,15 +166,42 @@ fn test_int_literal() {
 }
 
 #[test]
-fn test_ptr_ops() {
+fn test_types() {
     let expected = vec![
-        Token::MutDeref,
-        Token::MutRef,
-        Token::ConstDeref,
+        Token::I8,
+        Token::I16,
+        Token::I32,
+        Token::I64,
+        Token::I128,
+        Token::U8,
+        Token::U16,
+        Token::U32,
+        Token::U64,
+        Token::U128,
+        Token::Size,
+        Token::F32,
+        Token::F64,
+        Token::F128,
+        Token::Bool,
+        Token::Char,
+        Token::Str,
+        Token::Unit,
         Token::ConstRef,
+        Token::MutRef,
+        Token::Array {
+            ty: Box::new(Token::U8),
+            size: Box::new(Token::ILit(8)),
+        },
+        Token::Array {
+            ty: Box::new(Token::Array {
+                ty: Box::new(Token::I32),
+                size: Box::new(Token::ILit(14)),
+            }),
+            size: Box::new(Token::ILit(10)),
+        },
     ];
 
-    let actual = Lexer::new("tests/lexer/correct/ptr_ops.fhia")
+    let actual = Lexer::new("tests/lexer/correct/types.fhia")
         .unwrap()
         .map(|t| t.1)
         .collect::<Vec<_>>();
@@ -191,6 +218,8 @@ fn test_ops() {
         Token::MinusAssign,
         Token::Decrement,
         Token::Minus,
+        Token::ConstDeref,
+        Token::MutDeref,
         Token::TimesAssign,
         Token::Power,
         Token::Times,
@@ -204,7 +233,7 @@ fn test_ops() {
         Token::LOr,
         Token::OrAssign,
         Token::BOr,
-        Token::LNot,
+        Token::Bang,
         Token::NEqual,
         Token::LAngle,
         Token::LShiftAssign,

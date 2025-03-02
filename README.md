@@ -30,7 +30,7 @@ Everything can be either:
 Where:
 
 - `<name>` is the name of the function (must not be a reserved keyword or function)
-- `[pattern*]` is 0 or more patterns that matches the arguments of the function. There are X types of patterns:
+- `[pattern*]` is 0 or more patterns that matches the arguments of the function. There are 3 types of patterns:
   - `<ident> [: <type>]` is a variable name of type `<type>` (if not specified, the type is inferred if possible)
   - `literal` A literal value
   - `_` is a wildcard pattern
@@ -44,15 +44,15 @@ A function can have multiple definitions, that matches different patterns, but a
 - `i8`, `i16`, `i32`, `i64`, `i128` (signed integers)
 - `u8`, `u16`, `u32`, `u64`, `u128`
 - `size` (unsigned integers)
-- `f32`, `f64` (floating point numbers)
+- `f32`, `f64`, `f128` (floating point numbers)
 - `bool` (boolean)
 - `char` (character)
 - `str` (strings)
 - `()` (unit)
 - `!` (never)
 - `[T, size]` (array of elements of type `T` and size `size`)
-- `*const T` (constant pointer to an element of type `T`)
-- `*mut T` (mutable pointer to an element of type `T`)
+- `&const T` (constant pointer/reference to an element of type `T`)
+- `&mut T` (mutable pointer/reference to an element of type `T`)
 
 ### Operators
 
@@ -101,9 +101,9 @@ precedences and associativity are based on : <https://en.cppreference.com/w/c/la
 
 #### Other
 
-- `=` assignment (precedence: 1 | associativity: left)
-- `&const` constant reference
-- `&mut` mutable reference
+- `=` assignment (precedence: 14 | associativity: left)
+- `*const` constant dereference (precedence: 2 | associativity: left)
+- `*mut` mutable dereference    (precedence: 2 | associativity: left)
 
 ### Reserved functions
 
