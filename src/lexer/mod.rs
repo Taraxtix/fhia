@@ -46,6 +46,7 @@ pub enum Token {
     Else,
     While,
     For,
+    In,
 
     //Operators
     Plus,
@@ -551,13 +552,14 @@ impl<'a> Lexer<'a> {
                 start: self.pos.clone(),
                 end: self.pos.clone(),
             },
-            match self.consume(&Regex::new(r"mut|let|if|else|while|for").unwrap())? {
+            match self.consume(&Regex::new(r"mut|let|if|else|while|for|in").unwrap())? {
                 "mut" => Token::Mut,
                 "let" => Token::Let,
                 "if" => Token::If,
                 "else" => Token::Else,
                 "while" => Token::While,
                 "for" => Token::For,
+                "in" => Token::In,
                 _ => unreachable!(),
             },
         ))

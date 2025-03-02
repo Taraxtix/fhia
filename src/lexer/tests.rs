@@ -304,6 +304,7 @@ fn test_keywords() {
         Token::Else,
         Token::While,
         Token::For,
+        Token::In,
     ];
 
     let actual = Lexer::new("tests/lexer/correct/keywords.fhia")
