@@ -148,13 +148,13 @@ fn test_float_literal() {
 #[allow(clippy::mixed_case_hex_literals)]
 fn test_int_literal() {
     let expected = vec![
-        Token::ILit(6942),
-        Token::ILit(6942),
-        Token::ILit(0o467),
-        Token::ILit(0b101),
-        Token::ILit(0xdead),
-        Token::ILit(0xDEAD),
-        Token::ILit(0xdEaD),
+        Token::U32Lit(6942),
+        Token::U32Lit(6942),
+        Token::U32Lit(0o467),
+        Token::U32Lit(0b101),
+        Token::U32Lit(0xdead),
+        Token::U32Lit(0xDEAD),
+        Token::U32Lit(0xdEaD),
     ];
 
     let actual = Lexer::new("tests/lexer/correct/ilit.fhia")
@@ -190,14 +190,14 @@ fn test_types() {
         Token::MutRef,
         Token::Array {
             ty: Box::new(Token::U8),
-            size: Box::new(Token::ILit(8)),
+            size: Box::new(Token::U32Lit(8)),
         },
         Token::Array {
             ty: Box::new(Token::Array {
                 ty: Box::new(Token::I32),
-                size: Box::new(Token::ILit(14)),
+                size: Box::new(Token::U32Lit(14)),
             }),
-            size: Box::new(Token::ILit(10)),
+            size: Box::new(Token::U32Lit(10)),
         },
         Token::Wildcard,
         Token::Bang,

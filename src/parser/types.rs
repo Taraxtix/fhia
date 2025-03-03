@@ -26,6 +26,8 @@ pub enum Type {
     Any, // FIXME: Find another way to represent this
 }
 
+use std::fmt::Display;
+
 use Type as T;
 
 impl T {
@@ -80,6 +82,36 @@ impl T {
             (T::Size, T::U64 | T::U128 | T::I128) => true,
             (_, T::Any) => true,
             _ => false,
+        }
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::I8 => write!(f, "i8"),
+            Type::I16 => write!(f, "i16"),
+            Type::I32 => write!(f, "i32"),
+            Type::I64 => write!(f, "i64"),
+            Type::I128 => write!(f, "i128"),
+            Type::U8 => write!(f, "u8"),
+            Type::U16 => write!(f, "u16"),
+            Type::U32 => write!(f, "u32"),
+            Type::U64 => write!(f, "u64"),
+            Type::U128 => write!(f, "u128"),
+            Type::Size => write!(f, "size"),
+            Type::F32 => write!(f, "f32"),
+            Type::F64 => write!(f, "f64"),
+            Type::F128 => write!(f, "f128"),
+            Type::Str => write!(f, "string"),
+            Type::Char => write!(f, "char"),
+            Type::Bool => write!(f, "bool"),
+            Type::Unit => write!(f, "()"),
+            Type::Never => write!(f, "!"),
+            Type::Array { ty, len } => write!(f, "[{ty}; {len}]"),
+            Type::ConstRef(ty) => write!(f, "&const {ty}"),
+            Type::MutRef(ty) => write!(f, "&mut {ty}"),
+            Type::Any => write!(f, "any"),
         }
     }
 }

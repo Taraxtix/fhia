@@ -6,7 +6,7 @@ use crate::{
 use super::{Expr, types::Type as T};
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinOp {
     Add,
     Minus,
@@ -30,6 +30,7 @@ pub enum BinOp {
     Lt,
     Gt,
 }
+
 impl BinOp {
     fn get_precedence(&self) -> u8 {
         use BinOp as Op;
@@ -107,7 +108,7 @@ impl BinOp {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnOp {
     Minus,
 

@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod tests;
 
+use core::num;
 use std::{
     fmt::{Debug, Display},
     fs::read_to_string,
     io::{self},
+    num::IntErrorKind,
     str::pattern::Pattern,
 };
 
@@ -12,8 +14,8 @@ use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Position {
-    line: usize,
-    column: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 impl Display for Position {
@@ -33,7 +35,9 @@ pub enum Token {
     Ident(String),
 
     //Literals
-    ILit(i32),
+    U32Lit(u32),
+    U64Lit(u64),
+    U128Lit(u128),
     FLit(f64),
     StrLit(String),
     CharLit(char),
@@ -189,8 +193,13 @@ impl<'a> Lexer<'a> {
         match matcher.next() {
             Some(m) if m.is_prefix_of(src) => {
                 self.idx += m.len();
-                self.pos.line += m.matches('\n').count();
-                self.pos.column = m.len() - m.rfind('\n').unwrap_or(0);
+                let num_nl = m.matches('\n').count();
+                self.pos.line += num_nl;
+                if num_nl > 0 {
+                    self.pos.column = m.len() - m.rfind('\n').unwrap_or(0);
+                } else {
+                    self.pos.column += m.len()
+                }
                 Some(m)
             }
             _ => None,
@@ -348,48 +357,60 @@ impl<'a> Lexer<'a> {
         ))
     }
 
+    fn ulit_from_string(&mut self, s: &str, radix: u32) -> Token {
+        let error = |e: std::num::ParseIntError| {
+            let radix_string = match radix {
+                2 => "binary",
+                8 => "octal",
+                10 => "",
+                16 => "hexadecimal",
+                _ => unreachable!(),
+            };
+            self.report_error(
+                self.pos.clone(),
+                format!("invalid {radix_string} integer literal {}", e),
+            )
+        };
+
+        match u32::from_str_radix(s, radix) {
+            Ok(n) => Token::U32Lit(n),
+            Err(e) if e.kind() == &IntErrorKind::PosOverflow => {
+                match u64::from_str_radix(s, radix) {
+                    Ok(n) => Token::U64Lit(n),
+                    Err(e) if e.kind() == &IntErrorKind::PosOverflow => {
+                        match u128::from_str_radix(s, radix) {
+                            Ok(n) => Token::U128Lit(n),
+                            Err(e) => error(e),
+                        }
+                    }
+                    Err(e) => error(e),
+                }
+            }
+            Err(e) => error(e),
+        }
+    }
+
     fn consume_int_lit(&mut self) -> Option<(Span, Token)> {
         let span = Span {
             start: self.pos.clone(),
             end: self.pos.clone(),
         };
-        let lit = self.consume(&Regex::new(r"(0[obx][0-9a-fA-F]+)|[0-9]+").unwrap())?;
+        let lit = self
+            .consume(&Regex::new(r"(0[obx][0-9a-fA-F]+)|[0-9]+").unwrap())?
+            .to_string();
 
         Some((
             span,
-            Token::ILit(if lit.len() >= 2 {
+            if lit.len() >= 2 {
                 match &lit[0..2] {
-                    // TODO: Make it support larger literals
-                    "0b" => i32::from_str_radix(&lit[2..], 2).unwrap_or_else(|e| {
-                        self.report_error(
-                            self.pos.clone(),
-                            format!("invalid binary integer literal {}", e),
-                        )
-                    }),
-                    "0o" => i32::from_str_radix(&lit[2..], 8).unwrap_or_else(|e| {
-                        self.report_error(
-                            self.pos.clone(),
-                            format!("invalid octal integer literal {}", e),
-                        )
-                    }),
-                    "0x" => i32::from_str_radix(&lit[2..], 16).unwrap_or_else(|e| {
-                        self.report_error(
-                            self.pos.clone(),
-                            format!("invalid hexadecimal integer literal {}", e),
-                        )
-                    }),
-                    _ => lit.parse::<i32>().unwrap_or_else(|e| {
-                        self.report_error(
-                            self.pos.clone(),
-                            format!("invalid integer literal {}", e),
-                        )
-                    }),
+                    "0b" => self.ulit_from_string(&lit[2..], 2),
+                    "0o" => self.ulit_from_string(&lit[2..], 8),
+                    "0x" => self.ulit_from_string(&lit[2..], 16),
+                    _ => self.ulit_from_string(&lit, 10),
                 }
             } else {
-                lit.parse::<i32>().unwrap_or_else(|e| {
-                    self.report_error(self.pos.clone(), format!("invalid integer literal {}", e))
-                })
-            }),
+                self.ulit_from_string(&lit, 10)
+            },
         ))
     }
 

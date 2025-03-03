@@ -9,7 +9,7 @@ use expr::Expr;
 use ops::BinOp;
 use types::Type;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Var {
     name: String,
     ty: Type,
@@ -22,14 +22,14 @@ enum Pattern {
     Lit(Expr),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Func {
     name: String,
     args: Vec<Type>,
     ty: Type,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Env {
     vars: Vec<Var>,
     functions: Vec<Func>,
@@ -58,8 +58,8 @@ impl Env {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Scope {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Scope {
     env: Env,
     parent: Option<Box<Scope>>,
 }
@@ -132,9 +132,14 @@ impl<'a> Parser<'a> {
     fn parse_expr(&mut self, curr: (Span, Token)) -> Expr {
         use Token as T;
         match curr.1 {
-            T::StrLit(_) | T::CharLit(_) | T::ILit(_) | T::FLit(_) | T::BoolLit(_) => {
-                Expr::from_lit(curr, self.get_scope(None))
-            }
+            T::StrLit(_)
+            | T::CharLit(_)
+            | T::U32Lit(_)
+            | T::U64Lit(_)
+            | T::U128Lit(_)
+            | T::FLit(_)
+            | T::BoolLit(_) => Expr::from_lit(curr, self.get_scope(None)),
+            T::LBracket => self.parse_array_lit(curr),
             T::Plus
             | T::Minus
             | T::Times
@@ -179,9 +184,8 @@ impl<'a> Parser<'a> {
             T::Assign => todo!(),
             T::BNeg => todo!(),
             T::XorAssign => todo!(),
-            T::LBracket => todo!(),
             T::RBracket => todo!(),
-            T::Comma => todo!(),
+            T::Comma => self.report_parsing_error(Some(curr), "Expected expression, got ','"),
             T::RParen => todo!(),
             T::LParen => todo!(),
             T::LBrace => todo!(),
@@ -248,5 +252,48 @@ impl<'a> Parser<'a> {
             _ => unreachable!(),
         };
         kind.get_expr(curr, lhs, rhs)
+    }
+
+    fn parse_array_lit(&mut self, curr: (Span, Token)) -> Expr {
+        let mut elements: Vec<Expr> = vec![];
+        let mut ty: Option<Type> = None;
+        let mut expect_comma = false;
+
+        while let Some((span, tok)) = self.lexer.next() {
+            match tok {
+                Token::RBracket if expect_comma || elements.is_empty() => {
+                    return Expr {
+                        ty: Some(Type::Array {
+                            ty: Box::new(ty.unwrap_or(Type::Any)),
+                            len: elements.len(),
+                        }),
+                        kind: expr::ExprKind::Array(elements),
+                        span: Span {
+                            start: curr.0.start,
+                            end: span.end.clone(),
+                        },
+                        scope: self.get_scope(None),
+                    };
+                }
+                Token::Comma if expect_comma => expect_comma = false,
+                _ if expect_comma => {
+                    self.report_parsing_error(Some((span, tok)), "Expected comma after expr")
+                }
+                _ => {
+                    let mut expr = self.parse_expr((span.clone(), tok.clone()));
+                    match (&ty, &expr.ty) {
+                        (Some(expected), Some(actual)) if expected != actual => {
+                            self.report_parsing_error(Some((span, tok)), format!("Unexpected type in array literal. Expected {expected}, got {actual}").as_str())
+                        }
+                        (None, Some(actual)) => ty = Some(actual.clone()),
+                        (Some(expected),None) => expr.ty = Some(expected.clone()),
+                        _ => (),
+                    }
+                    elements.push(expr);
+                    expect_comma = true;
+                }
+            }
+        }
+        self.report_parsing_error(Some(curr), "Unclosed array literal")
     }
 }

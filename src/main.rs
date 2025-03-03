@@ -53,6 +53,6 @@ fn main() {
     let exprs = Parser::new(lexer);
 
     for expr in exprs.collected {
-        println!("{expr:?}");
+        println!("{expr}");
     }
 }
