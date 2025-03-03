@@ -28,7 +28,7 @@ pub struct Span {
     pub end: Position,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Ident(String),
 
@@ -359,6 +359,7 @@ impl<'a> Lexer<'a> {
             span,
             Token::ILit(if lit.len() >= 2 {
                 match &lit[0..2] {
+                    // TODO: Make it support larger literals
                     "0b" => i32::from_str_radix(&lit[2..], 2).unwrap_or_else(|e| {
                         self.report_error(
                             self.pos.clone(),

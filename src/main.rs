@@ -5,7 +5,7 @@ mod parser;
 
 use clap::Parser as clapParser;
 use lexer::Lexer;
-use parser::Expr;
+use parser::Parser;
 
 #[derive(clapParser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,10 +50,9 @@ fn main() {
         return;
     }
 
-    let exprs = Expr::parse(lexer);
+    let exprs = Parser::new(lexer);
 
-    if args.parser {
-        println!("{exprs:?}");
-        // return;
+    for expr in exprs.collected {
+        println!("{expr:?}");
     }
 }
