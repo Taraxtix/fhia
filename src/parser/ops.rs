@@ -128,10 +128,35 @@ impl BinOp {
 pub enum UnOp {
     Minus,
 
-    Decrement,
-    Increment,
+    // Decrement,
+    // Increment,
+    MutDeref,
+    ConstDeref,
 
-    DerefMut,
-    DerefConst,
-    //...
+    LNot,
+    BNeg,
+}
+impl UnOp {
+    pub fn from_token(tok: &Token) -> Self {
+        match tok {
+            Token::Minus => Self::Minus,
+            Token::ConstDeref => Self::ConstDeref,
+            Token::MutDeref => Self::MutDeref,
+            Token::Bang => Self::LNot,
+            Token::BNeg => Self::BNeg,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn get_expr(&self, arg: Expr) -> Expr {
+        Expr {
+            span: arg.span.clone(),
+            scope: arg.scope.clone(),
+            kind: ExprKind::UnOp {
+                kind: self.clone(),
+                arg: Box::new(arg),
+            },
+            ty: None,
+        }
+    }
 }

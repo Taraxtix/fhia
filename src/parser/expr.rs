@@ -32,7 +32,8 @@ pub enum ExprKind {
         kind: UnOp,
         arg: Box<Expr>,
     },
-    //...
+
+    Unit,
 }
 
 impl Display for ExprKind {
@@ -74,6 +75,7 @@ impl Display for ExprKind {
                 write!(f, "{kind:?}( {lhs}, {rhs} )")
             }
             ExprKind::UnOp { kind, arg } => write!(f, "{kind:?}( {arg} )"),
+            ExprKind::Unit => write!(f, "()"),
         }
     }
 }

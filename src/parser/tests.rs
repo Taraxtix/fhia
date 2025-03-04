@@ -45,6 +45,11 @@ fn test_lits() {
 #[test]
 fn test_ops() {
     use BinOp as BO;
+    let unop = |kind, arg| EK::UnOp {
+        kind,
+        arg: Box::new(arg),
+    };
+
     let binop = |kind, lhs, rhs| EK::BinOp {
         kind,
         lhs: Box::new(lhs),
@@ -85,6 +90,11 @@ fn test_ops() {
         binop(BO::LEq, u32(1, 17, 1), u32(2, 17, 6)),
         binop(BO::Gt, u32(1, 18, 1), u32(2, 18, 6)),
         binop(BO::GEq, u32(1, 19, 1), u32(2, 19, 6)),
+        unop(UnOp::Minus, u32(1, 20, 2)),
+        unop(UnOp::BNeg, u32(1, 21, 2)),
+        unop(UnOp::LNot, u32(1, 22, 2)),
+        unop(UnOp::ConstDeref, u32(1, 23, 8)),
+        unop(UnOp::MutDeref, u32(1, 24, 6)),
     ];
 
     assert_eq!(expected.len(), actual.len());
