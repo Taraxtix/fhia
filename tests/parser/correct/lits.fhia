@@ -1,10 +1,9 @@
-				// (TokenKind, Type)
-42 				// ( U32(42), U32)
-42.69			// ( F64(42.69), F64)
-0xDEADBEEF		// ( U32(0xDEADBEEF), U32)
-0xDEADBEEFCAFE	// ( U64(0xDEADBEEFCAFE), U64)
-false			// ( Bool(false), Bool)
-"Test"			// ( Str("Test"), Str)
-'T'				// ( Char('T'), Char)
-['A', 'B', 'C']
+42
+42.69
+0xDEADBEEF
+0xDEADBEEFCAFE
+false
+"Test"
+'T';
+['A', 'B', 'C'];
 []

@@ -29,9 +29,9 @@ fn test_lits() {
         EK::Str("Test".to_string()),
         EK::Char('T'),
         EK::Array(vec![
-            smpl_char_at('A', 9, 2),
-            smpl_char_at('B', 9, 7),
-            smpl_char_at('C', 9, 12),
+            smpl_char_at('A', 8, 2),
+            smpl_char_at('B', 8, 7),
+            smpl_char_at('C', 8, 12),
         ]),
         EK::Array(vec![]),
     ];

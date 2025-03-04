@@ -160,6 +160,8 @@ impl<'a> Parser<'a> {
                     expr
                 }
 
+                T::LBracket => self.parse_index((span, tok)),
+
                 T::Ident(_) => todo!(),
                 T::Let => todo!(),
                 T::If => todo!(),
@@ -191,7 +193,6 @@ impl<'a> Parser<'a> {
             self.collected.push(expr);
         }
     }
-
     fn parse_expr(&mut self, (span, tok): (Span, Token)) -> Expr {
         use Token as T;
         match tok {
@@ -238,7 +239,6 @@ impl<'a> Parser<'a> {
             T::RShiftAssign => todo!(),
             T::Assign => todo!(),
             T::XorAssign => todo!(),
-            T::RBracket => todo!(),
             T::RParen => todo!(),
             T::LParen => todo!(),
             T::LBrace => todo!(),
@@ -309,5 +309,32 @@ impl<'a> Parser<'a> {
         });
         let arg = self.parse_expr(next);
         UnOp::from_token(&curr.1).get_expr(arg)
+    }
+
+    fn parse_index(&mut self, curr: (Span, Token)) -> Expr {
+        if self.collected.is_empty() {
+            return self.parse_array_lit(curr);
+        }
+        if let Some(Type::Unit) = self.collected.last().unwrap().ty {
+            return self.parse_array_lit(curr);
+        }
+        let lhs = self.collected.pop().unwrap();
+        let next = self.lexer.next().unwrap_or_else(|| {
+            self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
+        });
+        let rhs = self.parse_expr(next);
+        if let Some((span, Token::RAngle)) = self.lexer.next() {
+            Expr {
+                ty: None,
+                span: Span::new(lhs.span.start.clone(), span.end.clone()),
+                scope: self.get_scope(None),
+                kind: ExprKind::Index {
+                    expr: Box::new(lhs),
+                    index: Box::new(rhs),
+                },
+            }
+        } else {
+            self.report_parsing_error(Some(curr.clone()), "Expected closing bracket after index")
+        }
     }
 }

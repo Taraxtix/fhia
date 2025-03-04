@@ -13,6 +13,10 @@ use super::{
 pub enum ExprKind {
     Var(String),
     FuncCall(String, Vec<Expr>),
+    Index {
+        expr: Box<Expr>,
+        index: Box<Expr>,
+    },
 
     U32(u32),
     U64(u64),
@@ -76,6 +80,7 @@ impl Display for ExprKind {
             }
             ExprKind::UnOp { kind, arg } => write!(f, "{kind:?}( {arg} )"),
             ExprKind::Unit => write!(f, "()"),
+            ExprKind::Index { expr, index } => write!(f, "{expr}[{index}]"),
         }
     }
 }

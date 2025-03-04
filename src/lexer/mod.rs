@@ -419,7 +419,7 @@ impl<'a> Lexer<'a> {
 
     fn consume_type(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let tok = match self.consume(&Regex::new(r"\[.+;[^]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)|_").unwrap())? {
+        let tok = match self.consume(&Regex::new(r"\[[^\n]+;[^\n\]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)|_").unwrap())? {
                 "i8" => Token::I8,
                 "i16" => Token::I16,
                 "i32" => Token::I32,
