@@ -16,7 +16,7 @@ struct Var {
 }
 
 #[derive(Debug, Clone)]
-enum Pattern {
+enum _Pattern {
     Wildcard,
     Var(Var),
     Lit(Expr),
@@ -35,9 +35,8 @@ struct Env {
     functions: Vec<Func>,
 }
 
-impl Env {
-    #[inline]
-    pub fn default() -> Env {
+impl Default for Env {
+    fn default() -> Env {
         Env {
             vars: vec![
                 Var {
@@ -46,7 +45,7 @@ impl Env {
                 },
                 Var {
                     name: String::from("argv"),
-                    ty: Type::ConstRef(Box::new(Type::ConstRef(Box::new(Type::Char)))),
+                    ty: Type::c_ref(Type::c_ref(Type::Char)),
                 },
             ],
             functions: vec![Func {
@@ -58,7 +57,7 @@ impl Env {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Scope {
     env: Env,
     parent: Option<Box<Scope>>,
@@ -213,7 +212,10 @@ impl<'a> Parser<'a> {
             T::Unit => todo!(),
             T::ConstRef => todo!(),
             T::MutRef => todo!(),
-            T::Array { ty, size } => todo!(),
+            T::Array {
+                ty: _ty,
+                size: _size,
+            } => todo!(),
             T::Wildcard => todo!(),
         }
     }
@@ -227,51 +229,20 @@ impl<'a> Parser<'a> {
             self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
         });
         let rhs = self.parse_expr(next);
-        use BinOp as Op;
-        use Token as T;
-        let kind = match curr.1 {
-            T::Plus => Op::Add,
-            T::Minus => Op::Minus,
-            T::Times => Op::Mul,
-            T::Power => Op::Power,
-            T::Divide => Op::Divide,
-            T::Modulo => Op::Modulo,
-            T::LAnd => Op::LAnd,
-            T::BAnd => Op::BAnd,
-            T::LOr => Op::LOr,
-            T::BOr => Op::BOr,
-            T::NEqual => Op::NEqual,
-            T::LShift => Op::LShift,
-            T::LEq => Op::LEq,
-            T::RShift => Op::RShift,
-            T::GEq => Op::GEq,
-            T::Equal => Op::Equal,
-            T::Xor => Op::Xor,
-            T::LAngle => Op::Lt,
-            T::RAngle => Op::Gt,
-            _ => unreachable!(),
-        };
-        kind.get_expr(curr, lhs, rhs)
+        BinOp::from_token(&curr.1).get_expr(lhs, rhs)
     }
 
     fn parse_array_lit(&mut self, curr: (Span, Token)) -> Expr {
         let mut elements: Vec<Expr> = vec![];
-        let mut ty: Option<Type> = None;
         let mut expect_comma = false;
 
         while let Some((span, tok)) = self.lexer.next() {
             match tok {
                 Token::RBracket if expect_comma || elements.is_empty() => {
                     return Expr {
-                        ty: Some(Type::Array {
-                            ty: Box::new(ty.unwrap_or(Type::Any)),
-                            len: elements.len(),
-                        }),
+                        ty: None,
                         kind: expr::ExprKind::Array(elements),
-                        span: Span {
-                            start: curr.0.start,
-                            end: span.end.clone(),
-                        },
+                        span: Span::new(curr.0.start, span.end.clone()),
                         scope: self.get_scope(None),
                     };
                 }
@@ -280,15 +251,7 @@ impl<'a> Parser<'a> {
                     self.report_parsing_error(Some((span, tok)), "Expected comma after expr")
                 }
                 _ => {
-                    let mut expr = self.parse_expr((span.clone(), tok.clone()));
-                    match (&ty, &expr.ty) {
-                        (Some(expected), Some(actual)) if expected != actual => {
-                            self.report_parsing_error(Some((span, tok)), format!("Unexpected type in array literal. Expected {expected}, got {actual}").as_str())
-                        }
-                        (None, Some(actual)) => ty = Some(actual.clone()),
-                        (Some(expected),None) => expr.ty = Some(expected.clone()),
-                        _ => (),
-                    }
+                    let expr = self.parse_expr((span.clone(), tok.clone()));
                     elements.push(expr);
                     expect_comma = true;
                 }

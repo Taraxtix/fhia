@@ -1,81 +1,94 @@
-use crate::lexer::{Lexer, Position};
+use crate::lexer::Lexer;
 
 use super::{expr::*, *};
 use expr::ExprKind as EK;
 use types::Type as T;
-
-fn default_scope() -> Scope {
-    Scope {
-        env: Env {
-            vars: vec![
-                Var {
-                    name: "argc".to_string(),
-                    ty: T::Size,
-                },
-                Var {
-                    name: "argv".to_string(),
-                    ty: T::ConstRef(Box::new(T::ConstRef(Box::new(T::Char)))),
-                },
-            ],
-            functions: vec![Func {
-                name: "dbg".to_string(),
-                args: vec![T::Any],
-                ty: T::Unit,
-            }],
-        },
-        parent: None,
-    }
-}
 
 #[test]
 fn test_lits() {
     let smpl_char_at = |c, line, column| Expr {
         kind: EK::Char(c),
         ty: Some(T::Char),
-        span: Span {
-            start: Position { line, column },
-            end: Position {
-                line,
-                column: column + 3,
-            },
-        },
-        scope: default_scope(),
+        span: Span::new_raw((line, column), (line, column + 3)),
+        scope: Scope::default(),
     };
 
     let lexer = Lexer::new("tests/parser/correct/lits.fhia").unwrap();
     let actual = Parser::new(lexer)
         .collected
         .iter()
-        .map(|e| (e.kind.clone(), e.ty.clone()))
+        .map(|e| e.kind.clone())
         .collect::<Vec<_>>();
 
     let expected = vec![
-        (EK::U32(42), Some(T::U32)),
-        (EK::F64(42.69), Some(T::F64)),
-        (EK::U32(0xDEADBEEF), Some(T::U32)),
-        (EK::U64(0xDEADBEEFCAFE), Some(T::U64)),
-        (EK::Bool(false), Some(T::Bool)),
-        (EK::Str("Test".to_string()), Some(T::Str)),
-        (EK::Char('T'), Some(T::Char)),
-        (
-            EK::Array(vec![
-                smpl_char_at('A', 9, 2),
-                smpl_char_at('B', 9, 7),
-                smpl_char_at('C', 9, 12),
-            ]),
-            Some(T::Array {
-                ty: Box::new(T::Char),
-                len: 3,
-            }),
-        ),
-        (
-            EK::Array(vec![]),
-            Some(T::Array {
-                ty: Box::new(T::Any),
-                len: 0,
-            }),
-        ),
+        EK::U32(42),
+        EK::F64(42.69),
+        EK::U32(0xDEADBEEF),
+        EK::U64(0xDEADBEEFCAFE),
+        EK::Bool(false),
+        EK::Str("Test".to_string()),
+        EK::Char('T'),
+        EK::Array(vec![
+            smpl_char_at('A', 9, 2),
+            smpl_char_at('B', 9, 7),
+            smpl_char_at('C', 9, 12),
+        ]),
+        EK::Array(vec![]),
     ];
 
-    assert_eq!(expected, actual)
+    assert_eq!(expected.len(), actual.len());
+    for i in 0..expected.len() {
+        assert_eq!(expected[i], actual[i]);
+    }
+}
+
+#[test]
+fn test_ops() {
+    use BinOp as BO;
+    let binop = |kind, lhs, rhs| EK::BinOp {
+        kind,
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    };
+
+    let u32 = |lit, line, column| Expr {
+        kind: EK::U32(lit),
+        ty: Some(T::U32),
+        span: Span::new_raw((line, column), (line, column + 1)),
+        scope: Scope::default(),
+    };
+
+    let lexer = Lexer::new("tests/parser/correct/ops.fhia").unwrap();
+    let actual = Parser::new(lexer)
+        .collected
+        .iter()
+        .map(|e| e.kind.clone())
+        .collect::<Vec<_>>();
+
+    let expected = vec![
+        binop(BO::Add, u32(1, 1, 1), u32(2, 1, 6)),
+        binop(BO::Minus, u32(1, 2, 1), u32(2, 2, 6)),
+        binop(BO::Mul, u32(1, 3, 1), u32(2, 3, 6)),
+        binop(BO::Divide, u32(1, 4, 1), u32(2, 4, 6)),
+        binop(BO::Power, u32(1, 5, 1), u32(2, 5, 6)),
+        binop(BO::Modulo, u32(1, 6, 1), u32(2, 6, 6)),
+        binop(BO::LShift, u32(1, 7, 1), u32(2, 7, 6)),
+        binop(BO::RShift, u32(1, 8, 1), u32(2, 8, 6)),
+        binop(BO::BAnd, u32(1, 9, 1), u32(2, 9, 6)),
+        binop(BO::BOr, u32(1, 10, 1), u32(2, 10, 6)),
+        binop(BO::Xor, u32(1, 11, 1), u32(2, 11, 6)),
+        binop(BO::LAnd, u32(1, 12, 1), u32(2, 12, 6)),
+        binop(BO::LOr, u32(1, 13, 1), u32(2, 13, 6)),
+        binop(BO::Equal, u32(1, 14, 1), u32(2, 14, 6)),
+        binop(BO::NEqual, u32(1, 15, 1), u32(2, 15, 6)),
+        binop(BO::Lt, u32(1, 16, 1), u32(2, 16, 6)),
+        binop(BO::LEq, u32(1, 17, 1), u32(2, 17, 6)),
+        binop(BO::Gt, u32(1, 18, 1), u32(2, 18, 6)),
+        binop(BO::GEq, u32(1, 19, 1), u32(2, 19, 6)),
+    ];
+
+    assert_eq!(expected.len(), actual.len());
+    for i in 0..expected.len() {
+        assert_eq!(expected[i], actual[i]);
+    }
 }

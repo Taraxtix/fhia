@@ -20,71 +20,19 @@ pub enum Type {
     Bool,
     Unit,
     Never,
-    Array { ty: Box<Type>, len: usize },
-    ConstRef(Box<Type>),
-    MutRef(Box<Type>),
+    Array { ty: Option<Box<Type>>, len: usize },
+    ConstRef(Option<Box<Type>>),
+    MutRef(Option<Box<Type>>),
     Any, // FIXME: Find another way to represent this
 }
 
-use std::fmt::Display;
-
-use Type as T;
-
-impl T {
-    fn can_auto_cast(&self, to: &T) -> bool {
-        match (self, to) {
-            (from, to) if from == to => true,
-            (T::Unit, _) => false,
-            (T::Never, _) => false,
-            (T::ConstRef(from_ref), T::ConstRef(to_ref)) if from_ref.can_auto_cast(&to_ref) => true,
-            (T::MutRef(from_ref), T::MutRef(to_ref)) if from_ref.can_auto_cast(&to_ref) => true,
-            (T::Array { ty: from_ref, .. }, T::Array { ty: to_ref, .. })
-                if from_ref.can_auto_cast(&to_ref) =>
-            {
-                true
-            }
-            (T::I8, T::I16 | T::I32 | T::I64 | T::I128 | T::F32 | T::F64 | T::F128) => true,
-            (
-                T::U8,
-                T::U16
-                | T::U32
-                | T::U64
-                | T::U128
-                | T::Size
-                | T::I16
-                | T::I32
-                | T::I64
-                | T::I128
-                | T::F32
-                | T::F64
-                | T::F128,
-            ) => true,
-            (T::I16, T::I32 | T::I64 | T::I128) => true,
-            (
-                T::U16,
-                T::U32
-                | T::U64
-                | T::U128
-                | T::Size
-                | T::I32
-                | T::I64
-                | T::I128
-                | T::F32
-                | T::F64
-                | T::F128,
-            ) => true,
-            (T::I32, T::I64 | T::I128 | T::Size | T::F64 | T::F128) => true,
-            (T::U32, T::U64 | T::U128 | T::Size | T::I64 | T::I128 | T::F64 | T::F128) => true,
-            (T::I64, T::I128 | T::F128) => true,
-            (T::U64, T::U128 | T::Size | T::I128 | T::F128) => true,
-            (T::F32, T::F64 | T::F128) => true,
-            (T::F64, T::F128) => true,
-            (T::Size, T::U64 | T::U128 | T::I128) => true,
-            (_, T::Any) => true,
-            _ => false,
-        }
+impl Type {
+    pub fn c_ref(ty: Type) -> Self {
+        Type::ConstRef(Some(Box::new(ty)))
     }
 }
+
+use std::fmt::Display;
 
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -108,9 +56,27 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Unit => write!(f, "()"),
             Type::Never => write!(f, "!"),
-            Type::Array { ty, len } => write!(f, "[{ty}; {len}]"),
-            Type::ConstRef(ty) => write!(f, "&const {ty}"),
-            Type::MutRef(ty) => write!(f, "&mut {ty}"),
+            Type::Array { ty, len } => write!(
+                f,
+                "[{}; {len}]",
+                ty.as_ref()
+                    .map(|t| t.to_string())
+                    .unwrap_or("any".to_string())
+            ),
+            Type::ConstRef(ty) => write!(
+                f,
+                "&const {}",
+                ty.as_ref()
+                    .map(|t| t.to_string())
+                    .unwrap_or("any".to_string())
+            ),
+            Type::MutRef(ty) => write!(
+                f,
+                "&mut {}",
+                ty.as_ref()
+                    .map(|t| t.to_string())
+                    .unwrap_or("any".to_string())
+            ),
             Type::Any => write!(f, "any"),
         }
     }

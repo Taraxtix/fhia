@@ -88,7 +88,7 @@ pub struct Expr {
 }
 
 impl Expr {
-    pub fn report_warning(&self, lexer: &Lexer<'_>, msg: &str) {
+    pub fn _report_warning(&self, lexer: &Lexer<'_>, msg: &str) {
         println!("[WARNING]: {}:{}: {msg}", lexer.path, self.span.start);
     }
 

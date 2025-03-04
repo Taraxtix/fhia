@@ -3,7 +3,7 @@ use crate::{
     parser::expr::ExprKind,
 };
 
-use super::{Expr, types::Type as T};
+use super::Expr;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +32,31 @@ pub enum BinOp {
 }
 
 impl BinOp {
+    pub fn from_token(tok: &Token) -> Self {
+        match tok {
+            Token::Plus => Self::Add,
+            Token::Minus => Self::Minus,
+            Token::Times => Self::Mul,
+            Token::Power => Self::Power,
+            Token::Divide => Self::Divide,
+            Token::Modulo => Self::Modulo,
+            Token::LAnd => Self::LAnd,
+            Token::BAnd => Self::BAnd,
+            Token::LOr => Self::LOr,
+            Token::BOr => Self::BOr,
+            Token::NEqual => Self::NEqual,
+            Token::LShift => Self::LShift,
+            Token::LEq => Self::LEq,
+            Token::RShift => Self::RShift,
+            Token::GEq => Self::GEq,
+            Token::Equal => Self::Equal,
+            Token::Xor => Self::Xor,
+            Token::LAngle => Self::Lt,
+            Token::RAngle => Self::Gt,
+            _ => unreachable!(),
+        }
+    }
+
     fn get_precedence(&self) -> u8 {
         use BinOp as Op;
         match self {
@@ -49,48 +74,7 @@ impl BinOp {
         }
     }
 
-    fn accepted_types(&self) -> Vec<(T, T)> {
-        use BinOp as Op;
-        match self {
-            Op::Add | Op::Minus => vec![
-                (T::I8, T::I8),
-                (T::I16, T::I16),
-                (T::I32, T::I32),
-                (T::I64, T::I64),
-                (T::I128, T::I128),
-                (T::U8, T::U8),
-                (T::U16, T::U16),
-                (T::U32, T::U32),
-                (T::U64, T::U64),
-                (T::U128, T::U128),
-                (T::Size, T::Size),
-                (T::F32, T::F32),
-                (T::F64, T::F64),
-                (T::F128, T::F128),
-                (T::MutRef(Box::new(T::Any)), T::Size),
-                (T::ConstRef(Box::new(T::Any)), T::Size),
-            ],
-            Op::Mul => todo!(),
-            Op::Power => todo!(),
-            Op::Divide => todo!(),
-            Op::Modulo => todo!(),
-            Op::BAnd => todo!(),
-            Op::BOr => todo!(),
-            Op::Xor => todo!(),
-            Op::LShift => todo!(),
-            Op::RShift => todo!(),
-            Op::LAnd => todo!(),
-            Op::LOr => todo!(),
-            Op::Equal => todo!(),
-            Op::NEqual => todo!(),
-            Op::LEq => todo!(),
-            Op::GEq => todo!(),
-            Op::Lt => todo!(),
-            Op::Gt => todo!(),
-        }
-    }
-
-    pub fn get_expr(&self, curr: (Span, Token), lhs: Expr, rhs: Expr) -> Expr {
+    pub fn get_expr(&self, lhs: Expr, rhs: Expr) -> Expr {
         match lhs {
             Expr {
                 kind:
@@ -99,10 +83,42 @@ impl BinOp {
                         lhs: llhs,
                         rhs: lrhs,
                     },
-                ty,
+                span: lspan,
+                scope,
                 ..
-            } if kind.get_precedence() < self.get_precedence() => todo!("Expr with swapping"),
-            _ => todo!("Expr without swapping"),
+            } if kind.get_precedence() > self.get_precedence() => Expr {
+                span: Span::new(lspan.start, rhs.span.end.clone()),
+                scope: scope.clone(),
+                kind: ExprKind::BinOp {
+                    kind,
+                    lhs: llhs,
+                    rhs: Box::new(Expr {
+                        span: Span::new(lrhs.span.start.clone(), rhs.span.end.clone()),
+                        kind: ExprKind::BinOp {
+                            kind: self.clone(),
+                            lhs: lrhs,
+                            rhs: Box::new(rhs),
+                        },
+                        ty: None,
+                        scope,
+                    }),
+                },
+                ty: None,
+            },
+            Expr {
+                span: ref lspan,
+                ref scope,
+                ..
+            } => Expr {
+                span: Span::new(lspan.start.clone(), rhs.span.end.clone()),
+                scope: scope.clone(),
+                kind: ExprKind::BinOp {
+                    kind: self.clone(),
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                },
+                ty: None,
+            },
         }
     }
 }

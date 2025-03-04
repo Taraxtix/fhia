@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests;
 
-use core::num;
 use std::{
     fmt::{Debug, Display},
     fs::read_to_string,
@@ -28,6 +27,26 @@ impl Display for Position {
 pub struct Span {
     pub start: Position,
     pub end: Position,
+}
+
+impl Span {
+    pub fn new(start: Position, end: Position) -> Self {
+        Self { start, end }
+    }
+
+    #[cfg(test)]
+    pub fn new_raw(start: (usize, usize), end: (usize, usize)) -> Self {
+        Span {
+            start: Position {
+                line: start.0,
+                column: start.1,
+            },
+            end: Position {
+                line: end.0,
+                column: end.1,
+            },
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -298,13 +317,7 @@ impl<'a> Lexer<'a> {
         self.escape_byte_escape_sequences(&mut lit, start.clone());
         self.escape_unicode_escape_sequences(&mut lit, start.clone());
 
-        Some((
-            Span {
-                start,
-                end: self.pos.clone(),
-            },
-            Token::StrLit(lit),
-        ))
+        Some((Span::new(start, self.pos.clone()), Token::StrLit(lit)))
     }
 
     fn consume_char_lit(&mut self) -> Option<(Span, Token)> {
@@ -333,28 +346,21 @@ impl<'a> Lexer<'a> {
         }
 
         Some((
-            Span {
-                start,
-                end: self.pos.clone(),
-            },
+            Span::new(start, self.pos.clone()),
             Token::CharLit(lit.chars().next().unwrap()),
         ))
     }
 
     fn consume_f_lit(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            Token::FLit(
-                self.consume(&Regex::new(r"([0-9]+\.[0-9]*)|(\.[0-9]+)").unwrap())?
-                    .parse::<f64>()
-                    .unwrap_or_else(|e| {
-                        self.report_error(self.pos.clone(), format!("invalid float literal {}", e));
-                    }),
-            ),
-        ))
+        let start = self.pos.clone();
+        let tok = Token::FLit(
+            self.consume(&Regex::new(r"([0-9]+\.[0-9]*)|(\.[0-9]+)").unwrap())?
+                .parse::<f64>()
+                .unwrap_or_else(|e| {
+                    self.report_error(self.pos.clone(), format!("invalid float literal {}", e));
+                }),
+        );
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn ulit_from_string(&mut self, s: &str, radix: u32) -> Token {
@@ -391,16 +397,13 @@ impl<'a> Lexer<'a> {
     }
 
     fn consume_int_lit(&mut self) -> Option<(Span, Token)> {
-        let span = Span {
-            start: self.pos.clone(),
-            end: self.pos.clone(),
-        };
+        let start = self.pos.clone();
         let lit = self
             .consume(&Regex::new(r"(0[obx][0-9a-fA-F]+)|[0-9]+").unwrap())?
             .to_string();
 
         Some((
-            span,
+            Span::new(start, self.pos.clone()),
             if lit.len() >= 2 {
                 match &lit[0..2] {
                     "0b" => self.ulit_from_string(&lit[2..], 2),
@@ -415,12 +418,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn consume_type(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            match self.consume(&Regex::new(r"\[.+;[^]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)|_").unwrap())? {
+        let start = self.pos.clone();
+        let tok = match self.consume(&Regex::new(r"\[.+;[^]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)|_").unwrap())? {
                 "i8" => Token::I8,
                 "i16" => Token::I16,
                 "i32" => Token::I32,
@@ -477,127 +476,106 @@ impl<'a> Lexer<'a> {
                     }
                 },
                 _ => unreachable!(),
-            },
-        ))
+            };
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn consume_ops(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            match self.consume(
-                &Regex::new(r"(\*(const|mut)|[<>]{2}=|[+*|&<>=-]{2}|[+*/%|&!<>^-]=?|[~=])")
-                    .unwrap(),
-            )? {
-                "+=" => Token::PlusAssign,
-                "++" => Token::Increment,
-                "+" => Token::Plus,
-                "-=" => Token::MinusAssign,
-                "--" => Token::Decrement,
-                "-" => Token::Minus,
-                "*const" => Token::ConstDeref,
-                "*mut" => Token::MutDeref,
-                "*=" => Token::TimesAssign,
-                "**" => Token::Power,
-                "*" => Token::Times,
-                "/=" => Token::DivideAssign,
-                "/" => Token::Divide,
-                "%=" => Token::ModuloAssign,
-                "%" => Token::Modulo,
-                "&&" => Token::LAnd,
-                "&=" => Token::AndAssign,
-                "&" => Token::BAnd,
-                "||" => Token::LOr,
-                "|=" => Token::OrAssign,
-                "|" => Token::BOr,
-                "!" => Token::Bang,
-                "!=" => Token::NEqual,
-                "<" => Token::LAngle,
-                "<<=" => Token::LShiftAssign,
-                "<<" => Token::LShift,
-                "<=" => Token::LEq,
-                ">" => Token::RAngle,
-                ">>=" => Token::RShiftAssign,
-                ">>" => Token::RShift,
-                ">=" => Token::GEq,
-                "==" => Token::Equal,
-                "=" => Token::Assign,
-                "^=" => Token::XorAssign,
-                "^" => Token::Xor,
-                "~" => Token::BNeg,
-                _ => unreachable!(),
-            },
-        ))
+        let start = self.pos.clone();
+        let tok = match self.consume(
+            &Regex::new(r"(\*(const|mut)|[<>]{2}=|[+*|&<>=-]{2}|[+*/%|&!<>^-]=?|[~=])").unwrap(),
+        )? {
+            "+=" => Token::PlusAssign,
+            "++" => Token::Increment,
+            "+" => Token::Plus,
+            "-=" => Token::MinusAssign,
+            "--" => Token::Decrement,
+            "-" => Token::Minus,
+            "*const" => Token::ConstDeref,
+            "*mut" => Token::MutDeref,
+            "*=" => Token::TimesAssign,
+            "**" => Token::Power,
+            "*" => Token::Times,
+            "/=" => Token::DivideAssign,
+            "/" => Token::Divide,
+            "%=" => Token::ModuloAssign,
+            "%" => Token::Modulo,
+            "&&" => Token::LAnd,
+            "&=" => Token::AndAssign,
+            "&" => Token::BAnd,
+            "||" => Token::LOr,
+            "|=" => Token::OrAssign,
+            "|" => Token::BOr,
+            "!" => Token::Bang,
+            "!=" => Token::NEqual,
+            "<" => Token::LAngle,
+            "<<=" => Token::LShiftAssign,
+            "<<" => Token::LShift,
+            "<=" => Token::LEq,
+            ">" => Token::RAngle,
+            ">>=" => Token::RShiftAssign,
+            ">>" => Token::RShift,
+            ">=" => Token::GEq,
+            "==" => Token::Equal,
+            "=" => Token::Assign,
+            "^=" => Token::XorAssign,
+            "^" => Token::Xor,
+            "~" => Token::BNeg,
+            _ => unreachable!(),
+        };
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn consume_delims(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            match self.consume(&Regex::new(r"[\[\].(){};,.:]").unwrap())? {
-                "[" => Token::LBracket,
-                "]" => Token::RBracket,
-                "(" => Token::LParen,
-                ")" => Token::RParen,
-                "{" => Token::LBrace,
-                "}" => Token::RBrace,
-                ";" => Token::Semicolon,
-                "," => Token::Comma,
-                "." => Token::Dot,
-                ":" => Token::Colon,
-                _ => unreachable!(),
-            },
-        ))
+        let start = self.pos.clone();
+        let tok = match self.consume(&Regex::new(r"[\[\].(){};,.:]").unwrap())? {
+            "[" => Token::LBracket,
+            "]" => Token::RBracket,
+            "(" => Token::LParen,
+            ")" => Token::RParen,
+            "{" => Token::LBrace,
+            "}" => Token::RBrace,
+            ";" => Token::Semicolon,
+            "," => Token::Comma,
+            "." => Token::Dot,
+            ":" => Token::Colon,
+            _ => unreachable!(),
+        };
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn consume_bool_lit(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            match self.consume(&Regex::new(r"true|false").unwrap())? {
-                "true" => Token::BoolLit(true),
-                "false" => Token::BoolLit(false),
-                _ => unreachable!(),
-            },
-        ))
+        let start = self.pos.clone();
+        let tok = match self.consume(&Regex::new(r"true|false").unwrap())? {
+            "true" => Token::BoolLit(true),
+            "false" => Token::BoolLit(false),
+            _ => unreachable!(),
+        };
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn consume_keywords(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            match self.consume(&Regex::new(r"mut|let|if|else|while|for|in").unwrap())? {
-                "mut" => Token::Mut,
-                "let" => Token::Let,
-                "if" => Token::If,
-                "else" => Token::Else,
-                "while" => Token::While,
-                "for" => Token::For,
-                "in" => Token::In,
-                _ => unreachable!(),
-            },
-        ))
+        let start = self.pos.clone();
+        let tok = match self.consume(&Regex::new(r"mut|let|if|else|while|for|in").unwrap())? {
+            "mut" => Token::Mut,
+            "let" => Token::Let,
+            "if" => Token::If,
+            "else" => Token::Else,
+            "while" => Token::While,
+            "for" => Token::For,
+            "in" => Token::In,
+            _ => unreachable!(),
+        };
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn consume_ident(&mut self) -> Option<(Span, Token)> {
-        Some((
-            Span {
-                start: self.pos.clone(),
-                end: self.pos.clone(),
-            },
-            Token::Ident(
-                self.consume(&Regex::new(r"\w[\w_-]*").unwrap())?
-                    .to_string(),
-            ),
-        ))
+        let start = self.pos.clone();
+        let tok = Token::Ident(
+            self.consume(&Regex::new(r"\w[\w_-]*").unwrap())?
+                .to_string(),
+        );
+        Some((Span::new(start, self.pos.clone()), tok))
     }
 }
 
