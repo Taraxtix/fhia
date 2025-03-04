@@ -102,3 +102,38 @@ fn test_ops() {
         assert_eq!(expected[i], actual[i]);
     }
 }
+
+#[test]
+fn test_indexing() {
+    let lexer = Lexer::new("tests/parser/correct/indexing.fhia").unwrap();
+    let actual = Parser::new(lexer)
+        .collected
+        .iter()
+        .map(|e| e.kind.clone())
+        .collect::<Vec<_>>();
+    #[allow(clippy::useless_vec)]
+    let expected = vec![EK::Index {
+        expr: Box::new(Expr {
+            kind: EK::Array(vec![Expr {
+                kind: EK::Char('A'),
+                ty: Some(T::Char),
+                span: Span::new_raw((1, 2), (1, 5)),
+                scope: Scope::default(),
+            }]),
+            ty: None,
+            span: Span::new_raw((1, 1), (1, 6)),
+            scope: Scope::default(),
+        }),
+        index: Box::new(Expr {
+            kind: EK::U32(0),
+            ty: Some(T::U32),
+            span: Span::new_raw((1, 7), (1, 8)),
+            scope: Scope::default(),
+        }),
+    }];
+
+    assert_eq!(expected.len(), actual.len());
+    for i in 0..expected.len() {
+        assert_eq!(expected[i], actual[i]);
+    }
+}

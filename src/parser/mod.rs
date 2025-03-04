@@ -126,6 +126,7 @@ impl<'a> Parser<'a> {
     fn parse(&mut self) {
         while let Some((span, tok)) = self.lexer.next() {
             use Token as T;
+            println!("[INFO]: parse( {}, {} )", span.start, tok);
             let expr = match tok {
                 T::Plus
                 | T::Minus
@@ -195,6 +196,7 @@ impl<'a> Parser<'a> {
     }
     fn parse_expr(&mut self, (span, tok): (Span, Token)) -> Expr {
         use Token as T;
+        println!("[INFO]: parse_expr( {}, {} )", span.start, tok);
         match tok {
             T::Unit => Expr {
                 kind: ExprKind::Unit,
@@ -256,6 +258,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_array_lit(&mut self, curr: (Span, Token)) -> Expr {
+        println!(
+            "[INFO]: call parse_array_lit( {}, {} )",
+            curr.0.start, curr.1
+        );
         let mut elements: Vec<Expr> = vec![];
         let mut expect_comma = false;
 
@@ -284,6 +290,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_binop(&mut self, curr: (Span, Token)) -> Expr {
+        println!("[INFO]: call parse_binop( {}, {} )", curr.0.start, curr.1);
         if self.collected.is_empty() {
             if curr.1 == Token::Minus {
                 return self.parse_unop(curr);
@@ -304,6 +311,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unop(&mut self, curr: (Span, Token)) -> Expr {
+        println!("[INFO]: call parse_unop( {}, {} )", curr.0.start, curr.1);
         let next = self.lexer.next().unwrap_or_else(|| {
             self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
         });
@@ -312,6 +320,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_index(&mut self, curr: (Span, Token)) -> Expr {
+        println!("[INFO]: call parse_index( {}, {} )", curr.0.start, curr.1);
         if self.collected.is_empty() {
             return self.parse_array_lit(curr);
         }
@@ -323,8 +332,9 @@ impl<'a> Parser<'a> {
             self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
         });
         let rhs = self.parse_expr(next);
-        if let Some((span, Token::RAngle)) = self.lexer.next() {
-            Expr {
+        match self.lexer.next() {
+            None => self.report_parsing_error(None, "Expected closing bracket after index"),
+            Some((span, Token::RBracket)) => Expr {
                 ty: None,
                 span: Span::new(lhs.span.start.clone(), span.end.clone()),
                 scope: self.get_scope(None),
@@ -332,9 +342,10 @@ impl<'a> Parser<'a> {
                     expr: Box::new(lhs),
                     index: Box::new(rhs),
                 },
+            },
+            Some((span, tok)) => {
+                self.report_parsing_error(Some((span, tok)), "Expected closing bracket after index")
             }
-        } else {
-            self.report_parsing_error(Some(curr.clone()), "Expected closing bracket after index")
         }
     }
 }

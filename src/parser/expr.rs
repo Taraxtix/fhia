@@ -80,7 +80,7 @@ impl Display for ExprKind {
             }
             ExprKind::UnOp { kind, arg } => write!(f, "{kind:?}( {arg} )"),
             ExprKind::Unit => write!(f, "()"),
-            ExprKind::Index { expr, index } => write!(f, "{expr}[{index}]"),
+            ExprKind::Index { expr, index } => write!(f, "Index ({expr}) at ({index})"),
         }
     }
 }
