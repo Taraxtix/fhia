@@ -5,7 +5,7 @@ mod parser;
 
 use clap::Parser as clapParser;
 use lexer::Lexer;
-use parser::Parser;
+use parser::{Item, Parser};
 
 #[derive(clapParser, Debug)]
 #[command(version, about, long_about = None)]
@@ -55,7 +55,10 @@ fn main() {
         println!("---------------------------------------------");
         println!("Parser output:\n");
         for expr in exprs.collected {
-            println!("{expr}");
+            match expr {
+                Item::Expr(expr) => print!("\n{expr}"),
+                Item::Semicolon => print!(";"),
+            }
         }
         println!("---------------------------------------------");
     }

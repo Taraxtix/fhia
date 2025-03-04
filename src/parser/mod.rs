@@ -90,9 +90,14 @@ impl Scope {
     }
 }
 
+pub enum Item {
+    Expr(Expr),
+    Semicolon,
+}
+
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    pub collected: Vec<Expr>,
+    pub collected: Vec<Item>,
     debug: bool,
 }
 
@@ -135,8 +140,25 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn peek_last_expr(&self) -> Option<&Expr> {
+        for item in self.collected.iter().rev() {
+            if let Item::Expr(expr) = item {
+                return Some(expr);
+            }
+        }
+        None
+    }
+
+    fn pop_last_expr(&mut self) -> Option<Expr> {
+        match self.collected.pop() {
+            Some(Item::Expr(expr)) => Some(expr),
+            Some(Item::Semicolon) => self.pop_last_expr(),
+            _ => None,
+        }
+    }
+
     fn get_scope(&self, new_env: Option<Env>) -> Scope {
-        match (new_env, self.collected.last()) {
+        match (new_env, self.peek_last_expr()) {
             (None, None) => Scope {
                 env: Env::default(),
                 parent: None,
@@ -183,16 +205,8 @@ impl<'a> Parser<'a> {
                 | T::Xor => self.parse_binop((span, tok)),
 
                 T::Semicolon => {
-                    if self.collected.is_empty() {
-                        self.report_parsing_error(
-                            Some((span, tok)),
-                            "expected expression before semicolon",
-                        );
-                    }
-                    let mut expr = self.collected.pop().unwrap();
-                    expr.span.end = span.end.clone();
-                    expr.ty = Some(Type::Unit);
-                    expr
+                    self.collected.push(Item::Semicolon);
+                    continue;
                 }
 
                 T::LBracket => self.parse_index((span, tok)),
@@ -216,7 +230,6 @@ impl<'a> Parser<'a> {
                 T::RShiftAssign => todo!(),
                 T::Assign => todo!(),
                 T::XorAssign => todo!(),
-                T::RBracket => todo!(),
                 T::RParen => todo!(),
                 T::LParen => todo!(),
                 T::LBrace => todo!(),
@@ -226,7 +239,7 @@ impl<'a> Parser<'a> {
 
                 _ => self.parse_expr((span, tok)),
             };
-            self.collected.push(expr);
+            self.collected.push(Item::Expr(expr));
         }
     }
     fn parse_expr(&mut self, (span, tok): (Span, Token)) -> Expr {
@@ -327,18 +340,19 @@ impl<'a> Parser<'a> {
 
     fn parse_binop(&mut self, curr: (Span, Token)) -> Expr {
         self.debug(format!("call parse_binop( {}, {} )", curr.0.start, curr.1));
-        if self.collected.is_empty() {
-            if curr.1 == Token::Minus {
-                return self.parse_unop(curr);
-            }
-            self.report_parsing_error(Some(curr), "Expected an expression before operator");
-        }
-        if let Some(Type::Unit) = self.collected.last().unwrap().ty {
-            if curr.1 == Token::Minus {
-                return self.parse_unop(curr);
-            }
-        }
-        let lhs = self.collected.pop().unwrap();
+
+        let lhs = match self.collected.pop() {
+            Some(Item::Semicolon) if curr.1 == Token::Minus => return self.parse_unop(curr),
+            Some(Item::Expr(expr)) => expr,
+            None if curr.1 == Token::Minus => return self.parse_unop(curr),
+            _ => match self.pop_last_expr() {
+                Some(expr) => expr,
+                None => {
+                    self.report_parsing_error(Some(curr), "Expected an expression before operator")
+                }
+            },
+        };
+
         let next = self.lexer.next().unwrap_or_else(|| {
             self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
         });
@@ -357,17 +371,18 @@ impl<'a> Parser<'a> {
 
     fn parse_index(&mut self, curr: (Span, Token)) -> Expr {
         self.debug(format!("call parse_index( {}, {} )", curr.0.start, curr.1));
-        if self.collected.is_empty() {
-            return self.parse_array_lit(curr);
-        }
-        if let Some(Type::Unit) = self.collected.last().unwrap().ty {
-            return self.parse_array_lit(curr);
-        }
-        let lhs = self.collected.pop().unwrap();
+
+        let lhs = match self.collected.pop() {
+            Some(Item::Semicolon) => return self.parse_array_lit(curr),
+            Some(Item::Expr(expr)) => expr,
+            None => return self.parse_array_lit(curr),
+        };
+
         let next = self.lexer.next().unwrap_or_else(|| {
             self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
         });
         let rhs = self.parse_expr(next);
+
         match self.lexer.next() {
             None => self.report_parsing_error(None, "Expected closing bracket after index"),
             Some((span, Token::RBracket)) => Expr {

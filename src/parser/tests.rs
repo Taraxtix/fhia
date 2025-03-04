@@ -17,7 +17,11 @@ fn test_lits() {
     let actual = Parser::new(lexer, false)
         .collected
         .iter()
-        .map(|e| e.kind.clone())
+        .filter(|i| matches!(i, Item::Expr(_)))
+        .map(|e| {
+            let Item::Expr(e) = e else { unreachable!() };
+            e.kind.clone()
+        })
         .collect::<Vec<_>>();
 
     let expected = vec![
@@ -67,7 +71,11 @@ fn test_ops() {
     let actual = Parser::new(lexer, false)
         .collected
         .iter()
-        .map(|e| e.kind.clone())
+        .filter(|i| matches!(i, Item::Expr(_)))
+        .map(|e| {
+            let Item::Expr(e) = e else { unreachable!() };
+            e.kind.clone()
+        })
         .collect::<Vec<_>>();
 
     let expected = vec![
@@ -109,7 +117,11 @@ fn test_indexing() {
     let actual = Parser::new(lexer, false)
         .collected
         .iter()
-        .map(|e| e.kind.clone())
+        .filter(|i| matches!(i, Item::Expr(_)))
+        .map(|e| {
+            let Item::Expr(e) = e else { unreachable!() };
+            e.kind.clone()
+        })
         .collect::<Vec<_>>();
     #[allow(clippy::useless_vec)]
     let expected = vec![EK::Index {
@@ -144,7 +156,11 @@ fn test_idents() {
     let actual = Parser::new(lexer, false)
         .collected
         .iter()
-        .map(|e| e.kind.clone())
+        .filter(|i| matches!(i, Item::Expr(_)))
+        .map(|e| {
+            let Item::Expr(e) = e else { unreachable!() };
+            e.kind.clone()
+        })
         .collect::<Vec<_>>();
 
     #[allow(clippy::useless_vec)]
