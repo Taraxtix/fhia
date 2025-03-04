@@ -14,7 +14,7 @@ fn test_lits() {
     };
 
     let lexer = Lexer::new("tests/parser/correct/lits.fhia").unwrap();
-    let actual = Parser::new(lexer)
+    let actual = Parser::new(lexer, false)
         .collected
         .iter()
         .map(|e| e.kind.clone())
@@ -64,7 +64,7 @@ fn test_ops() {
     };
 
     let lexer = Lexer::new("tests/parser/correct/ops.fhia").unwrap();
-    let actual = Parser::new(lexer)
+    let actual = Parser::new(lexer, false)
         .collected
         .iter()
         .map(|e| e.kind.clone())
@@ -106,7 +106,7 @@ fn test_ops() {
 #[test]
 fn test_indexing() {
     let lexer = Lexer::new("tests/parser/correct/indexing.fhia").unwrap();
-    let actual = Parser::new(lexer)
+    let actual = Parser::new(lexer, false)
         .collected
         .iter()
         .map(|e| e.kind.clone())
@@ -131,6 +131,45 @@ fn test_indexing() {
             scope: Scope::default(),
         }),
     }];
+
+    assert_eq!(expected.len(), actual.len());
+    for i in 0..expected.len() {
+        assert_eq!(expected[i], actual[i]);
+    }
+}
+
+#[test]
+fn test_idents() {
+    let lexer = Lexer::new("tests/parser/correct/ident.fhia").unwrap();
+    let actual = Parser::new(lexer, false)
+        .collected
+        .iter()
+        .map(|e| e.kind.clone())
+        .collect::<Vec<_>>();
+
+    #[allow(clippy::useless_vec)]
+    let expected = vec![
+        EK::Var("argc".to_string()),
+        EK::FuncCall {
+            name: "dbg".to_string(),
+            args: vec![Expr {
+                kind: EK::Var("argc".to_string()),
+                ty: Some(T::Size),
+                span: Span::new_raw((2, 5), (2, 9)),
+                scope: Scope::default(),
+            }],
+        },
+        EK::FuncCall {
+            name: "dbg".to_string(),
+            args: vec![Expr {
+                kind: EK::Var("argv".to_string()),
+                ty: Some(T::c_ref(T::c_ref(T::Char))),
+                span: Span::new_raw((3, 5), (3, 9)),
+                scope: Scope::default(),
+            }],
+        },
+        EK::Var("argv".to_string()),
+    ];
 
     assert_eq!(expected.len(), actual.len());
     for i in 0..expected.len() {

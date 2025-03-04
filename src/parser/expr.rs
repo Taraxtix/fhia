@@ -12,7 +12,10 @@ use super::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     Var(String),
-    FuncCall(String, Vec<Expr>),
+    FuncCall {
+        name: String,
+        args: Vec<Expr>,
+    },
     Index {
         expr: Box<Expr>,
         index: Box<Expr>,
@@ -43,13 +46,13 @@ pub enum ExprKind {
 impl Display for ExprKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExprKind::Var(name) => write!(f, "var: {name}"),
-            ExprKind::FuncCall(name, exprs) => {
+            ExprKind::Var(name) => write!(f, "{name}"),
+            ExprKind::FuncCall { name, args } => {
                 write!(f, "{name}(")?;
-                match exprs.last() {
+                match args.last() {
                     Some(e) => {
-                        for i in 0..exprs.len() - 1 {
-                            write!(f, " {},", exprs.get(i).unwrap())?;
+                        for i in 0..args.len() - 1 {
+                            write!(f, " {},", args.get(i).unwrap())?;
                         }
                         write!(f, "{e} )")
                     }

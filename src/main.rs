@@ -20,12 +20,16 @@ struct Args {
     output: String,
 
     /// Only print the Lexer's output
-    #[arg(short, long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     lexer: bool,
 
     /// Only print the Parser's output
-    #[arg(short, long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     parser: bool,
+
+    /// Enable debug mode
+    #[arg(short, long, default_value_t = false)]
+    debug: bool,
 }
 
 fn main() {
@@ -36,23 +40,23 @@ fn main() {
         std::process::exit(1);
     });
 
-    if args.lexer && args.parser {
-        println!(
-            "Cannot print both lexer and parser output only one of `--lexer | -l` or `--parser | -p` can be provided"
-        );
-        std::process::exit(1);
-    }
-
     if args.lexer {
-        for (span, token) in lexer {
+        println!("---------------------------------------------");
+        println!("Lexer output:\n");
+        for (span, token) in lexer.clone() {
             println!("from {} to {}: {token}", span.start, span.end);
         }
-        return;
+        println!("---------------------------------------------");
     }
 
-    let exprs = Parser::new(lexer);
+    let exprs = Parser::new(lexer, args.debug);
 
-    for expr in exprs.collected {
-        println!("{expr}");
+    if args.parser {
+        println!("---------------------------------------------");
+        println!("Parser output:\n");
+        for expr in exprs.collected {
+            println!("{expr}");
+        }
+        println!("---------------------------------------------");
     }
 }

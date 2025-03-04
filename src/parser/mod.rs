@@ -14,7 +14,7 @@ use types::Type;
 #[derive(Debug, Clone, PartialEq)]
 struct Var {
     name: String,
-    ty: Type,
+    ty: Option<Type>,
 }
 
 #[derive(Debug, Clone)]
@@ -43,11 +43,11 @@ impl Default for Env {
             vars: vec![
                 Var {
                     name: String::from("argc"),
-                    ty: Type::Size,
+                    ty: Some(Type::Size),
                 },
                 Var {
                     name: String::from("argv"),
-                    ty: Type::c_ref(Type::c_ref(Type::Char)),
+                    ty: Some(Type::c_ref(Type::c_ref(Type::Char))),
                 },
             ],
             functions: vec![Func {
@@ -62,19 +62,46 @@ impl Default for Env {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Scope {
     env: Env,
-    parent: Option<Box<Scope>>,
+    pub parent: Option<Box<Scope>>,
+}
+impl Scope {
+    fn get_var(&self, name: &str) -> Option<&Var> {
+        for var in &self.env.vars {
+            if var.name == name {
+                return Some(var);
+            }
+        }
+        if let Some(parent) = &self.parent {
+            return parent.get_var(name);
+        }
+        None
+    }
+
+    fn get_func(&self, name: &str) -> Option<&Func> {
+        for func in &self.env.functions {
+            if func.name == name {
+                return Some(func);
+            }
+        }
+        if let Some(parent) = &self.parent {
+            return parent.get_func(name);
+        }
+        None
+    }
 }
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     pub collected: Vec<Expr>,
+    debug: bool,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Self {
+    pub fn new(lexer: Lexer<'a>, debug: bool) -> Self {
         let mut it = Self {
             lexer,
             collected: Vec::new(),
+            debug,
         };
         it.parse();
         it
@@ -102,13 +129,20 @@ impl<'a> Parser<'a> {
         std::process::exit(1);
     }
 
+    fn debug(&self, msg: impl Display) {
+        if self.debug {
+            println!("[DEBUG]: {}", msg);
+        }
+    }
+
     fn get_scope(&self, new_env: Option<Env>) -> Scope {
-        match (new_env, self.collected.last().map(|e| &e.scope)) {
+        match (new_env, self.collected.last()) {
             (None, None) => Scope {
                 env: Env::default(),
                 parent: None,
             },
-            (None, Some(scope)) => scope.clone(),
+            // (None, Some(Expr{scope, kind: ExprKind::Block(_), ..})) => *scope.parent.unwrap(),
+            (None, Some(Expr { scope, .. })) => scope.clone(),
             (Some(new_env), None) => Scope {
                 env: new_env,
                 parent: Some(Box::new(Scope {
@@ -116,7 +150,7 @@ impl<'a> Parser<'a> {
                     parent: None,
                 })),
             },
-            (Some(new_env), Some(scope)) => Scope {
+            (Some(new_env), Some(Expr { scope, .. })) => Scope {
                 env: new_env,
                 parent: Some(Box::new(scope.clone())),
             },
@@ -126,7 +160,7 @@ impl<'a> Parser<'a> {
     fn parse(&mut self) {
         while let Some((span, tok)) = self.lexer.next() {
             use Token as T;
-            println!("[INFO]: parse( {}, {} )", span.start, tok);
+            self.debug(format!("parse( {}, {} )", span.start, tok));
             let expr = match tok {
                 T::Plus
                 | T::Minus
@@ -163,7 +197,8 @@ impl<'a> Parser<'a> {
 
                 T::LBracket => self.parse_index((span, tok)),
 
-                T::Ident(_) => todo!(),
+                T::Ident(_) => self.parse_ident((span, tok)),
+
                 T::Let => todo!(),
                 T::If => todo!(),
                 T::Else => todo!(),
@@ -196,7 +231,7 @@ impl<'a> Parser<'a> {
     }
     fn parse_expr(&mut self, (span, tok): (Span, Token)) -> Expr {
         use Token as T;
-        println!("[INFO]: parse_expr( {}, {} )", span.start, tok);
+        self.debug(format!("parse_expr( {}, {} )", span.start, tok));
         match tok {
             T::Unit => Expr {
                 kind: ExprKind::Unit,
@@ -223,7 +258,8 @@ impl<'a> Parser<'a> {
             | T::Bang
             | T::BNeg => self.parse_unop((span, tok)),
 
-            T::Ident(_) => todo!(),
+            T::Ident(_) => self.parse_ident((span, tok)),
+
             T::Let => todo!(),
             T::If => todo!(),
             T::Else => todo!(),
@@ -258,10 +294,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_array_lit(&mut self, curr: (Span, Token)) -> Expr {
-        println!(
-            "[INFO]: call parse_array_lit( {}, {} )",
+        self.debug(format!(
+            "call parse_array_lit( {}, {} )",
             curr.0.start, curr.1
-        );
+        ));
         let mut elements: Vec<Expr> = vec![];
         let mut expect_comma = false;
 
@@ -290,7 +326,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_binop(&mut self, curr: (Span, Token)) -> Expr {
-        println!("[INFO]: call parse_binop( {}, {} )", curr.0.start, curr.1);
+        self.debug(format!("call parse_binop( {}, {} )", curr.0.start, curr.1));
         if self.collected.is_empty() {
             if curr.1 == Token::Minus {
                 return self.parse_unop(curr);
@@ -311,7 +347,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unop(&mut self, curr: (Span, Token)) -> Expr {
-        println!("[INFO]: call parse_unop( {}, {} )", curr.0.start, curr.1);
+        self.debug(format!("call parse_unop( {}, {} )", curr.0.start, curr.1));
         let next = self.lexer.next().unwrap_or_else(|| {
             self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
         });
@@ -320,7 +356,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_index(&mut self, curr: (Span, Token)) -> Expr {
-        println!("[INFO]: call parse_index( {}, {} )", curr.0.start, curr.1);
+        self.debug(format!("call parse_index( {}, {} )", curr.0.start, curr.1));
         if self.collected.is_empty() {
             return self.parse_array_lit(curr);
         }
@@ -346,6 +382,45 @@ impl<'a> Parser<'a> {
             Some((span, tok)) => {
                 self.report_parsing_error(Some((span, tok)), "Expected closing bracket after index")
             }
+        }
+    }
+
+    fn parse_ident(&mut self, (span, tok): (Span, Token)) -> Expr {
+        let scope = self.get_scope(None);
+        let Token::Ident(name) = tok.clone() else {
+            unreachable!()
+        };
+        if let Some(var) = scope.get_var(&name) {
+            Expr {
+                ty: var.ty.clone(),
+                span: Span::new(span.start.clone(), span.end.clone()),
+                scope: self.get_scope(None),
+                kind: ExprKind::Var(name),
+            }
+        } else if let Some(func) = scope.get_func(&name) {
+            Expr {
+                kind: ExprKind::FuncCall {
+                    args: func
+                        .args
+                        .iter()
+                        .map(|_| {
+                            let next = self.lexer.next().unwrap_or_else(|| {
+                                self.report_parsing_error(
+                                    None,
+                                    format!("Not enough arguments to call {}", &name),
+                                )
+                            });
+                            self.parse_expr(next)
+                        })
+                        .collect(),
+                    name,
+                },
+                ty: Some(func.ty.clone()),
+                span,
+                scope,
+            }
+        } else {
+            self.report_parsing_error(Some((span, tok)), "Unknown identifier")
         }
     }
 }

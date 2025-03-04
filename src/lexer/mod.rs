@@ -183,6 +183,7 @@ impl Display for Token {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     pub path: &'a str,
     source: String,
