@@ -1,4 +1,4 @@
-#include "../include/io.h"
+#include "io.h"
 
 size write_0(FileDescriptor fd, Ref_str buf) {
   return write(fd, buf.data, buf.len);

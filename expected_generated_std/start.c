@@ -1,6 +1,6 @@
-#include "../include/primitives.h"
-#include "../include/process.h"
-#include "../include/str.h"
+#include "primitives.h"
+#include "process.h"
+#include "str.h"
 
 extern i32 main(Ref_Slice_Ref_str args);
 

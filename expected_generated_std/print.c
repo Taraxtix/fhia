@@ -1,4 +1,4 @@
-#include "../include/print.h"
+#include "print.h"
 
 unit print_0(_char c) { putc_0(stdout, c); }
 
