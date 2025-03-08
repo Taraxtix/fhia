@@ -1,0 +1,66 @@
+use io
+
+let print (c: char) : () = putc stdout c;
+
+let print (str: &str) : () = write stdout str;
+
+let print (val: u8) : () = print (val as u128)
+let print (val: u16) : () = print (val as u128)
+let print (val: u32) : () = print (val as u128)
+let print (val: u64) : () = print (val as u128)
+
+let print (val: u128) : () = print '0'
+let print (val: u128) : () = {
+
+	let aux (0: u128) : () = ()
+	let aux (val: u128) : () = {
+			aux (val / 10)
+			print ((val % 10) as char + '0')
+	}
+
+	aux val
+}
+
+let print (val: i8) : () = print (val as i128)
+let print (val: i16) : () = print (val as i128)
+let print (val: i32) : () = print (val as i128)
+let print (val: i64) : () = print (val as i128)
+
+let print (0.. : i128) : () = print (val as u128)
+let print (val: i128) : () = {
+	print '-'
+	print (-val as u128)
+}
+
+let print (val: bool) : () = print (if val { "true" } else { "false" })
+
+let print (val: f32) : () = print (val as f128)
+let print (val: f64) : () = print (val as f128)
+
+let print (val: f128) : () = {
+	print (val as i128)
+	print '.'
+
+	let aux (0.: f128) : () = ()
+	let aux (val: f128) : () = {
+		let new_val = val * 10.
+		aux (new_val - (new_val as u128))
+		print (new_val as u128)
+	}
+	let new_val = val - if val < 0. { -val * 2.} else { val }
+	aux new_val
+}
+
+let print (val: &[T]) : () = {
+	print '[ '
+	for i in val {
+		print i
+		print ' '
+	}
+	print ']'
+}
+
+let println val : () = {
+	print val;
+	print '\n'
+}

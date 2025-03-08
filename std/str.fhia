@@ -1,0 +1,7 @@
+type CString = str; // There are essentially the same except for the Null terminator which is not required in str
+
+extern strlen (c_str: CString) : size
+
+let from (c_str: CString) : &str = {
+	&str {.len = len, .data = strlen(c_str)}
+}

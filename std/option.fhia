@@ -1,0 +1,15 @@
+use panic
+
+enum Option<T> {
+	Some(T),
+	None
+}
+
+let unwrap (Some(val): Option<T>) : T = val
+let unwrap (None: Option<T>) : ! = panic "Called unwrap on None variant of Option"
+
+let is_some (Some(_): Option<T>) : bool = true
+let is_some (None: Option<T>) : bool = false
+
+let is_none (Some(_): Option<T>) : bool = false
+let is_none (None: Option<T>) : bool = true

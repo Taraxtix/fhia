@@ -101,8 +101,6 @@ fn test_ops() {
         unop(UnOp::Minus, u32(1, 20, 2)),
         unop(UnOp::BNeg, u32(1, 21, 2)),
         unop(UnOp::LNot, u32(1, 22, 2)),
-        unop(UnOp::ConstDeref, u32(1, 23, 8)),
-        unop(UnOp::MutDeref, u32(1, 24, 6)),
     ];
 
     assert_eq!(expected.len(), actual.len());

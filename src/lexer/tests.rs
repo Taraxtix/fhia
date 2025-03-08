@@ -186,19 +186,6 @@ fn test_types() {
         Token::Char,
         Token::Str,
         Token::Unit,
-        Token::ConstRef,
-        Token::MutRef,
-        Token::Array {
-            ty: Box::new(Token::U8),
-            size: Box::new(Token::U32Lit(8)),
-        },
-        Token::Array {
-            ty: Box::new(Token::Array {
-                ty: Box::new(Token::I32),
-                size: Box::new(Token::U32Lit(14)),
-            }),
-            size: Box::new(Token::U32Lit(10)),
-        },
         Token::Wildcard,
         Token::Bang,
     ];
@@ -220,8 +207,6 @@ fn test_ops() {
         Token::MinusAssign,
         Token::Decrement,
         Token::Minus,
-        Token::ConstDeref,
-        Token::MutDeref,
         Token::TimesAssign,
         Token::Power,
         Token::Times,

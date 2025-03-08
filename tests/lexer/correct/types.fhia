@@ -14,11 +14,7 @@ f64
 f128
 bool
 char
-string
+str
 ()
-&const
-&mut
-[u8; 8]
-[[i32; 14]; 10]
 _
 !

@@ -23,7 +23,7 @@ pub enum ExprKind {
 
     U32(u32),
     U64(u64),
-    U128(u128),
+    // U128(u128),
     F64(f64),
     Str(String),
     Bool(bool),
@@ -61,7 +61,7 @@ impl Display for ExprKind {
             }
             ExprKind::U32(val) => write!(f, "{val}"),
             ExprKind::U64(val) => write!(f, "{val}"),
-            ExprKind::U128(val) => write!(f, "{val}"),
+            // ExprKind::U128(val) => write!(f, "{val}"),
             ExprKind::F64(val) => write!(f, "{val}"),
             ExprKind::Str(val) => write!(f, "\"{val}\""),
             ExprKind::Bool(val) => write!(f, "{val}"),
@@ -106,7 +106,7 @@ impl Expr {
         let (kind, ty) = match tok {
             Token::U32Lit(lit) => (ExprKind::U32(lit), Type::U32),
             Token::U64Lit(lit) => (ExprKind::U64(lit), Type::U64),
-            Token::U128Lit(lit) => (ExprKind::U128(lit), Type::U128),
+            // Token::U128Lit(lit) => (ExprKind::U128(lit), Type::U128),
             Token::FLit(lit) => (ExprKind::F64(lit), Type::F64),
             Token::StrLit(lit) => (ExprKind::Str(lit), Type::Str),
             Token::CharLit(lit) => (ExprKind::Char(lit), Type::Char),

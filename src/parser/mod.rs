@@ -1,8 +1,8 @@
-mod expr;
+pub mod expr;
 mod ops;
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 
 use std::fmt::Display;
 
@@ -32,7 +32,7 @@ struct Func {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Env {
+pub struct Env {
     vars: Vec<Var>,
     functions: Vec<Func>,
 }
@@ -61,7 +61,7 @@ impl Default for Env {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Scope {
-    env: Env,
+    pub env: Env,
     pub parent: Option<Box<Scope>>,
 }
 impl Scope {
@@ -90,6 +90,7 @@ impl Scope {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Item {
     Expr(Expr),
     Semicolon,
@@ -219,6 +220,8 @@ impl<'a> Parser<'a> {
                 T::While => todo!(),
                 T::For => todo!(),
                 T::In => todo!(),
+
+                T::Assign => todo!(),
                 T::PlusAssign => todo!(),
                 T::MinusAssign => todo!(),
                 T::TimesAssign => todo!(),
@@ -228,12 +231,13 @@ impl<'a> Parser<'a> {
                 T::OrAssign => todo!(),
                 T::LShiftAssign => todo!(),
                 T::RShiftAssign => todo!(),
-                T::Assign => todo!(),
                 T::XorAssign => todo!(),
+
                 T::RParen => todo!(),
                 T::LParen => todo!(),
                 T::LBrace => todo!(),
                 T::RBrace => todo!(),
+
                 T::Colon => todo!(),
                 T::Dot => todo!(),
 
@@ -266,8 +270,6 @@ impl<'a> Parser<'a> {
             T::Minus
             // | T::Increment
             // | T::Decrement
-            | T::ConstDeref
-            | T::MutDeref
             | T::Bang
             | T::BNeg => self.parse_unop((span, tok)),
 

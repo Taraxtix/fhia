@@ -62,8 +62,13 @@ pub enum Token {
     CharLit(char),
     BoolLit(bool),
 
-    //Keywords
+    //Modifiers
+    Const,
     Mut,
+    Inline,
+    Extern,
+
+    //Keywords
     Let,
     If,
     Else,
@@ -78,8 +83,6 @@ pub enum Token {
     Minus,
     Decrement,
     MinusAssign,
-    ConstDeref, // *const
-    MutDeref,   // *mut
     Times,
     TimesAssign,
     Power,
@@ -140,41 +143,7 @@ pub enum Token {
     Char,
     Str,
     Unit,
-    ConstRef, // &const
-    MutRef,   // &mut
-    Array { ty: Box<Token>, size: Box<Token> },
     Wildcard,
-}
-
-impl Token {
-    fn is_type(&self) -> bool {
-        matches!(
-            self,
-            Token::I8
-                | Token::I16
-                | Token::I32
-                | Token::I64
-                | Token::I128
-                | Token::U8
-                | Token::U16
-                | Token::U32
-                | Token::U64
-                | Token::U128
-                | Token::Size
-                | Token::F32
-                | Token::F64
-                | Token::F128
-                | Token::Bool
-                | Token::Char
-                | Token::Str
-                | Token::Unit
-                | Token::ConstRef
-                | Token::MutRef
-                | Token::Array { .. }
-                | Token::Bang
-                | Token::Wildcard
-        )
-    }
 }
 
 impl Display for Token {
@@ -420,80 +389,44 @@ impl<'a> Lexer<'a> {
 
     fn consume_type(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let tok = match self.consume(&Regex::new(r"\[[^\n]+;[^\n\]]+\]|[iuf](32|64|128)|[iu](8|16)|size|bool|char|string|\(\)|&(const|mut)|_").unwrap())? {
-                "i8" => Token::I8,
-                "i16" => Token::I16,
-                "i32" => Token::I32,
-                "i64" => Token::I64,
-                "i128" => Token::I128,
-                "u8" => Token::U8,
-                "u16" => Token::U16,
-                "u32" => Token::U32,
-                "u64" => Token::U64,
-                "u128" => Token::U128,
-                "size" => Token::Size,
-                "f32" => Token::F32,
-                "f64" => Token::F64,
-                "f128" => Token::F128,
-                "bool" => Token::Bool,
-                "char" => Token::Char,
-                "string" => Token::Str,
-                "()" => Token::Unit,
-                "&const" => Token::ConstRef,
-                "&mut" => Token::MutRef,
-                "_" => Token::Wildcard,
-                array_str if array_str.starts_with('[') => {
-                    let array_str = &array_str[1..array_str.len() - 1];
-                    let (ty, size) = array_str.rsplit_once(';').map(|c| (c.0.to_string(), c.1.to_string())).unwrap();
-
-                    let (mut ty_lexer, mut size_lexer) = (
-                        Self {
-                        pos: self.pos.clone(),
-                        idx: 0,
-                        path: self.path,
-                        source: ty,
-                    },Self {
-                        pos: self.pos.clone(),
-                        idx: 0,
-                        path: self.path,
-                        source: size,
-                    }
-                    );
-
-                    let tok = match (ty_lexer.next(), size_lexer.next()) {
-                        (Some((_, ty)), Some((_, size))) if ty.is_type() => Token::Array{ty: Box::new(ty), size: Box::new(size)},
-                        (Some((_, Token::Ident(user_ty))), Some((_, size))) => Token::Array{ty: Box::new(Token::Ident(user_ty)), size: Box::new(size)},
-                        (Some(_), Some(_)) => self.report_error(self.pos.clone(), "invalid array type"),
-                        (None, Some(_)) => self.report_error(self.pos.clone(), "missing array type"),
-                        (Some(_), None) => self.report_error(self.pos.clone(), "missing array size"),
-                        (None, None) => self.report_error(self.pos.clone(), "missing array type and size"),
-                    };
-
-                    match (ty_lexer.next(), size_lexer.next()) {
-                        (None, None) => tok,
-                        (Some(_), None) => self.report_error(self.pos.clone(), "Too many tokens in array type"),
-                        (None, Some(_)) => self.report_error(self.pos.clone(), "Too many tokens in array size"),
-                        (Some(_), Some(_)) => self.report_error(self.pos.clone(), "Too many tokens in array type and size"),
-                    }
-                },
-                _ => unreachable!(),
-            };
+        let tok = match self.consume(
+            &Regex::new(r"[iuf](32|64|128)|[iu](8|16)|size|bool|char|str|\(\)|_").unwrap(),
+        )? {
+            "i8" => Token::I8,
+            "i16" => Token::I16,
+            "i32" => Token::I32,
+            "i64" => Token::I64,
+            "i128" => Token::I128,
+            "u8" => Token::U8,
+            "u16" => Token::U16,
+            "u32" => Token::U32,
+            "u64" => Token::U64,
+            "u128" => Token::U128,
+            "size" => Token::Size,
+            "f32" => Token::F32,
+            "f64" => Token::F64,
+            "f128" => Token::F128,
+            "bool" => Token::Bool,
+            "char" => Token::Char,
+            "str" => Token::Str,
+            "()" => Token::Unit,
+            "_" => Token::Wildcard,
+            _ => unreachable!(),
+        };
         Some((Span::new(start, self.pos.clone()), tok))
     }
 
     fn consume_ops(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let tok = match self.consume(
-            &Regex::new(r"(\*(const|mut)|[<>]{2}=|[+*|&<>=-]{2}|[+*/%|&!<>^-]=?|[~=])").unwrap(),
-        )? {
+        let tok = match self
+            .consume(&Regex::new(r"([<>]{2}=|[+*|&<>=-]{2}|[+*/%|&!<>^-]=?|[~=])").unwrap())?
+        {
             "+=" => Token::PlusAssign,
             "++" => Token::Increment,
             "+" => Token::Plus,
             "-=" => Token::MinusAssign,
             "--" => Token::Decrement,
             "-" => Token::Minus,
-            "*const" => Token::ConstDeref,
-            "*mut" => Token::MutDeref,
             "*=" => Token::TimesAssign,
             "**" => Token::Power,
             "*" => Token::Times,
@@ -555,10 +488,21 @@ impl<'a> Lexer<'a> {
         Some((Span::new(start, self.pos.clone()), tok))
     }
 
+    fn consume_modifiers(&mut self) -> Option<(Span, Token)> {
+        let start = self.pos.clone();
+        let tok = match self.consume(&Regex::new(r"mut|const|inline|extern").unwrap())? {
+            "mut" => Token::Mut,
+            "const" => Token::Const,
+            "inline" => Token::Inline,
+            "extern" => Token::Extern,
+            _ => unreachable!(),
+        };
+        Some((Span::new(start, self.pos.clone()), tok))
+    }
+
     fn consume_keywords(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let tok = match self.consume(&Regex::new(r"mut|let|if|else|while|for|in").unwrap())? {
-            "mut" => Token::Mut,
+        let tok = match self.consume(&Regex::new(r"let|if|else|while|for|in").unwrap())? {
             "let" => Token::Let,
             "if" => Token::If,
             "else" => Token::Else,
@@ -605,6 +549,7 @@ impl Iterator for Lexer<'_> {
                 .or_else(|| self.consume_delims())
                 .or_else(|| self.consume_bool_lit())
                 .or_else(|| self.consume_keywords())
+                .or_else(|| self.consume_modifiers())
                 .or_else(|| self.consume_ident())
                 .unwrap_or_else(|| {
                     self.report_error(

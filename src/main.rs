@@ -1,9 +1,11 @@
 #![feature(string_into_chars, pattern, assert_matches)]
-
+#![feature(str_from_raw_parts)]
+mod compiler;
 mod lexer;
 mod parser;
 
 use clap::Parser as clapParser;
+use compiler::Compiler;
 use lexer::Lexer;
 use parser::{Item, Parser};
 
@@ -49,12 +51,12 @@ fn main() {
         println!("---------------------------------------------");
     }
 
-    let exprs = Parser::new(lexer, args.debug);
+    let parser = Parser::new(lexer, args.debug);
 
     if args.parser {
         println!("---------------------------------------------");
         println!("Parser output:\n");
-        for expr in exprs.collected {
+        for expr in parser.collected.iter() {
             match expr {
                 Item::Expr(expr) => print!("\n{expr}"),
                 Item::Semicolon => print!(";"),
@@ -62,4 +64,6 @@ fn main() {
         }
         println!("---------------------------------------------");
     }
+
+    Compiler::new(parser).compile(&args)
 }

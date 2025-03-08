@@ -130,9 +130,6 @@ pub enum UnOp {
 
     // Decrement,
     // Increment,
-    MutDeref,
-    ConstDeref,
-
     LNot,
     BNeg,
 }
@@ -140,8 +137,6 @@ impl UnOp {
     pub fn from_token(tok: &Token) -> Self {
         match tok {
             Token::Minus => Self::Minus,
-            Token::ConstDeref => Self::ConstDeref,
-            Token::MutDeref => Self::MutDeref,
             Token::Bang => Self::LNot,
             Token::BNeg => Self::BNeg,
             _ => unreachable!(),

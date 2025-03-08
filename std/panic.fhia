@@ -1,0 +1,13 @@
+use string
+use print
+use process
+
+inline let panic (msg : &str) : ! = {
+	print "[PANIC]: "
+	print #FILE#
+	print ":"
+	print #LINE#
+	print ": "
+	println msg
+	exit 1
+}

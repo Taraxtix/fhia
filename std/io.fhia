@@ -1,0 +1,13 @@
+use str
+
+type FileDescriptor = i32
+
+extern stdout : FileDescriptor
+extern stderr : FileDescriptor
+extern stdin : FileDescriptor
+
+extern write (fd: FileDescriptor) (buf: CString) (len: size) : size
+
+let write (fd: FileDescriptor) (buf: &str) : size = write fd buf.data buf.len
+
+let putc (fd: FileDescriptor) (c: char) : size = write fd &c 1
