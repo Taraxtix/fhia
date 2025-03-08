@@ -14,7 +14,7 @@ fn test_lits() {
     };
 
     let lexer = Lexer::new("tests/parser/correct/lits.fhia").unwrap();
-    let actual = Parser::new(lexer, false)
+    let actual = Parser::parse_user_program(lexer, &Args::default())
         .collected
         .iter()
         .filter(|i| matches!(i, Item::Expr(_)))
@@ -68,7 +68,7 @@ fn test_ops() {
     };
 
     let lexer = Lexer::new("tests/parser/correct/ops.fhia").unwrap();
-    let actual = Parser::new(lexer, false)
+    let actual = Parser::parse_user_program(lexer, &Args::default())
         .collected
         .iter()
         .filter(|i| matches!(i, Item::Expr(_)))
@@ -112,7 +112,7 @@ fn test_ops() {
 #[test]
 fn test_indexing() {
     let lexer = Lexer::new("tests/parser/correct/indexing.fhia").unwrap();
-    let actual = Parser::new(lexer, false)
+    let actual = Parser::parse_user_program(lexer, &Args::default())
         .collected
         .iter()
         .filter(|i| matches!(i, Item::Expr(_)))
@@ -151,7 +151,7 @@ fn test_indexing() {
 #[test]
 fn test_idents() {
     let lexer = Lexer::new("tests/parser/correct/ident.fhia").unwrap();
-    let actual = Parser::new(lexer, false)
+    let actual = Parser::parse_user_program(lexer, &Args::default())
         .collected
         .iter()
         .filter(|i| matches!(i, Item::Expr(_)))

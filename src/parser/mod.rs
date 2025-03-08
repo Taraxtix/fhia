@@ -6,7 +6,11 @@ pub mod types;
 
 use std::fmt::Display;
 
-use crate::lexer::{Lexer, Span, Token};
+use crate::{
+    Args,
+    lexer::{Lexer, Span, Token},
+    modules::Module,
+};
 use expr::{Expr, ExprKind};
 use ops::{BinOp, UnOp};
 use types::Type;
@@ -96,18 +100,30 @@ pub enum Item {
     Semicolon,
 }
 
+#[allow(dead_code)]
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     pub collected: Vec<Item>,
-    debug: bool,
+    args: &'a Args,
+    modules: Vec<Module<'a>>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>, debug: bool) -> Self {
+    pub fn parse_user_program(lexer: Lexer<'a>, args: &'a Args) -> Self {
         let mut it = Self {
-            lexer,
             collected: Vec::new(),
-            debug,
+            args,
+            modules: vec![Module::File {
+                name: lexer
+                    .path
+                    .rsplit_once('/')
+                    .unwrap_or(("", lexer.path))
+                    .1
+                    .to_string(),
+                lexer: lexer.clone(),
+                parsed: true,
+            }],
+            lexer,
         };
         it.parse();
         it
@@ -136,7 +152,7 @@ impl<'a> Parser<'a> {
     }
 
     fn debug(&self, msg: impl Display) {
-        if self.debug {
+        if self.args.debug {
             println!("[DEBUG]: {}", msg);
         }
     }

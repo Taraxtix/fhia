@@ -75,6 +75,7 @@ pub enum Token {
     While,
     For,
     In,
+    Use,
 
     //Operators
     Plus,
@@ -168,6 +169,15 @@ impl<'a> Lexer<'a> {
             idx: 0,
             pos: Position { line: 1, column: 1 },
         })
+    }
+
+    pub fn from_filename_and_source(path: &'a str, source: &str) -> Self {
+        Self {
+            path,
+            source: source.to_string(),
+            idx: 0,
+            pos: Position { line: 1, column: 1 },
+        }
     }
 
     fn report_error(&self, pos: Position, msg: impl Display) -> ! {
@@ -502,13 +512,14 @@ impl<'a> Lexer<'a> {
 
     fn consume_keywords(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
-        let tok = match self.consume(&Regex::new(r"let|if|else|while|for|in").unwrap())? {
+        let tok = match self.consume(&Regex::new(r"let|if|else|while|for|in|use").unwrap())? {
             "let" => Token::Let,
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
             "for" => Token::For,
             "in" => Token::In,
+            "use" => Token::Use,
             _ => unreachable!(),
         };
         Some((Span::new(start, self.pos.clone()), tok))

@@ -2,6 +2,7 @@
 #![feature(str_from_raw_parts)]
 mod compiler;
 mod lexer;
+mod modules;
 mod parser;
 
 use clap::Parser as clapParser;
@@ -11,6 +12,7 @@ use parser::{Item, Parser};
 
 #[derive(clapParser, Debug)]
 #[command(version, about, long_about = None)]
+#[derive(Default)]
 struct Args {
     /// Input file to compile
     // #[arg(required = true)]
@@ -32,6 +34,10 @@ struct Args {
     /// Enable debug mode
     #[arg(short, long, default_value_t = false)]
     debug: bool,
+
+    /// Don't link std module
+    #[arg(long, default_value_t = false)]
+    no_std: bool,
 }
 
 fn main() {
@@ -51,7 +57,7 @@ fn main() {
         println!("---------------------------------------------");
     }
 
-    let parser = Parser::new(lexer, args.debug);
+    let parser = Parser::parse_user_program(lexer, &args);
 
     if args.parser {
         println!("---------------------------------------------");
@@ -65,5 +71,5 @@ fn main() {
         println!("---------------------------------------------");
     }
 
-    Compiler::new(parser).compile(&args)
+    Compiler::new().compile(parser, &args)
 }
