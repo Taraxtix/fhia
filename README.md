@@ -105,8 +105,8 @@ precedences and associativity are based on : <https://en.cppreference.com/w/c/la
 #### Other
 
 - `=` assignment (precedence: 14 | associativity: left)
-- `*const` constant dereference (precedence: 2 | associativity: left)
-- `*mut` mutable dereference    (precedence: 2 | associativity: left)
+- `*` constant dereference (precedence: 2 | associativity: left)
+- `.` member access/function call (precedence: 1 | associativity: left)
 
 ### Reserved functions
 

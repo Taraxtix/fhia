@@ -178,7 +178,7 @@ fn test_types() {
         Token::U32,
         Token::U64,
         Token::U128,
-        Token::Size,
+        // Token::Size,
         Token::F32,
         Token::F64,
         Token::F128,

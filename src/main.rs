@@ -8,7 +8,7 @@ mod parser;
 use clap::Parser as clapParser;
 use compiler::Compiler;
 use lexer::Lexer;
-use parser::{Item, Parser};
+use parser::Parser;
 
 #[derive(clapParser, Debug)]
 #[command(version, about, long_about = None)]
@@ -36,7 +36,7 @@ struct Args {
     debug: bool,
 
     /// Don't link std module
-    #[arg(long, default_value_t = false)]
+    #[arg(long, default_value_t = true)] // TODO: Change to false when implemented
     no_std: bool,
 }
 
@@ -62,11 +62,8 @@ fn main() {
     if args.parser {
         println!("---------------------------------------------");
         println!("Parser output:\n");
-        for expr in parser.collected.iter() {
-            match expr {
-                Item::Expr(expr) => print!("\n{expr}"),
-                Item::Semicolon => print!(";"),
-            }
+        for expr in parser.clone() {
+            println!("{expr}")
         }
         println!("---------------------------------------------");
     }

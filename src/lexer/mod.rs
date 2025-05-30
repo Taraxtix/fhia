@@ -29,13 +29,19 @@ pub struct Span {
     pub end: Position,
 }
 
+impl Display for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(format!("{}", self.start).as_str())
+    }
+}
+
 impl Span {
     pub fn new(start: Position, end: Position) -> Self {
         Self { start, end }
     }
 
     #[cfg(test)]
-    pub fn new_raw(start: (usize, usize), end: (usize, usize)) -> Self {
+    pub fn _new_raw(start: (usize, usize), end: (usize, usize)) -> Self {
         Span {
             start: Position {
                 line: start.0,
@@ -136,7 +142,8 @@ pub enum Token {
     U32,
     U64,
     U128,
-    Size,
+    Usize,
+    Isize,
     F32,
     F64,
     F128,
@@ -171,7 +178,7 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    pub fn from_filename_and_source(path: &'a str, source: &str) -> Self {
+    pub fn _from_filename_and_source(path: &'a str, source: &str) -> Self {
         Self {
             path,
             source: source.to_string(),
@@ -400,7 +407,7 @@ impl<'a> Lexer<'a> {
     fn consume_type(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let tok = match self.consume(
-            &Regex::new(r"[iuf](32|64|128)|[iu](8|16)|size|bool|char|str|\(\)|_").unwrap(),
+            &Regex::new(r"[iuf](32|64|128)|[iu](8|16)|[ui]size|bool|char|str|\(\)|_").unwrap(),
         )? {
             "i8" => Token::I8,
             "i16" => Token::I16,
@@ -412,7 +419,8 @@ impl<'a> Lexer<'a> {
             "u32" => Token::U32,
             "u64" => Token::U64,
             "u128" => Token::U128,
-            "size" => Token::Size,
+            "usize" => Token::Usize,
+            "isize" => Token::Isize,
             "f32" => Token::F32,
             "f64" => Token::F64,
             "f128" => Token::F128,

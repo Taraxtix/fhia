@@ -1,1 +1,0 @@
-gcc -std=c2x -nostdlib expected_generated_std/*.c -lgcc -lc -Wno-builtin-declaration-mismatch -Wno-discarded-qualifiers -Wno-int-conversion

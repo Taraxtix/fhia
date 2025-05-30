@@ -1,459 +1,895 @@
-pub mod expr;
-mod ops;
-#[cfg(test)]
-mod tests;
-pub mod types;
-
 use std::fmt::Display;
+use std::iter::Peekable;
 
-use crate::{
-    Args,
-    lexer::{Lexer, Span, Token},
-    modules::Module,
-};
-use expr::{Expr, ExprKind};
-use ops::{BinOp, UnOp};
-use types::Type;
+use crate::lexer::{Span, Token};
 
-#[derive(Debug, Clone, PartialEq)]
-struct Var {
-    name: String,
-    ty: Option<Type>,
+use super::Args;
+use super::lexer::Lexer;
+
+#[derive(Debug, Clone)]
+pub enum Expr {
+    Decla {
+        name: String,
+        args: Vec<Pattern>,
+        ty: Ty,
+        expr: Box<Expr>,
+    },
+    Ident(String),
+    U32(u32),
+    U64(u64),
+    U128(u128),
+    F64(f64),
+    Bool(bool),
+    Str(String),
+    Char(char),
+    Unit(Option<Box<Expr>>),
+    Sequence {
+        curr: Box<Expr>,
+        next: Box<Expr>,
+    },
+    BinOp {
+        op: BinOp,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+    Paren(Box<Expr>),
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Expr::Decla {
+                    name,
+                    args,
+                    ty,
+                    expr,
+                } => [
+                    format!("Declaration: {name} ("),
+                    args.iter()
+                        .map(|arg| format!("{arg}"))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    format!("): {ty} =\n\t{expr}"),
+                ]
+                .join(" "),
+                Expr::Ident(name) => name.to_string(),
+                Expr::U32(lit) => format!("{lit}"),
+                Expr::U64(lit) => format!("{lit}"),
+                Expr::U128(lit) => format!("{lit}"),
+                Expr::F64(lit) => format!("{lit}"),
+                Expr::Bool(lit) => format!("{lit}"),
+                Expr::Str(lit) => lit.to_string(),
+                Expr::Char(lit) => format!("{lit}"),
+                Expr::Unit(expr) => match expr {
+                    Some(expr) => format!("{expr};"),
+                    None => "()".into(),
+                },
+                Expr::Sequence { curr, next } => format!("{curr} {next}"),
+                Expr::BinOp { op, lhs, rhs } => format!("({lhs} {op} {rhs})"),
+                Expr::Paren(expr) => format!("({expr})"),
+            }
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
-enum _Pattern {
-    Wildcard,
-    Var(Var),
-    Lit(Expr),
+pub enum BinOp {
+    Plus,
+    Minus,
+    Times,
+    Divide,
+    Power,
+    Modulo,
+    BAnd,
+    LAnd,
+    BOr,
+    LOr,
+    Xor,
+    LShift,
+    RShift,
+    Equal,
+    NEqual,
+    Gt,
+    GEq,
+    Lt,
+    LEq,
+    Assign,
+    PlusAssign,
+    MinusAssign,
+    TimesAssign,
+    DivideAssign,
+    ModuloAssign,
+    AndAssign,
+    OrAssign,
+    XorAssign,
+    LShiftAssign,
+    RShiftAssign,
+    Dot,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-struct Func {
-    name: String,
-    args: Vec<Type>,
-    ty: Type,
-}
+impl BinOp {
+    fn from_tok(op: Token) -> Self {
+        match op {
+            // Token::If => todo!(),    // |
+            // Token::Else => todo!(),  // |
+            // Token::While => todo!(), // | See about ternary operator and stuffs like that
+            // Token::For => todo!(),   // |
+            // Token::In => todo!(),    // |
+            Token::Plus => BinOp::Plus,
+            Token::PlusAssign => BinOp::PlusAssign,
+            Token::Minus => BinOp::Minus,
+            Token::MinusAssign => BinOp::MinusAssign,
+            Token::Times => BinOp::Times,
+            Token::TimesAssign => BinOp::TimesAssign,
+            Token::Power => BinOp::Power,
+            Token::Divide => BinOp::Divide,
+            Token::DivideAssign => BinOp::DivideAssign,
+            Token::Modulo => BinOp::Modulo,
+            Token::ModuloAssign => BinOp::ModuloAssign,
+            Token::LAnd => BinOp::LAnd,
+            Token::BAnd => BinOp::BAnd,
+            Token::AndAssign => BinOp::AndAssign,
+            Token::LOr => BinOp::LOr,
+            Token::BOr => BinOp::BOr,
+            Token::OrAssign => BinOp::OrAssign,
+            Token::NEqual => BinOp::NEqual,
+            Token::LAngle => BinOp::Lt,
+            Token::LShift => BinOp::LShift,
+            Token::LShiftAssign => BinOp::LShiftAssign,
+            Token::LEq => BinOp::LEq,
+            Token::RAngle => BinOp::Gt,
+            Token::RShift => BinOp::RShift,
+            Token::RShiftAssign => BinOp::RShiftAssign,
+            Token::GEq => BinOp::GEq,
+            Token::Equal => BinOp::Equal,
+            Token::Assign => BinOp::Assign,
+            Token::Xor => BinOp::Xor,
+            Token::XorAssign => BinOp::XorAssign,
+            Token::Dot => BinOp::Dot,
+            _ => unreachable!("BinOp::from_tok({op})"),
+        }
+    }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Env {
-    vars: Vec<Var>,
-    functions: Vec<Func>,
-}
-
-impl Default for Env {
-    fn default() -> Env {
-        Env {
-            vars: vec![
-                Var {
-                    name: String::from("argc"),
-                    ty: Some(Type::Size),
-                },
-                Var {
-                    name: String::from("argv"),
-                    ty: Some(Type::c_ref(Type::c_ref(Type::Char))),
-                },
-            ],
-            functions: vec![Func {
-                name: String::from("dbg"),
-                args: vec![Type::Any],
-                ty: Type::Unit,
-            }],
+    // Inspired by Pratt Parsing
+    fn attraction_power(&self) -> usize {
+        match self {
+            BinOp::Assign => 0,
+            BinOp::PlusAssign => 0,
+            BinOp::MinusAssign => 0,
+            BinOp::TimesAssign => 0,
+            BinOp::DivideAssign => 0,
+            BinOp::ModuloAssign => 0,
+            BinOp::AndAssign => 0,
+            BinOp::OrAssign => 0,
+            BinOp::XorAssign => 0,
+            BinOp::LShiftAssign => 0,
+            BinOp::RShiftAssign => 0,
+            BinOp::LOr => 1,
+            BinOp::LAnd => 2,
+            BinOp::BOr => 3,
+            BinOp::Xor => 4,
+            BinOp::BAnd => 5,
+            BinOp::Equal => 6,
+            BinOp::NEqual => 6,
+            BinOp::Gt => 7,
+            BinOp::GEq => 7,
+            BinOp::Lt => 7,
+            BinOp::LEq => 7,
+            BinOp::LShift => 8,
+            BinOp::RShift => 8,
+            BinOp::Plus => 9,
+            BinOp::Minus => 9,
+            BinOp::Times => 10,
+            BinOp::Divide => 10,
+            BinOp::Modulo => 10,
+            BinOp::Power => 11,
+            BinOp::Dot => 12,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Scope {
-    pub env: Env,
-    pub parent: Option<Box<Scope>>,
-}
-impl Scope {
-    fn get_var(&self, name: &str) -> Option<&Var> {
-        for var in &self.env.vars {
-            if var.name == name {
-                return Some(var);
-            }
-        }
-        if let Some(parent) = &self.parent {
-            return parent.get_var(name);
-        }
-        None
+impl Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BinOp::Plus => "+",
+            BinOp::Minus => "-",
+            BinOp::Times => "*",
+            BinOp::Divide => "/",
+            BinOp::Modulo => "%",
+            BinOp::LAnd => "&&",
+            BinOp::BAnd => "&",
+            BinOp::LOr => "||",
+            BinOp::BOr => "|",
+            BinOp::Xor => "^",
+            BinOp::LShift => "<<",
+            BinOp::RShift => ">>",
+            BinOp::Equal => "==",
+            BinOp::NEqual => "!=",
+            BinOp::Gt => ">",
+            BinOp::GEq => ">=",
+            BinOp::Lt => "<",
+            BinOp::LEq => "<=",
+            BinOp::Assign => "=",
+            BinOp::PlusAssign => "+=",
+            BinOp::MinusAssign => "-=",
+            BinOp::TimesAssign => "*=",
+            BinOp::DivideAssign => "/=",
+            BinOp::ModuloAssign => "%=",
+            BinOp::AndAssign => "&=",
+            BinOp::OrAssign => "|=",
+            BinOp::XorAssign => "^=",
+            BinOp::LShiftAssign => "<<=",
+            BinOp::RShiftAssign => ">>=",
+            BinOp::Power => "**",
+            BinOp::Dot => ".",
+        })
     }
-
-    fn get_func(&self, name: &str) -> Option<&Func> {
-        for func in &self.env.functions {
-            if func.name == name {
-                return Some(func);
-            }
-        }
-        if let Some(parent) = &self.parent {
-            return parent.get_func(name);
-        }
-        None
-    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Item {
-    Expr(Expr),
-    Semicolon,
-}
-
-#[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct Parser<'a> {
-    lexer: Lexer<'a>,
-    pub collected: Vec<Item>,
-    args: &'a Args,
-    modules: Vec<Module<'a>>,
+    path: &'a str,
+    lexer: Peekable<Lexer<'a>>,
+    // symbols: Vec<Symbol>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse_user_program(lexer: Lexer<'a>, args: &'a Args) -> Self {
-        let mut it = Self {
-            collected: Vec::new(),
-            args,
-            modules: vec![Module::File {
-                name: lexer
-                    .path
-                    .rsplit_once('/')
-                    .unwrap_or(("", lexer.path))
-                    .1
-                    .to_string(),
-                lexer: lexer.clone(),
-                parsed: true,
-            }],
-            lexer,
-        };
-        it.parse();
-        it
-    }
-    fn get_tok_info_msg(curr: Option<(Span, Token)>, next: Option<(Span, Token)>) -> String {
-        match (curr, next) {
-            (Some((span, tok)), Some((span2, tok2))) => format!(
-                "on token {tok} at {} with next token {tok2} at {} ",
-                span.start, span2.start
-            ),
-            (Some((span, tok)), None) => {
-                format!("on token {tok} at {} at the end of input ", span.start)
-            }
-            (None, None) => String::from("at the end of input"),
-            (None, Some((span, tok))) => format!("with next token {tok} at {}", span.start),
+    pub fn parse_user_program(lexer: Lexer<'a>, _args: &Args) -> Self {
+        Self {
+            path: lexer.path,
+            lexer: lexer.peekable(),
+            // symbols: Vec::new(),
         }
     }
 
-    fn report_parsing_error(&mut self, curr: Option<(Span, Token)>, msg: impl Display) -> ! {
-        let tok_info_msg = Self::get_tok_info_msg(curr, self.lexer.next());
-        println!(
-            "[ERROR]: {}:{}: Parsing Error {tok_info_msg}: {msg}",
-            self.lexer.path, self.lexer.pos
-        );
+    fn report_error(&mut self, span: Span, msg: impl Display) -> ! {
+        eprintln!("[ERROR]: {}:{}: Parsing Error: {}", self.path, span, msg);
         std::process::exit(1);
     }
 
-    fn debug(&self, msg: impl Display) {
-        if self.args.debug {
-            println!("[DEBUG]: {}", msg);
-        }
-    }
-
-    fn peek_last_expr(&self) -> Option<&Expr> {
-        for item in self.collected.iter().rev() {
-            if let Item::Expr(expr) = item {
-                return Some(expr);
+    fn expect_tok(&mut self, span: Span, expected: Token) {
+        match self.next_tok() {
+            Some((_, got)) if expected == got => (),
+            Some((span, got)) => {
+                self.report_error(span, format!("Expected token `{expected}` but got `{got}`"))
             }
-        }
-        None
-    }
-
-    fn pop_last_expr(&mut self) -> Option<Expr> {
-        match self.collected.pop() {
-            Some(Item::Expr(expr)) => Some(expr),
-            Some(Item::Semicolon) => self.pop_last_expr(),
-            _ => None,
+            None => self.report_error(span, format!("Expected token `{expected}` but got nothing")),
         }
     }
 
-    fn get_scope(&self, new_env: Option<Env>) -> Scope {
-        match (new_env, self.peek_last_expr()) {
-            (None, None) => Scope {
-                env: Env::default(),
-                parent: None,
-            },
-            // (None, Some(Expr{scope, kind: ExprKind::Block(_), ..})) => *scope.parent.unwrap(),
-            (None, Some(Expr { scope, .. })) => scope.clone(),
-            (Some(new_env), None) => Scope {
-                env: new_env,
-                parent: Some(Box::new(Scope {
-                    env: Env::default(),
-                    parent: None,
-                })),
-            },
-            (Some(new_env), Some(Expr { scope, .. })) => Scope {
-                env: new_env,
-                parent: Some(Box::new(scope.clone())),
-            },
-        }
+    fn next_tok(&mut self) -> Option<(Span, Token)> {
+        self.lexer.next()
     }
 
-    fn parse(&mut self) {
-        while let Some((span, tok)) = self.lexer.next() {
-            use Token as T;
-            self.debug(format!("parse( {}, {} )", span.start, tok));
-            let expr = match tok {
-                T::Plus
-                | T::Minus
-                | T::Times
-                | T::Power
-                | T::Divide
-                | T::Modulo
-                | T::LAnd
-                | T::BAnd
-                | T::LOr
-                | T::BOr
-                | T::NEqual
-                | T::LAngle
-                | T::LShift
-                | T::LEq
-                | T::RAngle
-                | T::RShift
-                | T::GEq
-                | T::Equal
-                | T::Xor => self.parse_binop((span, tok)),
-
-                T::Semicolon => {
-                    self.collected.push(Item::Semicolon);
-                    continue;
-                }
-
-                T::LBracket => self.parse_index((span, tok)),
-
-                T::Ident(_) => self.parse_ident((span, tok)),
-
-                T::Let => todo!(),
-                T::If => todo!(),
-                T::Else => todo!(),
-                T::While => todo!(),
-                T::For => todo!(),
-                T::In => todo!(),
-
-                T::Assign => todo!(),
-                T::PlusAssign => todo!(),
-                T::MinusAssign => todo!(),
-                T::TimesAssign => todo!(),
-                T::DivideAssign => todo!(),
-                T::ModuloAssign => todo!(),
-                T::AndAssign => todo!(),
-                T::OrAssign => todo!(),
-                T::LShiftAssign => todo!(),
-                T::RShiftAssign => todo!(),
-                T::XorAssign => todo!(),
-
-                T::RParen => todo!(),
-                T::LParen => todo!(),
-                T::LBrace => todo!(),
-                T::RBrace => todo!(),
-
-                T::Colon => todo!(),
-                T::Dot => todo!(),
-
-                _ => self.parse_expr((span, tok)),
-            };
-            self.collected.push(Item::Expr(expr));
-        }
+    fn peek_tok(&mut self) -> Option<&(Span, Token)> {
+        self.lexer.peek()
     }
-    fn parse_expr(&mut self, (span, tok): (Span, Token)) -> Expr {
-        use Token as T;
-        self.debug(format!("parse_expr( {}, {} )", span.start, tok));
-        match tok {
-            T::Unit => Expr {
-                kind: ExprKind::Unit,
-                ty: Some(Type::Unit),
+
+    fn parse_let(&mut self, span: Span) -> Result<Expr, (Span, String)> {
+        let (name_span, name) = match self.next_tok() {
+            Some((span, Token::Ident(name))) => Ok((span, name)),
+            Some((span, tok)) => Err((
                 span,
-                scope: self.get_scope(None),
-            },
-
-            T::StrLit(_)
-            | T::CharLit(_)
-            | T::U32Lit(_)
-            | T::U64Lit(_)
-            | T::U128Lit(_)
-            | T::FLit(_)
-            | T::BoolLit(_) => Expr::from_lit((span, tok), self.get_scope(None)),
-
-            T::LBracket => self.parse_array_lit((span, tok)),
-
-            T::Minus
-            // | T::Increment
-            // | T::Decrement
-            | T::Bang
-            | T::BNeg => self.parse_unop((span, tok)),
-
-            T::Ident(_) => self.parse_ident((span, tok)),
-
-            T::Let => todo!(),
-            T::If => todo!(),
-            T::Else => todo!(),
-            T::While => todo!(),
-            T::For => todo!(),
-            T::In => todo!(),
-            T::PlusAssign => todo!(),
-            T::MinusAssign => todo!(),
-            T::TimesAssign => todo!(),
-            T::DivideAssign => todo!(),
-            T::ModuloAssign => todo!(),
-            T::AndAssign => todo!(),
-            T::OrAssign => todo!(),
-            T::LShiftAssign => todo!(),
-            T::RShiftAssign => todo!(),
-            T::Assign => todo!(),
-            T::XorAssign => todo!(),
-            T::RParen => todo!(),
-            T::LParen => todo!(),
-            T::LBrace => todo!(),
-            T::RBrace => todo!(),
-            T::Semicolon => todo!(),
-            T::Colon => todo!(),
-            T::Dot => todo!(),
-            tok => {
-                self.report_parsing_error(
-                    Some((span, tok.clone())),
-                    format!("Expected expression, got {tok}"),
-                );
-            }
-        }
-    }
-
-    fn parse_array_lit(&mut self, curr: (Span, Token)) -> Expr {
-        self.debug(format!(
-            "call parse_array_lit( {}, {} )",
-            curr.0.start, curr.1
-        ));
-        let mut elements: Vec<Expr> = vec![];
-        let mut expect_comma = false;
-
-        while let Some((span, tok)) = self.lexer.next() {
-            match tok {
-                Token::RBracket if expect_comma || elements.is_empty() => {
-                    return Expr {
-                        ty: None,
-                        kind: expr::ExprKind::Array(elements),
-                        span: Span::new(curr.0.start, span.end.clone()),
-                        scope: self.get_scope(None),
-                    };
-                }
-                Token::Comma if expect_comma => expect_comma = false,
-                _ if expect_comma => {
-                    self.report_parsing_error(Some((span, tok)), "Expected comma after expr")
-                }
-                _ => {
-                    let expr = self.parse_expr((span.clone(), tok.clone()));
-                    elements.push(expr);
-                    expect_comma = true;
-                }
-            }
-        }
-        self.report_parsing_error(Some(curr), "Unclosed array literal")
-    }
-
-    fn parse_binop(&mut self, curr: (Span, Token)) -> Expr {
-        self.debug(format!("call parse_binop( {}, {} )", curr.0.start, curr.1));
-
-        let lhs = match self.collected.pop() {
-            Some(Item::Semicolon) if curr.1 == Token::Minus => return self.parse_unop(curr),
-            Some(Item::Expr(expr)) => expr,
-            None if curr.1 == Token::Minus => return self.parse_unop(curr),
-            _ => match self.pop_last_expr() {
-                Some(expr) => expr,
-                None => {
-                    self.report_parsing_error(Some(curr), "Expected an expression before operator")
-                }
-            },
-        };
-
-        let next = self.lexer.next().unwrap_or_else(|| {
-            self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
-        });
-        let rhs = self.parse_expr(next);
-        BinOp::from_token(&curr.1).get_expr(lhs, rhs)
-    }
-
-    fn parse_unop(&mut self, curr: (Span, Token)) -> Expr {
-        self.debug(format!("call parse_unop( {}, {} )", curr.0.start, curr.1));
-        let next = self.lexer.next().unwrap_or_else(|| {
-            self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
-        });
-        let arg = self.parse_expr(next);
-        UnOp::from_token(&curr.1).get_expr(arg)
-    }
-
-    fn parse_index(&mut self, curr: (Span, Token)) -> Expr {
-        self.debug(format!("call parse_index( {}, {} )", curr.0.start, curr.1));
-
-        let lhs = match self.collected.pop() {
-            Some(Item::Semicolon) => return self.parse_array_lit(curr),
-            Some(Item::Expr(expr)) => expr,
-            None => return self.parse_array_lit(curr),
-        };
-
-        let next = self.lexer.next().unwrap_or_else(|| {
-            self.report_parsing_error(Some(curr.clone()), "Expected an expression after operator")
-        });
-        let rhs = self.parse_expr(next);
-
-        match self.lexer.next() {
-            None => self.report_parsing_error(None, "Expected closing bracket after index"),
-            Some((span, Token::RBracket)) => Expr {
-                ty: None,
-                span: Span::new(lhs.span.start.clone(), span.end.clone()),
-                scope: self.get_scope(None),
-                kind: ExprKind::Index {
-                    expr: Box::new(lhs),
-                    index: Box::new(rhs),
-                },
-            },
-            Some((span, tok)) => {
-                self.report_parsing_error(Some((span, tok)), "Expected closing bracket after index")
-            }
-        }
-    }
-
-    fn parse_ident(&mut self, (span, tok): (Span, Token)) -> Expr {
-        let scope = self.get_scope(None);
-        let Token::Ident(name) = tok.clone() else {
-            unreachable!()
-        };
-        if let Some(var) = scope.get_var(&name) {
-            Expr {
-                ty: var.ty.clone(),
-                span: Span::new(span.start.clone(), span.end.clone()),
-                scope: self.get_scope(None),
-                kind: ExprKind::Var(name),
-            }
-        } else if let Some(func) = scope.get_func(&name) {
-            Expr {
-                kind: ExprKind::FuncCall {
-                    args: func
-                        .args
-                        .iter()
-                        .map(|_| {
-                            let next = self.lexer.next().unwrap_or_else(|| {
-                                self.report_parsing_error(
-                                    None,
-                                    format!("Not enough arguments to call {}", &name),
-                                )
-                            });
-                            self.parse_expr(next)
-                        })
-                        .collect(),
-                    name,
-                },
-                ty: Some(func.ty.clone()),
+                format!("Expected identifier after `let` but got `{tok}`"),
+            )),
+            None => Err((
                 span,
-                scope,
+                "Expected identifier after `let` but got nothing".into(),
+            )),
+        }?;
+
+        let mut args: Vec<Pattern> = vec![];
+        let mut typed = false;
+        let mut last_span = None;
+
+        loop {
+            match self.next_tok().ok_or((
+                last_span.unwrap_or(name_span.clone()),
+                "Expected either `:`, `=` or an argument pattern but got nothing".into(),
+            ))? {
+                (span, Token::Colon) => {
+                    last_span = Some(span);
+                    typed = true;
+                    break;
+                }
+                (span, Token::Equal) => {
+                    last_span = Some(span);
+                    break;
+                }
+                (arg_span, Token::LParen) => {
+                    last_span = Some(arg_span.clone());
+                    args.push(self.parse_paren_arg(arg_span));
+                }
+                (span, Token::Ident(arg_name)) => {
+                    last_span = Some(span);
+                    args.push(Pattern::NamedWildcard(arg_name));
+                }
+                (span, Token::Wildcard) => {
+                    last_span = Some(span);
+                    args.push(Pattern::Wildcard);
+                }
+                (span, tok) => {
+                    return Err((
+                        span,
+                        format!("Expected either `:`, `=` or an argument pattern but got {tok}"),
+                    ));
+                }
             }
+        }
+
+        let last_span = last_span.unwrap();
+
+        Ok(Expr::Decla {
+            name,
+            args,
+            ty: if !typed {
+                Ty::Unknown
+            } else {
+                let ty = self.parse_type(name_span);
+                self.expect_tok(last_span.clone(), Token::Assign);
+                ty
+            },
+            expr: Box::new(self.parse_expr(last_span, false, false)?),
+        })
+    }
+
+    fn parse_paren_arg(&mut self, span: Span) -> Pattern {
+        let (span, name) = match self.next_tok() {
+            Some((span, Token::Ident(name))) => (span, name),
+            _ => self.report_error(span, "Expected pattern as argument"),
+        };
+        self.expect_tok(span.clone(), Token::Colon);
+
+        let ty = self.parse_type(span.clone());
+
+        self.expect_tok(span.clone(), Token::RParen);
+        Pattern::Typed { ty, name }
+    }
+
+    fn parse_type(&mut self, span: Span) -> Ty {
+        match self.next_tok() {
+            Some((_, Token::I8)) => Ty::I8,
+            Some((_, Token::I16)) => Ty::I16,
+            Some((_, Token::I32)) => Ty::I32,
+            Some((_, Token::I64)) => Ty::I64,
+            Some((_, Token::I128)) => Ty::I128,
+            Some((_, Token::U8)) => Ty::U8,
+            Some((_, Token::U16)) => Ty::U16,
+            Some((_, Token::U32)) => Ty::U32,
+            Some((_, Token::U128)) => Ty::U128,
+            Some((_, Token::U64)) => Ty::U64,
+            Some((_, Token::F32)) => Ty::F32,
+            Some((_, Token::F64)) => Ty::F64,
+            Some((_, Token::F128)) => Ty::F128,
+            Some((_, Token::Usize)) => Ty::Usize,
+            Some((_, Token::Isize)) => Ty::Isize,
+            Some((_, Token::Char)) => Ty::Char,
+            Some((_, Token::Str)) => Ty::Str,
+            Some((_, Token::Bool)) => Ty::Bool,
+            Some((_, Token::Unit)) => Ty::Unit,
+            Some((span, Token::Mut)) => Ty::Mut(Box::new(self.parse_type(span))),
+            Some((_, Token::Bang)) => Ty::Never,
+            Some((_, Token::Wildcard)) => Ty::Unknown,
+            Some((_, Token::BAnd)) => self.parse_ref(span),
+            Some((_, Token::LBracket)) => self.parse_array_slice(span),
+            Some((_, Token::Ident(type_name))) => todo!("Parse custom type name {type_name}"),
+            Some((span, tok)) => self.report_error(span, format!("Expected type, got token {tok}")),
+            None => self.report_error(span, "Expected type, but got none."),
+        }
+    }
+
+    fn parse_ref(&mut self, span: Span) -> Ty {
+        if self
+            .peek_tok()
+            .map(|(_, tok)| tok == &Token::Mut)
+            .unwrap_or(false)
+        {
+            self.next_tok();
+            Ty::Mut(Box::new(self.parse_type(span)))
         } else {
-            self.report_parsing_error(Some((span, tok)), "Unknown identifier")
+            Ty::ConstRef(Box::new(self.parse_type(span)))
         }
+    }
+
+    fn parse_array_slice(&mut self, span: Span) -> Ty {
+        let val_type = self.parse_type(span.clone());
+        match self.next_tok() {
+            Some((_, Token::RBracket)) => Ty::Slice(Box::new(val_type)),
+            Some((_, Token::Semicolon)) => {
+                let (span, size) = match self.next_tok() {
+                    Some((span, Token::U32Lit(size))) => (span, size as usize),
+                    Some((span, Token::U64Lit(size))) => (span, size as usize),
+                    Some((span, Token::U128Lit(size))) => (span, size as usize),
+                    _ => self.report_error(span, "Expected array size"),
+                };
+                self.expect_tok(span, Token::RBracket);
+                Ty::Arr {
+                    ty: Box::new(val_type),
+                    size,
+                }
+            }
+            _ => self.report_error(span, "Misformed array/slice type"),
+        }
+    }
+
+    fn parse_expr(
+        &mut self,
+        span: Span,
+        in_block: bool,
+        collecting_rhs: bool,
+    ) -> Result<Expr, (Span, String)> {
+        let (span, tok) = self
+            .next_tok()
+            .ok_or((span, "Expected expression".to_string()))?;
+        let expr = match tok {
+            Token::Ident(name) => Expr::Ident(name),
+            Token::U32Lit(lit) => Expr::U32(lit),
+            Token::U64Lit(lit) => Expr::U64(lit),
+            Token::U128Lit(lit) => Expr::U128(lit),
+            Token::FLit(lit) => Expr::F64(lit),
+            Token::StrLit(lit) => Expr::Str(lit),
+            Token::CharLit(lit) => Expr::Char(lit),
+            Token::BoolLit(lit) => Expr::Bool(lit),
+            Token::Unit => Expr::Unit(None),
+            Token::Let => self.parse_let(span)?,
+            Token::If => todo!("Parse if expression"),
+            Token::While => todo!("Parse while expression"),
+            Token::For => todo!("Parse for expression"),
+            Token::Increment => todo!("Parse prefix increment expression"),
+            Token::Decrement => todo!("Parse prefix decrement expression"),
+            Token::Minus => todo!("Parse minus unop expression"),
+            Token::Times => todo!("Parse deref expression"),
+            Token::Bang => todo!("Parse LNot expression"),
+            Token::BNeg => todo!("Parse BNeg expression"),
+            Token::LBracket => {
+                todo!("Parse array slice expression");
+                // self.expect_tok(span, Token::RBracket);
+                // expr
+            }
+            Token::LParen => {
+                let expr = self.parse_expr(span.clone(), in_block, collecting_rhs)?;
+                self.expect_tok(span, Token::RParen);
+                Expr::Paren(Box::new(expr))
+            }
+            Token::LBrace => {
+                let expr = self.parse_expr(span.clone(), true, collecting_rhs)?;
+                self.expect_tok(span, Token::RBrace);
+                expr
+            }
+            tok => {
+                return Err((span, format!("Expected expression got {tok}")));
+            }
+        };
+        let Some((peeked_span, peeked)) = self.peek_tok().cloned() else {
+            return Ok(expr);
+        };
+
+        match peeked.clone() {
+            // Token::StrLit(_) => todo!("Parse string/char concatenation like that ?"),
+            // Token::CharLit(_) => todo!("Parse string/char concatenation like that ?"),
+            // Token::If => todo!("Parse ternary expression like that ?"),
+            // Token::Else => todo!("Parse ternary expression like that ?"),
+            // Token::While => todo!("Parse while expression like that ?"),
+            // Token::For => todo!("Parse for expression like that ?"),
+            // Token::In => todo!("Parse in like "value in SET" like that ?"),
+            Token::Increment
+            | Token::Decrement
+            | Token::PlusAssign
+            | Token::MinusAssign
+            | Token::TimesAssign
+            | Token::DivideAssign
+            | Token::ModuloAssign
+            | Token::AndAssign
+            | Token::OrAssign
+            | Token::LShiftAssign
+            | Token::RShiftAssign
+            | Token::XorAssign
+            | Token::Assign
+            | Token::Plus
+            | Token::Minus
+            | Token::Times
+            | Token::Power
+            | Token::Divide
+            | Token::Modulo
+            | Token::LAnd
+            | Token::BAnd
+            | Token::LOr
+            | Token::BOr
+            | Token::NEqual
+            | Token::LAngle
+            | Token::LShift
+            | Token::LEq
+            | Token::RAngle
+            | Token::RShift
+            | Token::GEq
+            | Token::Equal
+            | Token::Xor
+            | Token::Dot => {
+                let op = self.parse_binop(expr)?;
+                if let Some((_, Token::Semicolon)) = self.peek_tok() {
+                    self.next_tok(); // Consume semicolon
+                    if in_block {
+                        if let Some((_, Token::RBrace)) = self.peek_tok() {
+                            Ok(Expr::Unit(Some(Box::new(op))))
+                        } else {
+                            Ok(Expr::Sequence {
+                                curr: Box::new(Expr::Unit(Some(Box::new(op)))),
+                                next: Box::new(self.parse_expr(
+                                    peeked_span.clone(),
+                                    in_block,
+                                    collecting_rhs,
+                                )?),
+                            })
+                        }
+                    } else {
+                        Ok(Expr::Unit(Some(Box::new(op))))
+                    }
+                } else {
+                    Ok(op)
+                }
+            }
+            Token::Semicolon if in_block => {
+                let span = peeked_span.clone();
+                self.next_tok(); // Consume semicolon
+                if let Some((_, Token::RBrace)) = self.peek_tok() {
+                    self.next_tok(); // Consume right brace
+                    Ok(Expr::Unit(Some(Box::new(expr))))
+                } else {
+                    Ok(Expr::Sequence {
+                        curr: Box::new(Expr::Unit(Some(Box::new(expr)))),
+                        next: Box::new(self.parse_expr(span, in_block, collecting_rhs)?),
+                    })
+                }
+            }
+            Token::Semicolon if !collecting_rhs => {
+                self.next_tok(); // Consume semicolon
+                Ok(Expr::Unit(Some(Box::new(expr))))
+            }
+            _ => Ok(expr),
+        }
+    }
+
+    fn parse_binop(&mut self, lhs: Expr) -> Result<Expr, (Span, String)> {
+        let (op_span, op) = self.next_tok().unwrap();
+        let op = BinOp::from_tok(op);
+        let rhs = self.parse_expr(op_span.clone(), false, true)?;
+        Ok(match (lhs, rhs) {
+            (
+                Expr::BinOp {
+                    op: l_op,
+                    lhs: l_lhs,
+                    rhs: l_rhs,
+                },
+                Expr::BinOp {
+                    op: r_op,
+                    lhs: r_lhs,
+                    rhs: r_rhs,
+                },
+            ) => {
+                if op.attraction_power() > l_op.attraction_power() {
+                    if r_op.attraction_power() > op.attraction_power() {
+                        // a | b + c * d
+                        Expr::BinOp {
+                            op: l_op,
+                            lhs: l_lhs,
+                            rhs: Box::new(Expr::BinOp {
+                                op,
+                                lhs: l_rhs,
+                                rhs: Box::new(Expr::BinOp {
+                                    op: r_op,
+                                    lhs: r_lhs,
+                                    rhs: r_rhs,
+                                }),
+                            }),
+                        }
+                    } else {
+                        //a + b * c + d
+                        Expr::BinOp {
+                            op: r_op,
+                            lhs: Box::new(Expr::BinOp {
+                                op: l_op,
+                                lhs: l_lhs,
+                                rhs: Box::new(Expr::BinOp {
+                                    op,
+                                    lhs: l_rhs,
+                                    rhs: r_lhs,
+                                }),
+                            }),
+                            rhs: r_rhs,
+                        }
+                    }
+                } else if r_op.attraction_power() > op.attraction_power() {
+                    // a * b + c * d
+                    Expr::BinOp {
+                        op,
+                        lhs: Box::new(Expr::BinOp {
+                            op: l_op,
+                            lhs: l_lhs,
+                            rhs: l_rhs,
+                        }),
+                        rhs: Box::new(Expr::BinOp {
+                            op: r_op,
+                            lhs: r_lhs,
+                            rhs: r_rhs,
+                        }),
+                    }
+                } else {
+                    // a * b + c | d
+                    Expr::BinOp {
+                        op: r_op,
+                        lhs: Box::new(Expr::BinOp {
+                            op,
+                            lhs: Box::new(Expr::BinOp {
+                                op: l_op,
+                                lhs: l_lhs,
+                                rhs: l_rhs,
+                            }),
+                            rhs: r_lhs,
+                        }),
+                        rhs: r_rhs,
+                    }
+                }
+            }
+            (
+                Expr::BinOp {
+                    op: l_op,
+                    lhs: l_lhs,
+                    rhs: l_rhs,
+                },
+                rhs,
+            ) => {
+                if op.attraction_power() > l_op.attraction_power() {
+                    // a + b * c
+                    Expr::BinOp {
+                        op: l_op,
+                        lhs: l_lhs,
+                        rhs: Box::new(Expr::BinOp {
+                            op,
+                            lhs: l_rhs,
+                            rhs: Box::new(rhs),
+                        }),
+                    }
+                } else {
+                    // a * b + c
+                    Expr::BinOp {
+                        op,
+                        lhs: Box::new(Expr::BinOp {
+                            op: l_op,
+                            lhs: l_lhs,
+                            rhs: l_rhs,
+                        }),
+                        rhs: Box::new(rhs),
+                    }
+                }
+            }
+            (
+                lhs,
+                Expr::BinOp {
+                    op: r_op,
+                    lhs: r_lhs,
+                    rhs: r_rhs,
+                },
+            ) => {
+                if op.attraction_power() > r_op.attraction_power() {
+                    // a * b + c
+                    Expr::BinOp {
+                        op: r_op,
+                        lhs: Box::new(Expr::BinOp {
+                            op,
+                            lhs: Box::new(lhs),
+                            rhs: r_lhs,
+                        }),
+                        rhs: r_rhs,
+                    }
+                } else {
+                    // a + b * c
+                    Expr::BinOp {
+                        op,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(Expr::BinOp {
+                            op: r_op,
+                            lhs: r_lhs,
+                            rhs: r_rhs,
+                        }),
+                    }
+                }
+            }
+            (lhs, rhs) => Expr::BinOp {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            },
+        })
+    }
+}
+
+impl Iterator for Parser<'_> {
+    type Item = Expr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (span, tok) = self.next_tok()?;
+        Some(
+            match tok {
+                Token::Ident(_) => todo!(),
+                Token::Let => self.parse_let(span),
+                Token::If => todo!(),
+                Token::Else => todo!(),
+                Token::While => todo!(),
+                Token::For => todo!(),
+                Token::In => todo!(),
+                Token::Use => todo!(),
+                Token::Mut => todo!(),
+                Token::Const => todo!(),
+                Token::Inline => todo!(),
+                Token::Extern => todo!(),
+                Token::LBracket => todo!(),
+                Token::RBracket => todo!(),
+                Token::LParen => todo!(),
+                Token::RParen => todo!(),
+                Token::LBrace => todo!(),
+                Token::RBrace => todo!(),
+                Token::U32Lit(_) => todo!(),
+                Token::U64Lit(_) => todo!(),
+                Token::U128Lit(_) => todo!(),
+                Token::FLit(_) => todo!(),
+                Token::StrLit(_) => todo!(),
+                Token::CharLit(_) => todo!(),
+                Token::BoolLit(_) => todo!(),
+                Token::Plus => todo!(),
+                Token::PlusAssign => todo!(),
+                Token::Increment => todo!(),
+                Token::Minus => todo!(),
+                Token::Decrement => todo!(),
+                Token::MinusAssign => todo!(),
+                Token::Times => todo!(),
+                Token::TimesAssign => todo!(),
+                Token::Power => todo!(),
+                Token::Divide => todo!(),
+                Token::DivideAssign => todo!(),
+                Token::Modulo => todo!(),
+                Token::ModuloAssign => todo!(),
+                Token::LAnd => todo!(),
+                Token::BAnd => todo!(),
+                Token::AndAssign => todo!(),
+                Token::LOr => todo!(),
+                Token::BOr => todo!(),
+                Token::OrAssign => todo!(),
+                Token::Bang => todo!(),
+                Token::NEqual => todo!(),
+                Token::LAngle => todo!(),
+                Token::LShift => todo!(),
+                Token::LShiftAssign => todo!(),
+                Token::LEq => todo!(),
+                Token::RAngle => todo!(),
+                Token::RShift => todo!(),
+                Token::RShiftAssign => todo!(),
+                Token::GEq => todo!(),
+                Token::Equal => todo!(),
+                Token::Assign => todo!(),
+                Token::BNeg => todo!(),
+                Token::Xor => todo!(),
+                Token::XorAssign => todo!(),
+                Token::Comma => todo!(),
+                Token::Semicolon => todo!(),
+                Token::Colon => todo!(),
+                Token::Dot => todo!(),
+                Token::I8 => todo!(),
+                Token::I16 => todo!(),
+                Token::I32 => todo!(),
+                Token::I64 => todo!(),
+                Token::I128 => todo!(),
+                Token::U8 => todo!(),
+                Token::U16 => todo!(),
+                Token::U32 => todo!(),
+                Token::U64 => todo!(),
+                Token::U128 => todo!(),
+                Token::Isize => todo!(),
+                Token::Usize => todo!(),
+                Token::F32 => todo!(),
+                Token::F64 => todo!(),
+                Token::F128 => todo!(),
+                Token::Bool => todo!(),
+                Token::Char => todo!(),
+                Token::Str => todo!(),
+                Token::Unit => todo!(),
+                Token::Wildcard => todo!(),
+            }
+            .unwrap_or_else(|e| self.report_error(e.0, e.1)),
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Pattern {
+    Wildcard,
+    NamedWildcard(String),
+    Typed { ty: Ty, name: String },
+}
+
+impl Display for Pattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Pattern::Wildcard => "_".into(),
+                Pattern::NamedWildcard(name) => format!("{name}: _"),
+                Pattern::Typed { ty, name } => format!("{name}: {ty}"),
+            }
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Ty {
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    F32,
+    F64,
+    F128,
+    Usize,
+    Isize,
+    Char,
+    Str,
+    ConstPtr(Box<Ty>),
+    MutPtr(Box<Ty>),
+    ConstRef(Box<Ty>),
+    MutRef(Box<Ty>),
+    Slice(Box<Ty>),
+    Arr { ty: Box<Ty>, size: usize },
+    Unknown,
+    Bool,
+    Unit,
+    Mut(Box<Ty>),
+    Never,
+}
+
+impl Display for Ty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Ty::I8 => "i8".into(),
+                Ty::I16 => "i16".into(),
+                Ty::I32 => "i32".into(),
+                Ty::I64 => "i64".into(),
+                Ty::I128 => "i128".into(),
+                Ty::U8 => "u8".into(),
+                Ty::U16 => "u16".into(),
+                Ty::U32 => "u32".into(),
+                Ty::U64 => "u64".into(),
+                Ty::U128 => "u128".into(),
+                Ty::F32 => "f32".into(),
+                Ty::F64 => "f64".into(),
+                Ty::F128 => "f128".into(),
+                Ty::Usize => "usize".into(),
+                Ty::Isize => "isize".into(),
+                Ty::Char => "char".into(),
+                Ty::Str => "str".into(),
+                Ty::Bool => "bool".into(),
+                Ty::Unit => "()".into(),
+                Ty::Never => "!".into(),
+                Ty::ConstPtr(ty) => format!("*{ty}"),
+                Ty::MutPtr(ty) => format!("*mut {ty}"),
+                Ty::ConstRef(ty) => format!("&{ty}"),
+                Ty::MutRef(ty) => format!("&mut {ty}"),
+                Ty::Slice(ty) => format!("[{ty}]"),
+                Ty::Arr { ty, size } => format!("[{ty}; {size}]"),
+                Ty::Mut(ty) => format!("mut {ty}"),
+                Ty::Unknown => "?".into(),
+            }
+        )
     }
 }
