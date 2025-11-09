@@ -4,11 +4,13 @@ mod compiler;
 mod lexer;
 mod modules;
 mod parser;
+mod program;
 
 use clap::Parser as clapParser;
 use compiler::Compiler;
 use lexer::Lexer;
 use parser::Parser;
+use program::Program;
 
 #[derive(clapParser, Debug)]
 #[command(version, about, long_about = None)]
@@ -68,5 +70,6 @@ fn main() {
         println!("---------------------------------------------");
     }
 
-    Compiler::new().compile(parser, &args)
+    let program = Program::new(parser);
+    Compiler::new(&args).compile(program)
 }

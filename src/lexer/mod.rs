@@ -11,7 +11,7 @@ use std::{
 
 use regex::Regex;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
@@ -23,7 +23,7 @@ impl Display for Position {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Span {
     pub start: Position,
     pub end: Position,

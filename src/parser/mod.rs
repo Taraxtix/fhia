@@ -1,16 +1,22 @@
 use std::fmt::Display;
 use std::iter::Peekable;
 
-use crate::lexer::{Span, Token};
+use crate::lexer::{Position, Span, Token};
 
 use super::Args;
 use super::lexer::Lexer;
 
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub struct Expr {
+    pub filename: String,
+    pub span: Span,
+    pub kind: ExprKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprKind {
     Decla {
         name: String,
-        args: Vec<Pattern>,
         ty: Ty,
         expr: Box<Expr>,
     },
@@ -37,39 +43,33 @@ pub enum Expr {
 
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl Display for ExprKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Expr::Decla {
-                    name,
-                    args,
-                    ty,
-                    expr,
-                } => [
-                    format!("Declaration: {name} ("),
-                    args.iter()
-                        .map(|arg| format!("{arg}"))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    format!("): {ty} =\n\t{expr}"),
-                ]
-                .join(" "),
-                Expr::Ident(name) => name.to_string(),
-                Expr::U32(lit) => format!("{lit}"),
-                Expr::U64(lit) => format!("{lit}"),
-                Expr::U128(lit) => format!("{lit}"),
-                Expr::F64(lit) => format!("{lit}"),
-                Expr::Bool(lit) => format!("{lit}"),
-                Expr::Str(lit) => lit.to_string(),
-                Expr::Char(lit) => format!("{lit}"),
-                Expr::Unit(expr) => match expr {
+                ExprKind::Decla { name, ty, expr } =>
+                    format!("Declaration: {name}: {ty} =\n\t{expr}"),
+                ExprKind::Ident(name) => name.to_string(),
+                ExprKind::U32(lit) => format!("{lit}"),
+                ExprKind::U64(lit) => format!("{lit}"),
+                ExprKind::U128(lit) => format!("{lit}"),
+                ExprKind::F64(lit) => format!("{lit}"),
+                ExprKind::Bool(lit) => format!("{lit}"),
+                ExprKind::Str(lit) => lit.to_string(),
+                ExprKind::Char(lit) => format!("{lit}"),
+                ExprKind::Unit(expr) => match expr {
                     Some(expr) => format!("{expr};"),
                     None => "()".into(),
                 },
-                Expr::Sequence { curr, next } => format!("{curr} {next}"),
-                Expr::BinOp { op, lhs, rhs } => format!("({lhs} {op} {rhs})"),
-                Expr::Paren(expr) => format!("({expr})"),
+                ExprKind::Sequence { curr, next } => format!("{curr} {next}"),
+                ExprKind::BinOp { op, lhs, rhs } => format!("({lhs} {op} {rhs})"),
+                ExprKind::Paren(expr) => format!("({expr})"),
             }
         )
     }
@@ -264,6 +264,14 @@ impl<'a> Parser<'a> {
         self.lexer.next()
     }
 
+    fn next_tok_matching(&mut self, expected: Token) -> Option<(Span, Token)> {
+        if matches!(self.lexer.peek(), Some((_, tok)) if *tok == expected) {
+            self.next_tok()
+        } else {
+            None
+        }
+    }
+
     fn peek_tok(&mut self) -> Option<&(Span, Token)> {
         self.lexer.peek()
     }
@@ -321,19 +329,32 @@ impl<'a> Parser<'a> {
         }
 
         let last_span = last_span.unwrap();
+        let ty = self.parse_type(name_span);
+        self.expect_tok(last_span.clone(), Token::Assign);
 
-        Ok(Expr::Decla {
-            name,
-            args,
-            ty: if !typed {
-                Ty::Unknown
-            } else {
-                let ty = self.parse_type(name_span);
-                self.expect_tok(last_span.clone(), Token::Assign);
-                ty
+        Ok(Expr {
+            filename: self.path.to_string(),
+            span: Span {
+                start: span.start,
+                end: last_span.end,
             },
-            expr: Box::new(self.parse_expr(last_span, false, false)?),
+            kind: ExprKind::Decla {
+                name,
+                ty: Self::construct_decla_type(typed, ty, &args),
+                expr: Box::new(self.parse_expr(last_span, false, false)?),
+            },
         })
+    }
+
+    fn construct_decla_type(typed: bool, ret_ty: Ty, args: &[Pattern]) -> Ty {
+        if args.is_empty() {
+            if typed { ret_ty } else { Ty::Unknown }
+        } else {
+            Ty::Arrow {
+                param: Box::new(args[0].clone()),
+                ret: Box::new(Self::construct_decla_type(typed, ret_ty, &args[1..])),
+            }
+        }
     }
 
     fn parse_paren_arg(&mut self, span: Span) -> Pattern {
@@ -425,16 +446,16 @@ impl<'a> Parser<'a> {
             .next_tok()
             .ok_or((span, "Expected expression".to_string()))?;
         let expr = match tok {
-            Token::Ident(name) => Expr::Ident(name),
-            Token::U32Lit(lit) => Expr::U32(lit),
-            Token::U64Lit(lit) => Expr::U64(lit),
-            Token::U128Lit(lit) => Expr::U128(lit),
-            Token::FLit(lit) => Expr::F64(lit),
-            Token::StrLit(lit) => Expr::Str(lit),
-            Token::CharLit(lit) => Expr::Char(lit),
-            Token::BoolLit(lit) => Expr::Bool(lit),
-            Token::Unit => Expr::Unit(None),
-            Token::Let => self.parse_let(span)?,
+            Token::Let => return self.parse_let(span),
+            Token::Ident(name) => ExprKind::Ident(name),
+            Token::U32Lit(lit) => ExprKind::U32(lit),
+            Token::U64Lit(lit) => ExprKind::U64(lit),
+            Token::U128Lit(lit) => ExprKind::U128(lit),
+            Token::FLit(lit) => ExprKind::F64(lit),
+            Token::StrLit(lit) => ExprKind::Str(lit),
+            Token::CharLit(lit) => ExprKind::Char(lit),
+            Token::BoolLit(lit) => ExprKind::Bool(lit),
+            Token::Unit => ExprKind::Unit(None),
             Token::If => todo!("Parse if expression"),
             Token::While => todo!("Parse while expression"),
             Token::For => todo!("Parse for expression"),
@@ -452,255 +473,412 @@ impl<'a> Parser<'a> {
             Token::LParen => {
                 let expr = self.parse_expr(span.clone(), in_block, collecting_rhs)?;
                 self.expect_tok(span, Token::RParen);
-                Expr::Paren(Box::new(expr))
+                ExprKind::Paren(Box::new(expr))
             }
             Token::LBrace => {
                 let expr = self.parse_expr(span.clone(), true, collecting_rhs)?;
                 self.expect_tok(span, Token::RBrace);
-                expr
+                expr.kind
             }
             tok => {
                 return Err((span, format!("Expected expression got {tok}")));
             }
         };
         let Some((peeked_span, peeked)) = self.peek_tok().cloned() else {
-            return Ok(expr);
+            return Ok(Expr {
+                filename: self.path.to_string(),
+                span,
+                kind: expr,
+            });
         };
 
-        match peeked.clone() {
-            // Token::StrLit(_) => todo!("Parse string/char concatenation like that ?"),
-            // Token::CharLit(_) => todo!("Parse string/char concatenation like that ?"),
-            // Token::If => todo!("Parse ternary expression like that ?"),
-            // Token::Else => todo!("Parse ternary expression like that ?"),
-            // Token::While => todo!("Parse while expression like that ?"),
-            // Token::For => todo!("Parse for expression like that ?"),
-            // Token::In => todo!("Parse in like "value in SET" like that ?"),
-            Token::Increment
-            | Token::Decrement
-            | Token::PlusAssign
-            | Token::MinusAssign
-            | Token::TimesAssign
-            | Token::DivideAssign
-            | Token::ModuloAssign
-            | Token::AndAssign
-            | Token::OrAssign
-            | Token::LShiftAssign
-            | Token::RShiftAssign
-            | Token::XorAssign
-            | Token::Assign
-            | Token::Plus
-            | Token::Minus
-            | Token::Times
-            | Token::Power
-            | Token::Divide
-            | Token::Modulo
-            | Token::LAnd
-            | Token::BAnd
-            | Token::LOr
-            | Token::BOr
-            | Token::NEqual
-            | Token::LAngle
-            | Token::LShift
-            | Token::LEq
-            | Token::RAngle
-            | Token::RShift
-            | Token::GEq
-            | Token::Equal
-            | Token::Xor
-            | Token::Dot => {
-                let op = self.parse_binop(expr)?;
-                if let Some((_, Token::Semicolon)) = self.peek_tok() {
-                    self.next_tok(); // Consume semicolon
-                    if in_block {
-                        if let Some((_, Token::RBrace)) = self.peek_tok() {
-                            Ok(Expr::Unit(Some(Box::new(op))))
-                        } else {
-                            Ok(Expr::Sequence {
-                                curr: Box::new(Expr::Unit(Some(Box::new(op)))),
-                                next: Box::new(self.parse_expr(
+        let end_pos: Position;
+        Ok(Expr {
+            filename: self.path.to_string(),
+            kind: match peeked.clone() {
+                // Token::StrLit(_) => todo!("Parse string/char concatenation like that ?"),
+                // Token::CharLit(_) => todo!("Parse string/char concatenation like that ?"),
+                // Token::If => todo!("Parse ternary expression like that ?"),
+                // Token::Else => todo!("Parse ternary expression like that ?"),
+                // Token::While => todo!("Parse while expression like that ?"),
+                // Token::For => todo!("Parse for expression like that ?"),
+                // Token::In => todo!("Parse in like "value in SET" like that ?"),
+                Token::Increment
+                | Token::Decrement
+                | Token::PlusAssign
+                | Token::MinusAssign
+                | Token::TimesAssign
+                | Token::DivideAssign
+                | Token::ModuloAssign
+                | Token::AndAssign
+                | Token::OrAssign
+                | Token::LShiftAssign
+                | Token::RShiftAssign
+                | Token::XorAssign
+                | Token::Assign
+                | Token::Plus
+                | Token::Minus
+                | Token::Times
+                | Token::Power
+                | Token::Divide
+                | Token::Modulo
+                | Token::LAnd
+                | Token::BAnd
+                | Token::LOr
+                | Token::BOr
+                | Token::NEqual
+                | Token::LAngle
+                | Token::LShift
+                | Token::LEq
+                | Token::RAngle
+                | Token::RShift
+                | Token::GEq
+                | Token::Equal
+                | Token::Xor
+                | Token::Dot => {
+                    let op = self.parse_binop(expr, span)?;
+                    if let Some((_, Token::Semicolon)) = self.peek_tok() {
+                        self.next_tok(); // Consume semicolon
+                        if in_block {
+                            if let Some((span, Token::RBrace)) = self.peek_tok() {
+                                end_pos = span.end;
+                                ExprKind::Unit(Some(Box::new(op)))
+                            } else {
+                                let next = Box::new(self.parse_expr(
                                     peeked_span.clone(),
                                     in_block,
                                     collecting_rhs,
-                                )?),
-                            })
+                                )?);
+                                end_pos = next.span.end;
+                                ExprKind::Sequence {
+                                    curr: Box::new(Expr {
+                                        filename: self.path.to_string(),
+                                        span,
+                                        kind: ExprKind::Unit(Some(Box::new(op))),
+                                    }),
+                                    next,
+                                }
+                            }
+                        } else {
+                            end_pos = peeked_span.end;
+                            ExprKind::Unit(Some(Box::new(op)))
                         }
                     } else {
-                        Ok(Expr::Unit(Some(Box::new(op))))
+                        end_pos = op.span.end;
+                        op.kind
                     }
-                } else {
-                    Ok(op)
                 }
-            }
-            Token::Semicolon if in_block => {
-                let span = peeked_span.clone();
-                self.next_tok(); // Consume semicolon
-                if let Some((_, Token::RBrace)) = self.peek_tok() {
-                    self.next_tok(); // Consume right brace
-                    Ok(Expr::Unit(Some(Box::new(expr))))
-                } else {
-                    Ok(Expr::Sequence {
-                        curr: Box::new(Expr::Unit(Some(Box::new(expr)))),
-                        next: Box::new(self.parse_expr(span, in_block, collecting_rhs)?),
-                    })
+                Token::Semicolon if in_block => {
+                    let span = peeked_span.clone();
+                    self.next_tok(); // Consume semicolon
+                    if let Some((span, _)) = self.next_tok_matching(Token::RBrace) {
+                        end_pos = span.end;
+                        ExprKind::Unit(Some(Box::new(Expr {
+                            kind: expr,
+                            filename: self.path.to_string(),
+                            span: Span {
+                                start: span.start,
+                                end: peeked_span.end,
+                            },
+                        })))
+                    } else {
+                        let next = Box::new(self.parse_expr(span, in_block, collecting_rhs)?);
+                        end_pos = next.span.end;
+                        ExprKind::Sequence {
+                            curr: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                kind: ExprKind::Unit(Some(Box::new(Expr {
+                                    filename: self.path.to_string(),
+                                    span: Span {
+                                        start: span.start,
+                                        end: peeked_span.end,
+                                    },
+                                    kind: expr,
+                                }))),
+                                span,
+                            }),
+                            next,
+                        }
+                    }
                 }
-            }
-            Token::Semicolon if !collecting_rhs => {
-                self.next_tok(); // Consume semicolon
-                Ok(Expr::Unit(Some(Box::new(expr))))
-            }
-            _ => Ok(expr),
-        }
+                Token::Semicolon if !collecting_rhs => {
+                    let Some((span, _)) = self.next_tok() else {
+                        unreachable!()
+                    }; // Consume semicolon
+                    end_pos = peeked_span.end;
+                    ExprKind::Unit(Some(Box::new(Expr {
+                        filename: self.path.to_string(),
+                        span: Span {
+                            start: span.start,
+                            end: peeked_span.end,
+                        },
+                        kind: expr,
+                    })))
+                }
+                _ => {
+                    end_pos = span.end;
+                    expr
+                }
+            },
+            span: Span {
+                start: span.start,
+                end: end_pos,
+            },
+        })
     }
 
-    fn parse_binop(&mut self, lhs: Expr) -> Result<Expr, (Span, String)> {
+    fn parse_binop(&mut self, lhs: ExprKind, lhs_span: Span) -> Result<Expr, (Span, String)> {
         let (op_span, op) = self.next_tok().unwrap();
         let op = BinOp::from_tok(op);
         let rhs = self.parse_expr(op_span.clone(), false, true)?;
-        Ok(match (lhs, rhs) {
-            (
-                Expr::BinOp {
-                    op: l_op,
-                    lhs: l_lhs,
-                    rhs: l_rhs,
-                },
-                Expr::BinOp {
-                    op: r_op,
-                    lhs: r_lhs,
-                    rhs: r_rhs,
-                },
-            ) => {
-                if op.attraction_power() > l_op.attraction_power() {
-                    if r_op.attraction_power() > op.attraction_power() {
-                        // a | b + c * d
-                        Expr::BinOp {
-                            op: l_op,
-                            lhs: l_lhs,
-                            rhs: Box::new(Expr::BinOp {
-                                op,
-                                lhs: l_rhs,
-                                rhs: Box::new(Expr::BinOp {
+        Ok(Expr {
+            filename: self.path.to_string(),
+            span: Span {
+                start: lhs_span.start,
+                end: rhs.span.end,
+            },
+            kind: match (lhs.clone(), rhs.kind.clone()) {
+                (
+                    ExprKind::BinOp {
+                        op: l_op,
+                        lhs: l_lhs,
+                        rhs: l_rhs,
+                    },
+                    ExprKind::BinOp {
+                        op: r_op,
+                        lhs: r_lhs,
+                        rhs: r_rhs,
+                    },
+                ) => {
+                    if op.attraction_power() > l_op.attraction_power() {
+                        if r_op.attraction_power() > op.attraction_power() {
+                            // a | b + c * d
+                            ExprKind::BinOp {
+                                op: l_op,
+                                lhs: l_lhs,
+                                rhs: Box::new(Expr {
+                                    filename: self.path.to_string(),
+                                    span: Span {
+                                        start: l_rhs.span.start,
+                                        end: r_rhs.span.end,
+                                    },
+                                    kind: ExprKind::BinOp {
+                                        op,
+                                        lhs: l_rhs,
+                                        rhs: Box::new(Expr {
+                                            filename: self.path.to_string(),
+                                            span: Span {
+                                                start: r_lhs.span.start,
+                                                end: r_rhs.span.end,
+                                            },
+                                            kind: ExprKind::BinOp {
+                                                op: r_op,
+                                                lhs: r_lhs,
+                                                rhs: r_rhs,
+                                            },
+                                        }),
+                                    },
+                                }),
+                            }
+                        } else {
+                            //a + b * c + d
+                            ExprKind::BinOp {
+                                op: r_op,
+                                lhs: Box::new(Expr {
+                                    filename: self.path.to_string(),
+                                    span: Span {
+                                        start: l_lhs.span.start,
+                                        end: r_lhs.span.end,
+                                    },
+                                    kind: ExprKind::BinOp {
+                                        op: l_op,
+                                        lhs: l_lhs,
+                                        rhs: Box::new(Expr {
+                                            filename: self.path.to_string(),
+                                            span: Span {
+                                                start: l_rhs.span.start,
+                                                end: r_lhs.span.end,
+                                            },
+                                            kind: ExprKind::BinOp {
+                                                op,
+                                                lhs: l_rhs,
+                                                rhs: r_lhs,
+                                            },
+                                        }),
+                                    },
+                                }),
+                                rhs: r_rhs,
+                            }
+                        }
+                    } else if r_op.attraction_power() > op.attraction_power() {
+                        // a * b + c * d
+                        ExprKind::BinOp {
+                            op,
+                            lhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: l_lhs.span.start,
+                                    end: l_rhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
+                                    op: l_op,
+                                    lhs: l_lhs,
+                                    rhs: l_rhs,
+                                },
+                            }),
+                            rhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: r_lhs.span.start,
+                                    end: r_rhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
                                     op: r_op,
                                     lhs: r_lhs,
                                     rhs: r_rhs,
-                                }),
+                                },
                             }),
                         }
                     } else {
-                        //a + b * c + d
-                        Expr::BinOp {
+                        // a * b + c | d
+                        ExprKind::BinOp {
                             op: r_op,
-                            lhs: Box::new(Expr::BinOp {
-                                op: l_op,
-                                lhs: l_lhs,
-                                rhs: Box::new(Expr::BinOp {
+                            lhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: l_lhs.span.start,
+                                    end: r_lhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
                                     op,
-                                    lhs: l_rhs,
+                                    lhs: Box::new(Expr {
+                                        filename: self.path.to_string(),
+                                        span: Span {
+                                            start: l_lhs.span.start,
+                                            end: l_rhs.span.end,
+                                        },
+                                        kind: ExprKind::BinOp {
+                                            op: l_op,
+                                            lhs: l_lhs,
+                                            rhs: l_rhs,
+                                        },
+                                    }),
                                     rhs: r_lhs,
-                                }),
+                                },
                             }),
                             rhs: r_rhs,
                         }
                     }
-                } else if r_op.attraction_power() > op.attraction_power() {
-                    // a * b + c * d
-                    Expr::BinOp {
-                        op,
-                        lhs: Box::new(Expr::BinOp {
-                            op: l_op,
-                            lhs: l_lhs,
-                            rhs: l_rhs,
-                        }),
-                        rhs: Box::new(Expr::BinOp {
-                            op: r_op,
-                            lhs: r_lhs,
-                            rhs: r_rhs,
-                        }),
-                    }
-                } else {
-                    // a * b + c | d
-                    Expr::BinOp {
-                        op: r_op,
-                        lhs: Box::new(Expr::BinOp {
-                            op,
-                            lhs: Box::new(Expr::BinOp {
-                                op: l_op,
-                                lhs: l_lhs,
-                                rhs: l_rhs,
-                            }),
-                            rhs: r_lhs,
-                        }),
-                        rhs: r_rhs,
-                    }
                 }
-            }
-            (
-                Expr::BinOp {
-                    op: l_op,
-                    lhs: l_lhs,
-                    rhs: l_rhs,
-                },
-                rhs,
-            ) => {
-                if op.attraction_power() > l_op.attraction_power() {
-                    // a + b * c
-                    Expr::BinOp {
+                (
+                    ExprKind::BinOp {
                         op: l_op,
                         lhs: l_lhs,
-                        rhs: Box::new(Expr::BinOp {
-                            op,
-                            lhs: l_rhs,
-                            rhs: Box::new(rhs),
-                        }),
-                    }
-                } else {
-                    // a * b + c
-                    Expr::BinOp {
-                        op,
-                        lhs: Box::new(Expr::BinOp {
+                        rhs: l_rhs,
+                    },
+                    _,
+                ) => {
+                    if op.attraction_power() > l_op.attraction_power() {
+                        // a + b * c
+                        ExprKind::BinOp {
                             op: l_op,
                             lhs: l_lhs,
-                            rhs: l_rhs,
-                        }),
-                        rhs: Box::new(rhs),
-                    }
-                }
-            }
-            (
-                lhs,
-                Expr::BinOp {
-                    op: r_op,
-                    lhs: r_lhs,
-                    rhs: r_rhs,
-                },
-            ) => {
-                if op.attraction_power() > r_op.attraction_power() {
-                    // a * b + c
-                    Expr::BinOp {
-                        op: r_op,
-                        lhs: Box::new(Expr::BinOp {
+                            rhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: l_rhs.span.start,
+                                    end: rhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
+                                    op,
+                                    lhs: l_rhs,
+                                    rhs: Box::new(rhs),
+                                },
+                            }),
+                        }
+                    } else {
+                        // a * b + c
+                        ExprKind::BinOp {
                             op,
-                            lhs: Box::new(lhs),
-                            rhs: r_lhs,
-                        }),
-                        rhs: r_rhs,
-                    }
-                } else {
-                    // a + b * c
-                    Expr::BinOp {
-                        op,
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(Expr::BinOp {
-                            op: r_op,
-                            lhs: r_lhs,
-                            rhs: r_rhs,
-                        }),
+                            lhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: l_lhs.span.start,
+                                    end: l_rhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
+                                    op: l_op,
+                                    lhs: l_lhs,
+                                    rhs: l_rhs,
+                                },
+                            }),
+                            rhs: Box::new(rhs),
+                        }
                     }
                 }
-            }
-            (lhs, rhs) => Expr::BinOp {
-                op,
-                lhs: Box::new(lhs),
-                rhs: Box::new(rhs),
+                (
+                    lhs,
+                    ExprKind::BinOp {
+                        op: r_op,
+                        lhs: r_lhs,
+                        rhs: r_rhs,
+                    },
+                ) => {
+                    if op.attraction_power() > r_op.attraction_power() {
+                        // a * b + c
+                        ExprKind::BinOp {
+                            op: r_op,
+                            lhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: lhs_span.start,
+                                    end: r_lhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
+                                    op,
+                                    lhs: Box::new(Expr {
+                                        filename: self.path.to_string(),
+                                        span: lhs_span,
+                                        kind: lhs,
+                                    }),
+                                    rhs: r_lhs,
+                                },
+                            }),
+                            rhs: r_rhs,
+                        }
+                    } else {
+                        // a + b * c
+                        ExprKind::BinOp {
+                            op,
+                            lhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: lhs_span,
+                                kind: lhs,
+                            }),
+                            rhs: Box::new(Expr {
+                                filename: self.path.to_string(),
+                                span: Span {
+                                    start: r_lhs.span.start,
+                                    end: r_rhs.span.end,
+                                },
+                                kind: ExprKind::BinOp {
+                                    op: r_op,
+                                    lhs: r_lhs,
+                                    rhs: r_rhs,
+                                },
+                            }),
+                        }
+                    }
+                }
+                (_, _) => ExprKind::BinOp {
+                    op,
+                    lhs: Box::new(Expr {
+                        filename: self.path.to_string(),
+                        span: lhs_span,
+                        kind: lhs,
+                    }),
+                    rhs: Box::new(rhs),
+                },
             },
         })
     }
@@ -802,7 +980,7 @@ impl Iterator for Parser<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Pattern {
     Wildcard,
     NamedWildcard(String),
@@ -823,7 +1001,7 @@ impl Display for Pattern {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Ty {
     I8,
     I16,
@@ -852,6 +1030,7 @@ pub enum Ty {
     Bool,
     Unit,
     Mut(Box<Ty>),
+    Arrow { param: Box<Pattern>, ret: Box<Ty> },
     Never,
 }
 
@@ -889,6 +1068,7 @@ impl Display for Ty {
                 Ty::Arr { ty, size } => format!("[{ty}; {size}]"),
                 Ty::Mut(ty) => format!("mut {ty}"),
                 Ty::Unknown => "?".into(),
+                Ty::Arrow { param, ret } => format!("({param}) -> {ret}"),
             }
         )
     }
