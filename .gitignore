@@ -9,3 +9,7 @@ Cargo.lock
 
 # Test source code
 test.fhia
+*.out
+*.as
+*.o
+test
