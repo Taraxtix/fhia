@@ -93,12 +93,14 @@ impl ProgExpr {
 
 pub struct Program {
     //TODO: Store undefined symbols yet to see if they will appears in the global scope later on
+    pub path: String,
     pub prog_exprs: Vec<ProgExpr>,
 }
 
 impl Program {
     pub fn new(parser: Parser) -> Self {
         Self {
+            path: parser.path.to_string(),
             prog_exprs: parser.map(|e| to_prog_expr(e, vec![])).collect(),
         }
     }

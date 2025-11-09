@@ -72,6 +72,7 @@ impl From<Register> for &'static str {
 pub struct Compiler<'a> {
     generated: String,
     included_files: Vec<&'a str>,
+    curr_path: String,
     args: &'a Args,
     declarations: HashMap<String, Vec<(Ty, ProgExpr)>>,
 }
@@ -83,6 +84,7 @@ impl<'a> Compiler<'a> {
             included_files: Vec::new(),
             args,
             declarations: HashMap::new(),
+            curr_path: String::new(),
         }
     }
 
@@ -115,6 +117,8 @@ impl<'a> Compiler<'a> {
             self.not_implemented_yet("no std");
         }
 
+        self.curr_path = program.path.clone();
+
         self.generated
             .push_str("format ELF64\nsection \".text\" executable");
 
@@ -129,7 +133,7 @@ impl<'a> Compiler<'a> {
 
         if !self.declarations.contains_key("main") {
             self.report_error(
-                program.prog_exprs[0].clone(),
+                &program.prog_exprs[0],
                 "No 'main' function found in the program",
             );
         }
@@ -177,9 +181,9 @@ impl<'a> Compiler<'a> {
         // self.declarations.insert((name, ty), expr);
         for curr_expr in &program.prog_exprs {
             if let ProgExpr::Decla { name, ty, expr } = curr_expr {
-                if !self.validate_decla(name, ty) {
+                if !self.validate_decla(name, ty, &curr_expr) {
                     self.report_error(
-                        curr_expr.clone(),
+                        curr_expr,
                         format!("Declaration type '{ty}' is not correct for '{name}'"),
                     );
                 }
@@ -193,18 +197,38 @@ impl<'a> Compiler<'a> {
                         .insert(name.clone(), vec![(ty.clone(), *expr.clone())]);
                 }
             } else {
-                self.report_error(
-                    curr_expr.clone(),
-                    "Only declarations are allowed at the top level",
-                );
+                self.report_error(curr_expr, "Only declarations are allowed at the top level");
             }
         }
     }
 
-    fn validate_decla(&self, name: &str, ty: &Ty) -> bool {
+    fn validate_decla(&self, name: &str, ty: &Ty, curr_expr: &ProgExpr) -> bool {
         let variants = self.declarations.get(name);
         if name == "main" {
-            todo!("Handle main function validation");
+            if variants.is_some() {
+                self.report_error(curr_expr, "'main' function cannot be overloaded");
+            } else {
+                match ty {
+                    Ty::Arrow { param, ret }
+                        if param.is_compatible(&Pattern::Typed {
+                            ty: Ty::Usize,
+                            name: "argc".to_string(),
+                        }) && ret.is_compatible(&Ty::Arrow {
+                            param: Box::new(Pattern::Typed {
+                                ty: Ty::ConstRef(Box::new(Ty::Slice(Box::new(Ty::Str)))),
+                                name: "argv".to_string(),
+                            }),
+                            ret: Box::new(Ty::I32),
+                        }) =>
+                    {
+                        true
+                    }
+                    _ => self.report_error(
+                        curr_expr,
+                        "'main' function must have a type compatible with `usize -> &[str] -> i32`",
+                    ),
+                }
+            }
         } else if variants.is_none() {
             ty.is_explicit()
         } else {
@@ -213,7 +237,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn report_error(&mut self, expr: ProgExpr, msg: impl Display) -> ! {
+    fn report_error(&self, expr: &ProgExpr, msg: impl Display) -> ! {
         eprintln!(
             "[ERROR]: {}:{}: Compiling Error: {}",
             expr.path(),

@@ -231,7 +231,7 @@ impl Display for BinOp {
 
 #[derive(Debug, Clone)]
 pub struct Parser<'a> {
-    path: &'a str,
+    pub path: &'a str,
     lexer: Peekable<Lexer<'a>>,
     // symbols: Vec<Symbol>,
 }
@@ -292,10 +292,11 @@ impl<'a> Parser<'a> {
         let mut args: Vec<Pattern> = vec![];
         let mut typed = false;
         let mut last_span = None;
+        let mut got_assign: bool = false;
 
         loop {
             match self.next_tok().ok_or((
-                last_span.unwrap_or(name_span.clone()),
+                last_span.unwrap_or(name_span),
                 "Expected either `:`, `=` or an argument pattern but got nothing".into(),
             ))? {
                 (span, Token::Colon) => {
@@ -303,12 +304,13 @@ impl<'a> Parser<'a> {
                     typed = true;
                     break;
                 }
-                (span, Token::Equal) => {
+                (span, Token::Assign) => {
                     last_span = Some(span);
+                    got_assign = true;
                     break;
                 }
                 (arg_span, Token::LParen) => {
-                    last_span = Some(arg_span.clone());
+                    last_span = Some(arg_span);
                     args.push(self.parse_paren_arg(arg_span));
                 }
                 (span, Token::Ident(arg_name)) => {
@@ -329,8 +331,14 @@ impl<'a> Parser<'a> {
         }
 
         let last_span = last_span.unwrap();
-        let ty = self.parse_type(name_span);
-        self.expect_tok(last_span.clone(), Token::Assign);
+        let ty = if typed {
+            self.parse_type(name_span)
+        } else {
+            Ty::Unknown
+        };
+        if !got_assign {
+            self.expect_tok(last_span, Token::Assign);
+        }
 
         Ok(Expr {
             filename: self.path.to_string(),
@@ -340,19 +348,19 @@ impl<'a> Parser<'a> {
             },
             kind: ExprKind::Decla {
                 name,
-                ty: Self::construct_decla_type(typed, ty, &args),
+                ty: Self::construct_decla_type(ty, &args),
                 expr: Box::new(self.parse_expr(last_span, false, false)?),
             },
         })
     }
 
-    fn construct_decla_type(typed: bool, ret_ty: Ty, args: &[Pattern]) -> Ty {
+    fn construct_decla_type(ret_ty: Ty, args: &[Pattern]) -> Ty {
         if args.is_empty() {
-            if typed { ret_ty } else { Ty::Unknown }
+            ret_ty
         } else {
             Ty::Arrow {
                 param: Box::new(args[0].clone()),
-                ret: Box::new(Self::construct_decla_type(typed, ret_ty, &args[1..])),
+                ret: Box::new(Self::construct_decla_type(ret_ty, &args[1..])),
             }
         }
     }
@@ -362,11 +370,11 @@ impl<'a> Parser<'a> {
             Some((span, Token::Ident(name))) => (span, name),
             _ => self.report_error(span, "Expected pattern as argument"),
         };
-        self.expect_tok(span.clone(), Token::Colon);
+        self.expect_tok(span, Token::Colon);
 
-        let ty = self.parse_type(span.clone());
+        let ty = self.parse_type(span);
 
-        self.expect_tok(span.clone(), Token::RParen);
+        self.expect_tok(span, Token::RParen);
         Pattern::Typed { ty, name }
     }
 
@@ -416,7 +424,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_array_slice(&mut self, span: Span) -> Ty {
-        let val_type = self.parse_type(span.clone());
+        let val_type = self.parse_type(span);
         match self.next_tok() {
             Some((_, Token::RBracket)) => Ty::Slice(Box::new(val_type)),
             Some((_, Token::Semicolon)) => {
@@ -471,12 +479,12 @@ impl<'a> Parser<'a> {
                 // expr
             }
             Token::LParen => {
-                let expr = self.parse_expr(span.clone(), in_block, collecting_rhs)?;
+                let expr = self.parse_expr(span, in_block, collecting_rhs)?;
                 self.expect_tok(span, Token::RParen);
                 ExprKind::Paren(Box::new(expr))
             }
             Token::LBrace => {
-                let expr = self.parse_expr(span.clone(), true, collecting_rhs)?;
+                let expr = self.parse_expr(span, true, collecting_rhs)?;
                 self.expect_tok(span, Token::RBrace);
                 expr.kind
             }
@@ -545,7 +553,7 @@ impl<'a> Parser<'a> {
                                 ExprKind::Unit(Some(Box::new(op)))
                             } else {
                                 let next = Box::new(self.parse_expr(
-                                    peeked_span.clone(),
+                                    peeked_span,
                                     in_block,
                                     collecting_rhs,
                                 )?);
@@ -569,7 +577,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Token::Semicolon if in_block => {
-                    let span = peeked_span.clone();
+                    let span = peeked_span;
                     self.next_tok(); // Consume semicolon
                     if let Some((span, _)) = self.next_tok_matching(Token::RBrace) {
                         end_pos = span.end;
@@ -630,7 +638,7 @@ impl<'a> Parser<'a> {
     fn parse_binop(&mut self, lhs: ExprKind, lhs_span: Span) -> Result<Expr, (Span, String)> {
         let (op_span, op) = self.next_tok().unwrap();
         let op = BinOp::from_tok(op);
-        let rhs = self.parse_expr(op_span.clone(), false, true)?;
+        let rhs = self.parse_expr(op_span, false, true)?;
         Ok(Expr {
             filename: self.path.to_string(),
             span: Span {
