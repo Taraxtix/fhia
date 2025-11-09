@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Display, fs::OpenOptions, io::Write};
 
 use crate::{
     Args,
-    parser::{Expr, ExprKind, Parser, Ty},
+    parser::{Expr, ExprKind, Parser, Pattern, Ty},
     program::{ProgExpr, Program},
 };
 
@@ -127,7 +127,7 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        if let None = self.declarations.get("main") {
+        if !self.declarations.contains_key("main") {
             self.report_error(
                 program.prog_exprs[0].clone(),
                 "No 'main' function found in the program",
@@ -175,8 +175,14 @@ impl<'a> Compiler<'a> {
 
     fn aggregate_first_order_declarations(&mut self, program: &Program) {
         // self.declarations.insert((name, ty), expr);
-        for expr in &program.prog_exprs {
-            if let ProgExpr::Decla { name, ty, expr } = expr {
+        for curr_expr in &program.prog_exprs {
+            if let ProgExpr::Decla { name, ty, expr } = curr_expr {
+                if !self.validate_decla(name, ty) {
+                    self.report_error(
+                        curr_expr.clone(),
+                        format!("Declaration type '{ty}' is not correct for '{name}'"),
+                    );
+                }
                 if self.declarations.contains_key(name) {
                     self.declarations
                         .get_mut(name)
@@ -188,10 +194,22 @@ impl<'a> Compiler<'a> {
                 }
             } else {
                 self.report_error(
-                    expr.clone(),
+                    curr_expr.clone(),
                     "Only declarations are allowed at the top level",
                 );
             }
+        }
+    }
+
+    fn validate_decla(&self, name: &str, ty: &Ty) -> bool {
+        let variants = self.declarations.get(name);
+        if name == "main" {
+            todo!("Handle main function validation");
+        } else if variants.is_none() {
+            ty.is_explicit()
+        } else {
+            let (original, _) = &variants.unwrap()[0];
+            original.is_compatible(ty)
         }
     }
 

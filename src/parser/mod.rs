@@ -1001,6 +1001,24 @@ impl Display for Pattern {
     }
 }
 
+impl Pattern {
+    pub fn is_explicit(&self) -> bool {
+        match self {
+            Pattern::Wildcard => false,
+            Pattern::NamedWildcard(_) => false,
+            Pattern::Typed { ty, .. } => ty.is_explicit(),
+        }
+    }
+
+    pub fn is_compatible(&self, other: &Pattern) -> bool {
+        match (self, other) {
+            (Pattern::Wildcard, _) | (_, Pattern::Wildcard) => true,
+            (Pattern::NamedWildcard(_), _) | (_, Pattern::NamedWildcard(_)) => true,
+            (Pattern::Typed { ty: t1, .. }, Pattern::Typed { ty: t2, .. }) => t1.is_compatible(t2),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Ty {
     I8,
@@ -1071,5 +1089,55 @@ impl Display for Ty {
                 Ty::Arrow { param, ret } => format!("({param}) -> {ret}"),
             }
         )
+    }
+}
+
+impl Ty {
+    pub fn is_explicit(&self) -> bool {
+        match self {
+            Ty::I8
+            | Ty::I16
+            | Ty::I32
+            | Ty::I64
+            | Ty::I128
+            | Ty::U8
+            | Ty::U16
+            | Ty::U32
+            | Ty::U64
+            | Ty::U128
+            | Ty::F32
+            | Ty::F64
+            | Ty::F128
+            | Ty::Usize
+            | Ty::Isize
+            | Ty::Char
+            | Ty::Never
+            | Ty::Bool
+            | Ty::Unit
+            | Ty::Str => true,
+            Ty::ConstPtr(ty)
+            | Ty::MutPtr(ty)
+            | Ty::ConstRef(ty)
+            | Ty::MutRef(ty)
+            | Ty::Slice(ty) => ty.is_explicit(),
+            Ty::Arr { ty, .. } => ty.is_explicit(),
+            Ty::Mut(_ty) => todo!("Handle mutable types in decla_type_is_explicit"),
+            Ty::Arrow { param, ret } => param.is_explicit() && ret.is_explicit(),
+            Ty::Unknown => false,
+        }
+    }
+
+    pub fn is_compatible(&self, other: &Ty) -> bool {
+        if self == other {
+            true
+        } else {
+            match (self, other) {
+                (Ty::Unknown, _) | (_, Ty::Unknown) => true,
+                (Ty::Arrow { param: p1, ret: r1 }, Ty::Arrow { param: p2, ret: r2 }) => {
+                    p1.is_compatible(p2) && r1.is_compatible(r2)
+                }
+                _ => false,
+            }
+        }
     }
 }
