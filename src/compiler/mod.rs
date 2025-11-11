@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Display, fs::OpenOptions, io::Write};
 
 use crate::{
-    Args,
-    parser::{Expr, ExprKind, Parser, Pattern, Ty},
+    parser::{Expr, ExprKind, Parser, Ty},
     program::{ProgExpr, Program},
+    Args,
 };
 
 #[allow(dead_code)]
@@ -112,6 +112,7 @@ impl<'a> Compiler<'a> {
         self.not_implemented_yet("add another parser")
     }
 
+    #[allow(unreachable_code)]
     pub fn compile(&mut self, program: Program) {
         if !self.args.no_std {
             self.not_implemented_yet("no std");
@@ -122,7 +123,7 @@ impl<'a> Compiler<'a> {
         self.generated
             .push_str("format ELF64\nsection \".text\" executable");
 
-        self.aggregate_first_order_declarations(&program);
+        todo!();
 
         //DEBUG
         for (name, variants) in &self.declarations {
@@ -131,40 +132,15 @@ impl<'a> Compiler<'a> {
             }
         }
 
-        if !self.declarations.contains_key("main") {
-            self.report_error(
-                &program.prog_exprs[0],
-                "No 'main' function found in the program",
-            );
-        }
-
-        todo!("After aggregating first order declarations");
-
-        for expr in program.prog_exprs {
-            match expr {
-                ProgExpr::Lit(expr) => self.compile_lit(expr, true),
-                ProgExpr::Simple(_scoped_expr) => {
-                    self.not_implemented_yet("Compilation of simple expr")
-                }
-                ProgExpr::Unit(_prog_expr) => self.not_implemented_yet("Compilation of unit expr"),
-                ProgExpr::Decla { name, ty, expr } => {
-                    todo!()
-                    //self.register_decla(name, ty, *expr)
-                }
-                ProgExpr::Sequence {
-                    curr: _curr,
-                    next: _next,
-                } => self.not_implemented_yet("Compilation of sequence expr"),
-                ProgExpr::BinOp {
-                    op: _op,
-                    lhs: _lhs,
-                    rhs: _rhs,
-                } => self.not_implemented_yet("Compilation of binop expr"),
-                ProgExpr::Paren(_prog_expr) => {
-                    self.not_implemented_yet("Compilation of parenthesised expr")
-                }
+        let (_, _main_function) = match self.declarations.remove("main") {
+            None => {
+                self.report_error(
+                    &program.prog_exprs[0],
+                    "No 'main' function found in the program",
+                );
             }
-        }
+            Some(mut variants) => variants.remove(0),
+        };
 
         let mut file = OpenOptions::new()
             .write(true)
@@ -175,66 +151,6 @@ impl<'a> Compiler<'a> {
 
         file.write_all(self.generated.as_bytes())
             .expect("Failed to write to output file");
-    }
-
-    fn aggregate_first_order_declarations(&mut self, program: &Program) {
-        // self.declarations.insert((name, ty), expr);
-        for curr_expr in &program.prog_exprs {
-            if let ProgExpr::Decla { name, ty, expr } = curr_expr {
-                if !self.validate_decla(name, ty, &curr_expr) {
-                    self.report_error(
-                        curr_expr,
-                        format!("Declaration type '{ty}' is not correct for '{name}'"),
-                    );
-                }
-                if self.declarations.contains_key(name) {
-                    self.declarations
-                        .get_mut(name)
-                        .unwrap()
-                        .push((ty.clone(), *expr.clone()));
-                } else {
-                    self.declarations
-                        .insert(name.clone(), vec![(ty.clone(), *expr.clone())]);
-                }
-            } else {
-                self.report_error(curr_expr, "Only declarations are allowed at the top level");
-            }
-        }
-    }
-
-    fn validate_decla(&self, name: &str, ty: &Ty, curr_expr: &ProgExpr) -> bool {
-        let variants = self.declarations.get(name);
-        if name == "main" {
-            if variants.is_some() {
-                self.report_error(curr_expr, "'main' function cannot be overloaded");
-            } else {
-                match ty {
-                    Ty::Arrow { param, ret }
-                        if param.is_compatible(&Pattern::Typed {
-                            ty: Ty::Usize,
-                            name: "argc".to_string(),
-                        }) && ret.is_compatible(&Ty::Arrow {
-                            param: Box::new(Pattern::Typed {
-                                ty: Ty::ConstRef(Box::new(Ty::Slice(Box::new(Ty::Str)))),
-                                name: "argv".to_string(),
-                            }),
-                            ret: Box::new(Ty::I32),
-                        }) =>
-                    {
-                        true
-                    }
-                    _ => self.report_error(
-                        curr_expr,
-                        "'main' function must have a type compatible with `usize -> &[str] -> i32`",
-                    ),
-                }
-            }
-        } else if variants.is_none() {
-            ty.is_explicit()
-        } else {
-            let (original, _) = &variants.unwrap()[0];
-            original.is_compatible(ty)
-        }
     }
 
     fn report_error(&self, expr: &ProgExpr, msg: impl Display) -> ! {
@@ -261,6 +177,7 @@ impl<'a> Compiler<'a> {
             | ExprKind::Unit(_)
             | ExprKind::Sequence { .. }
             | ExprKind::BinOp { .. }
+            | ExprKind::Application(_, _)
             | ExprKind::Paren(_) => self.not_implemented_yet("Compile_lit(Non-literal)"),
         }
     }

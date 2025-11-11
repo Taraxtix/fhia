@@ -16,8 +16,8 @@ pub type Scope = HashMap<String, (usize, Symbol)>;
 
 #[derive(Debug, Clone)]
 pub struct ScopedExpr {
-    scope: Vec<Scope>,
-    expr: Expr,
+    pub scope: Vec<Scope>,
+    pub expr: Expr,
 }
 
 #[derive(Debug, Clone)]
@@ -137,6 +137,7 @@ pub fn to_prog_expr(expr: Expr, mut scope: Vec<Scope>) -> ProgExpr {
             rhs: Box::new(to_prog_expr(*rhs, scope)),
         },
         ExprKind::Paren(expr) => ProgExpr::Paren(Box::new(to_prog_expr(*expr, scope))),
+        ExprKind::Application(_, _) => ProgExpr::Simple(ScopedExpr { scope, expr }),
     }
 }
 

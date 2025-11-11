@@ -3,8 +3,8 @@ use std::iter::Peekable;
 
 use crate::lexer::{Position, Span, Token};
 
-use super::Args;
 use super::lexer::Lexer;
+use super::Args;
 
 #[derive(Debug, Clone)]
 pub struct Expr {
@@ -39,6 +39,7 @@ pub enum ExprKind {
         rhs: Box<Expr>,
     },
     Paren(Box<Expr>),
+    Application(Box<Expr>, Box<Expr>),
 }
 
 impl Display for Expr {
@@ -70,6 +71,9 @@ impl Display for ExprKind {
                 ExprKind::Sequence { curr, next } => format!("{curr} {next}"),
                 ExprKind::BinOp { op, lhs, rhs } => format!("({lhs} {op} {rhs})"),
                 ExprKind::Paren(expr) => format!("({expr})"),
+                ExprKind::Application(func, arg) => {
+                    format!("{func} {arg}")
+                }
             }
         )
     }
@@ -233,7 +237,6 @@ impl Display for BinOp {
 pub struct Parser<'a> {
     pub path: &'a str,
     lexer: Peekable<Lexer<'a>>,
-    // symbols: Vec<Symbol>,
 }
 
 impl<'a> Parser<'a> {
@@ -241,7 +244,6 @@ impl<'a> Parser<'a> {
         Self {
             path: lexer.path,
             lexer: lexer.peekable(),
-            // symbols: Vec::new(),
         }
     }
 
@@ -250,6 +252,7 @@ impl<'a> Parser<'a> {
         std::process::exit(1);
     }
 
+    /// Consume token if it is the next, else, raise an error
     fn expect_tok(&mut self, span: Span, expected: Token) {
         match self.next_tok() {
             Some((_, got)) if expected == got => (),
@@ -453,7 +456,7 @@ impl<'a> Parser<'a> {
         let (span, tok) = self
             .next_tok()
             .ok_or((span, "Expected expression".to_string()))?;
-        let expr = match tok {
+        let mut expr = match tok {
             Token::Let => return self.parse_let(span),
             Token::Ident(name) => ExprKind::Ident(name),
             Token::U32Lit(lit) => ExprKind::U32(lit),
@@ -492,18 +495,75 @@ impl<'a> Parser<'a> {
                 return Err((span, format!("Expected expression got {tok}")));
             }
         };
-        let Some((peeked_span, peeked)) = self.peek_tok().cloned() else {
+
+        let filename = self.path.to_string();
+        let Some((mut peeked_span, mut peeked)) = self.peek_tok().cloned() else {
             return Ok(Expr {
-                filename: self.path.to_string(),
+                filename,
                 span,
                 kind: expr,
             });
         };
 
-        let end_pos: Position;
+        let mut end_pos: Position = span.end;
+
+        loop {
+            match peeked.clone() {
+                Token::Ident(_)
+                | Token::U32Lit(_)
+                | Token::U64Lit(_)
+                | Token::U128Lit(_)
+                | Token::FLit(_)
+                | Token::StrLit(_)
+                | Token::CharLit(_)
+                | Token::BoolLit(_)
+                | Token::If
+                | Token::LParen
+                | Token::LBrace
+                | Token::I8
+                | Token::I16
+                | Token::I32
+                | Token::I64
+                | Token::I128
+                | Token::U8
+                | Token::U16
+                | Token::U32
+                | Token::U64
+                | Token::U128
+                | Token::Usize
+                | Token::Isize
+                | Token::F32
+                | Token::F64
+                | Token::F128
+                | Token::Bool
+                | Token::Char
+                | Token::Str => {
+                    let next = self.parse_expr(peeked_span, in_block, collecting_rhs)?;
+                    expr = ExprKind::Application(
+                        Box::new(Expr {
+                            filename: self.path.to_string(),
+                            span,
+                            kind: expr,
+                        }),
+                        Box::new(next),
+                    )
+                }
+                _ => break,
+            }
+            let Some((new_peeked_span, new_peeked)) = self.peek_tok().cloned() else {
+                return Ok(Expr {
+                    filename: self.path.to_string(),
+                    span,
+                    kind: expr,
+                });
+            };
+            peeked_span = new_peeked_span;
+            peeked = new_peeked;
+        }
+
         Ok(Expr {
-            filename: self.path.to_string(),
-            kind: match peeked.clone() {
+            filename,
+            kind: match peeked {
                 // Token::StrLit(_) => todo!("Parse string/char concatenation like that ?"),
                 // Token::CharLit(_) => todo!("Parse string/char concatenation like that ?"),
                 // Token::If => todo!("Parse ternary expression like that ?"),
@@ -623,10 +683,7 @@ impl<'a> Parser<'a> {
                         kind: expr,
                     })))
                 }
-                _ => {
-                    end_pos = span.end;
-                    expr
-                }
+                _ => expr,
             },
             span: Span {
                 start: span.start,

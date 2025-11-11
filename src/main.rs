@@ -5,6 +5,7 @@ mod lexer;
 mod modules;
 mod parser;
 mod program;
+mod typer;
 
 use clap::Parser as clapParser;
 use compiler::Compiler;
@@ -62,7 +63,7 @@ fn main() {
     let parser = Parser::parse_user_program(lexer, &args);
 
     if args.parser {
-        println!("---------------------------------------------");
+        if !args.lexer { println!("---------------------------------------------"); }
         println!("Parser output:\n");
         for expr in parser.clone() {
             println!("{expr}")
@@ -71,5 +72,9 @@ fn main() {
     }
 
     let program = Program::new(parser);
+    let _typed = program.clone().type_check().unwrap_or_else(|err| {
+        println!("Type checking error: {err}");
+        std::process::exit(1);
+    });
     Compiler::new(&args).compile(program)
 }
