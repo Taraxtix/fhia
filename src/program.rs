@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-struct Symbol {
+pub struct Symbol {
     name: String,
     ty: Ty,
     initialized: bool,
@@ -91,8 +91,8 @@ impl ProgExpr {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Program {
-    //TODO: Store undefined symbols yet to see if they will appears in the global scope later on
     pub path: String,
     pub prog_exprs: Vec<ProgExpr>,
 }
@@ -106,7 +106,7 @@ impl Program {
     }
 }
 
-fn to_prog_expr(expr: Expr, mut scope: Vec<Scope>) -> ProgExpr {
+pub fn to_prog_expr(expr: Expr, mut scope: Vec<Scope>) -> ProgExpr {
     match expr.kind {
         ExprKind::U32(_)
         | ExprKind::U64(_)

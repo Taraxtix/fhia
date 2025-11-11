@@ -178,6 +178,7 @@ impl<'a> Lexer<'a> {
         })
     }
 
+    //TODO: Check for usefulness later
     pub fn _from_filename_and_source(path: &'a str, source: &str) -> Self {
         Self {
             path,
@@ -214,19 +215,19 @@ impl<'a> Lexer<'a> {
 
     /// Consume leading whitespaces returning true if it consumed any
     ///
-    /// Whitespaces includes tabs, newlines, and spaces
+    /// Whitespaces include tabs, newlines, and spaces
     #[inline]
     fn consume_whitespace(&mut self) -> bool {
         self.consume(&Regex::new(r"\s+").unwrap()).is_some()
     }
 
-    /// Consume leading single line comment returning true if it consumed any
+    /// Consumes a single line comment returning true if it consumed any
     #[inline]
     fn consume_line_comment(&mut self) -> bool {
         self.consume(&Regex::new(r"//[^\n]*").unwrap()).is_some()
     }
 
-    /// Consume leading block comment returning true if it consumed any
+    /// Consumes a block comment returning true if it consumed any
     #[inline]
     fn consume_block_comment(&mut self) -> bool {
         self.consume(&Regex::new(r"/\*(.|\n)*?\*/").unwrap())
@@ -434,7 +435,7 @@ impl<'a> Lexer<'a> {
         Some((Span::new(start, self.pos.clone()), tok))
     }
 
-    fn consume_ops(&mut self) -> Option<(Span, Token)> {
+    fn consume_op(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let tok = match self
             .consume(&Regex::new(r"([<>]{2}=|[+*|&<>=-]{2}|[+*/%|&!<>^-]=?|[~=])").unwrap())?
@@ -478,7 +479,7 @@ impl<'a> Lexer<'a> {
         Some((Span::new(start, self.pos.clone()), tok))
     }
 
-    fn consume_delims(&mut self) -> Option<(Span, Token)> {
+    fn consume_delim(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let tok = match self.consume(&Regex::new(r"[\[\].(){};,.:]").unwrap())? {
             "[" => Token::LBracket,
@@ -506,7 +507,7 @@ impl<'a> Lexer<'a> {
         Some((Span::new(start, self.pos.clone()), tok))
     }
 
-    fn consume_modifiers(&mut self) -> Option<(Span, Token)> {
+    fn consume_modifier(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let tok = match self.consume(&Regex::new(r"mut|const|inline|extern").unwrap())? {
             "mut" => Token::Mut,
@@ -518,7 +519,7 @@ impl<'a> Lexer<'a> {
         Some((Span::new(start, self.pos.clone()), tok))
     }
 
-    fn consume_keywords(&mut self) -> Option<(Span, Token)> {
+    fn consume_keyword(&mut self) -> Option<(Span, Token)> {
         let start = self.pos.clone();
         let tok = match self.consume(&Regex::new(r"let|if|else|while|for|in|use").unwrap())? {
             "let" => Token::Let,
@@ -547,7 +548,7 @@ impl Iterator for Lexer<'_> {
     type Item = (Span, Token);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Reached end of source
+        // Reached the end of source
         if self.idx >= self.source.len() {
             return None;
         }
@@ -564,11 +565,11 @@ impl Iterator for Lexer<'_> {
                 .or_else(|| self.consume_char_lit())
                 .or_else(|| self.consume_f_lit())
                 .or_else(|| self.consume_int_lit())
-                .or_else(|| self.consume_ops())
-                .or_else(|| self.consume_delims())
+                .or_else(|| self.consume_op())
+                .or_else(|| self.consume_delim())
                 .or_else(|| self.consume_bool_lit())
-                .or_else(|| self.consume_keywords())
-                .or_else(|| self.consume_modifiers())
+                .or_else(|| self.consume_keyword())
+                .or_else(|| self.consume_modifier())
                 .or_else(|| self.consume_ident())
                 .unwrap_or_else(|| {
                     self.report_error(
