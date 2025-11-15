@@ -1,7 +1,6 @@
+use crate::lexer::{Position, Span, Token};
 use std::fmt::Display;
 use std::iter::Peekable;
-
-use crate::lexer::{Position, Span, Token};
 
 use super::lexer::Lexer;
 use super::Args;
@@ -72,7 +71,7 @@ impl Display for ExprKind {
                 ExprKind::BinOp { op, lhs, rhs } => format!("({lhs} {op} {rhs})"),
                 ExprKind::Paren(expr) => format!("({expr})"),
                 ExprKind::Application(func, arg) => {
-                    format!("{func} {arg}")
+                    format!("{func}({arg})")
                 }
             }
         )
@@ -561,6 +560,8 @@ impl<'a> Parser<'a> {
             peeked = new_peeked;
         }
 
+        expr = Self::reorder_applications(expr);
+
         Ok(Expr {
             filename,
             kind: match peeked {
@@ -690,6 +691,32 @@ impl<'a> Parser<'a> {
                 end: end_pos,
             },
         })
+    }
+
+    fn reorder_applications(expr: ExprKind) -> ExprKind {
+        match expr {
+            ExprKind::Application(func, arg) if matches!(arg.kind, ExprKind::Application(..)) => {
+                match arg.kind {
+                    ExprKind::Application(func1, arg2) => ExprKind::Application(
+                        Box::new(Expr {
+                            filename: func.filename.clone(),
+                            span: Span {
+                                start: func.span.start,
+                                end: func1.span.end,
+                            },
+                            kind: ExprKind::Application(func, func1),
+                        }),
+                        Box::new(Expr {
+                            filename: arg2.filename,
+                            span: arg2.span,
+                            kind: Self::reorder_applications(arg2.kind),
+                        }),
+                    ),
+                    _ => unreachable!(),
+                }
+            }
+            expr => expr,
+        }
     }
 
     fn parse_binop(&mut self, lhs: ExprKind, lhs_span: Span) -> Result<Expr, (Span, String)> {
@@ -1116,6 +1143,14 @@ pub enum Ty {
     Arrow { param: Box<Pattern>, ret: Box<Ty> },
     Never,
 }
+
+// impl Deref for Ty {
+//     type Target = Self;
+//
+//     fn deref(&self) -> Self::Target {
+//         self.clone()
+//     }
+// }
 
 impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
