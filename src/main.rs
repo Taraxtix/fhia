@@ -42,4 +42,21 @@ fn main() {
         );
         std::process::exit(1);
     });
+
+    let result = parser::parse(&input);
+    if let Some(output) = result.output() {
+        println!("================ Output ==================");
+        for expr in output {
+            println!("{expr}");
+        }
+    } else {
+        println!("NO OUTPUT");
+    }
+
+    if result.has_errors() {
+        println!("================ Errors ==================");
+        for err in result.errors() {
+            eprintln!("{}", err);
+        }
+    }
 }

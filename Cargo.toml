@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
-chumsky = {version = "0.12.0", features = ["nightly"]}
+chumsky = {version = "0.12.0", features = ["nightly", "lexical-numbers"]}
 clap = {version = "4.5.31", features = ["derive"]}
