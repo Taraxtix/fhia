@@ -56,7 +56,11 @@ fn main() {
     if result.has_errors() {
         println!("================ Errors ==================");
         for err in result.errors() {
-            eprintln!("{}", err);
+            eprintln!("{}: {}", err.span(), err.reason());
+            eprintln!(
+                "Previous context: {:#?}",
+                err.contexts().collect::<Vec<_>>()
+            );
         }
     }
 }
