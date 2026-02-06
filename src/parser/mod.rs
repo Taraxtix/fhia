@@ -1,85 +1,109 @@
-use chumsky::prelude::*;
+use std::{fs::OpenOptions, io::Write};
 
-mod expr;
+use chumsky::{
+    input::{Stream, ValueInput},
+    prelude::*,
+};
+use logos::Logos;
+
+pub(crate) mod expr;
 use expr::*;
 
-macro_rules! ParserOf {
-    ($T:ty) => {
-   impl Parser<'a, &'a str, $T, extra::Err<Rich<'a, char>>> + Clone
-    };
+use crate::lexer::Token;
+
+fn expr<'a, I>() -> impl Parser<'a, I, Expr<'a>, extra::Err<Rich<'a, Token<'a>>>>
+where
+    I: ValueInput<'a, Token = Token<'a>, Span = SimpleSpan>,
+{
+    let litteral = select! {
+        Token::I64(i) => Expr::I64(i),
+        Token::F64(f) => Expr::F64(f),
+    }
+    .labelled("litteral");
+
+    let ident = select! {
+        Token::Ident(name) => Expr::Ident{name, ty: Ty::Unknown},
+    }
+    .labelled("Identifier");
+
+    let ty = select! {
+        Token::Ty(ty) => ty,
+    }
+    .labelled("Type");
+
+    recursive(|expr| {
+        let expr = expr.labelled("Expr");
+
+        let decla = just(Token::Let)
+            .labelled("Let")
+            .ignore_then(ident)
+            .then_ignore(just(Token::Assign).labelled("="))
+            .then(expr.clone())
+            .map(|(ident, expr)| {
+                let Expr::Ident { name, ty } = ident else {
+                    unreachable!()
+                };
+                Expr::Declaration {
+                    name: name,
+                    ty: ty,
+                    expr: Box::new(expr),
+                }
+            })
+            .labelled("Declaration");
+
+        let cast = ty
+            .then(expr)
+            .map(|(ty, expr)| Expr::Cast(ty, Box::new(expr)))
+            .labelled("Cast");
+
+        choice((decla, litteral, cast))
+    })
 }
 
-enum Keyword {
-    Let,
+fn program<'a, I>() -> impl Parser<'a, I, Vec<Expr<'a>>, extra::Err<Rich<'a, Token<'a>>>>
+where
+    I: ValueInput<'a, Token = Token<'a>, Span = SimpleSpan>,
+{
+    expr()
+        .filter(|expr| matches!(expr, Expr::Declaration { .. }))
+        .labelled("Declaration")
+        .repeated()
+        .collect()
 }
 
-impl Keyword {
-    fn parser<'a>(&self) -> ParserOf!(&'a str) {
-        match self {
-            Self::Let => text::keyword("let"),
+pub fn parse(source: &str) {
+    let tok_iter = Token::lexer(source).spanned().map(|(tok, span)| match tok {
+        Ok(tok) => (tok, Into::<SimpleSpan>::into(span)),
+        Err(()) => (Token::Error, span.into()),
+    });
+
+    let token_stream =
+        Stream::from_iter(tok_iter).map((0..source.len()).into(), |(tok, span)| (tok, span));
+
+    // DEBUG
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open("parser.svg")
+        .unwrap();
+
+    let debug_info = program::<&[Token]>().debug().to_railroad_svg().to_string();
+    file.write(debug_info.as_bytes()).unwrap();
+    // DEBUG
+
+    match program().parse(token_stream).into_result() {
+        Ok(exprs) => {
+            for expr in exprs {
+                println!("{expr}");
+            }
         }
-        .padded_by(text::whitespace())
+        Err(errs) => {
+            println!("=========================");
+            for err in errs {
+                println!("{err}");
+            }
+            println!("=========================");
+        }
     }
-
-    fn any<'a>() -> ParserOf!(&'a str) {
-        choice(vec![Self::Let.parser()])
-    }
-}
-
-impl Ty {
-    fn parse<'a>() -> ParserOf!(Self) {
-        choice(vec![
-            text::keyword("i8"),
-            text::keyword("i16"),
-            text::keyword("i32"),
-            text::keyword("i64"),
-            text::keyword("i128"),
-            text::keyword("u8"),
-            text::keyword("u16"),
-            text::keyword("u32"),
-            text::keyword("u64"),
-            text::keyword("u128"),
-            text::keyword("f32"),
-            text::keyword("f64"),
-        ])
-        .map(|ty_str| Ty::try_from(ty_str).expect("Invalid type"))
-        .padded_by(text::whitespace())
-    }
-}
-
-fn parser<'a>() -> ParserOf!(Vec<Expr<'a>>) {
-    let ident = text::ident()
-        .and_is(Keyword::any().not())
-        .padded_by(text::whitespace());
-
-    let literal = text::int(10)
-        .map(|str_lit: &str| Expr::I64(str_lit.parse().unwrap()))
-        .padded_by(text::whitespace());
-
-    let mut expr = Recursive::declare();
-
-    let decla = Keyword::Let
-        .parser()
-        .ignore_then(ident)
-        .then_ignore(just('=').padded_by(text::whitespace()))
-        .then(expr.clone())
-        .map(|(name, expr): (&str, _)| Expr::Declaration {
-            name,
-            ty: Ty::Unknown,
-            expr: Box::new(expr),
-        })
-        .padded_by(text::whitespace());
-
-    let cast = Ty::parse()
-        .then(expr.clone())
-        .map(|(ty, expr)| Expr::Cast(ty, Box::new(expr)))
-        .padded_by(text::whitespace());
-
-    expr.define(decla.clone().or(literal).or(cast));
-
-    decla.repeated().collect()
-}
-
-pub fn parse<'src>(input: &'src str) -> ParseResult<Vec<Expr<'src>>, Rich<'src, char>> {
-    parser().parse(input)
 }

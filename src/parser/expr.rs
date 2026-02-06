@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+#[derive(PartialEq, Clone)]
 pub enum Ty {
     I8,
     I16,
@@ -13,6 +14,8 @@ pub enum Ty {
     U128,
     F32,
     F64,
+    Isize,
+    Usize,
     // F128,
     // Arrow(Box<Ty>, Box<Ty>), // X -> Y
     Unknown, // Marker for typer
@@ -35,6 +38,8 @@ impl TryFrom<&str> for Ty {
             "u128" => Ok(Ty::U128),
             "f32" => Ok(Ty::F32),
             "f64" => Ok(Ty::F64),
+            "isize" => Ok(Ty::Isize),
+            "usize" => Ok(Ty::Usize),
             _ => Err(()),
         }
     }
@@ -55,8 +60,9 @@ impl Display for Ty {
             Ty::U128 => f.write_str("u128"),
             Ty::F32 => f.write_str("f32"),
             Ty::F64 => f.write_str("f64"),
-            //Ty::Arrow(ty, ty1) => f.write_fmt(format_args!("{} -> {}", ty, ty1)),
             Ty::Unknown => f.write_str("?"),
+            Ty::Isize => f.write_str("isize"),
+            Ty::Usize => f.write_str("usize"),
         }
     }
 }
@@ -75,10 +81,10 @@ pub enum Expr<'src> {
 
     // Ex: `u32 42` would turn into `Cast(U32, I32(42))`
     Cast(Ty, Box<Expr<'src>>),
-    // Ident {
-    //     name: &'src str,
-    //     ty: Ty,
-    // },
+    Ident {
+        name: &'src str,
+        ty: Ty,
+    },
 }
 
 impl Display for Expr<'_> {
@@ -88,8 +94,9 @@ impl Display for Expr<'_> {
                 f.write_fmt(format_args!("{name}: {ty} = ({expr})"))
             }
             Expr::I64(lit) => f.write_fmt(format_args!("{lit}")),
-            Expr::F64(lit) => f.write_fmt(format_args!("{lit}")),
+            Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
             Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({expr})")),
+            Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
         }
     }
 }

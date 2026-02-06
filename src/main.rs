@@ -1,5 +1,6 @@
 use std::fs::read_to_string;
 
+mod lexer;
 mod parser;
 
 use clap::Parser as clapParser;
@@ -43,24 +44,5 @@ fn main() {
         std::process::exit(1);
     });
 
-    let result = parser::parse(&input);
-    if let Some(output) = result.output() {
-        println!("================ Output ==================");
-        for expr in output {
-            println!("{expr}");
-        }
-    } else {
-        println!("NO OUTPUT");
-    }
-
-    if result.has_errors() {
-        println!("================ Errors ==================");
-        for err in result.errors() {
-            eprintln!("{}: {}", err.span(), err.reason());
-            eprintln!(
-                "Previous context: {:#?}",
-                err.contexts().collect::<Vec<_>>()
-            );
-        }
-    }
+    parser::parse(&input);
 }
