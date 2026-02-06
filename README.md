@@ -1,5 +1,21 @@
 # FHIA Programming language
 
+<!--toc:start-->
+- [FHIA Programming language](#fhia-programming-language)
+  - [Goals](#goals)
+  - [Targeted](#targeted)
+    - [Syntax](#syntax)
+    - [Types](#types)
+    - [Operators](#operators)
+      - [Arithmetic](#arithmetic)
+      - [Logical](#logical)
+      - [Comparison](#comparison)
+      - [Bitwise](#bitwise)
+      - [Other](#other)
+    - [Reserved functions](#reserved-functions)
+      - [Debug printing](#debug-printing)
+<!--toc:end-->
+
 ## Goals
 
 - [ ] Compile to native code
