@@ -52,9 +52,12 @@ fn to_ty<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Ty {
 pub enum Token<'src> {
     #[token(r"let")]
     Let,
-
     #[token("=")]
     Assign,
+    #[token("(")]
+    LParen,
+    #[token(")")]
+    RParen,
 
     #[regex("r([iuf](32|64))|([iu](8|16|128|size))", to_ty, priority = 200)]
     Ty(Ty),
@@ -81,6 +84,8 @@ impl Display for Token<'_> {
             Self::Ident(ident) => f.write_str(*ident),
             Self::Ty(ty) => f.write_fmt(format_args!("{ty}")),
             Self::Error => f.write_str("ERROR"),
+            Token::LParen => f.write_str("("),
+            Token::RParen => f.write_str(")"),
         }
     }
 }
