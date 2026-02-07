@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Ty {
     I8,
     I16,
@@ -67,6 +67,7 @@ impl Display for Ty {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Expr<'src> {
     Declaration {
         name: &'src str,

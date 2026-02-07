@@ -1,9 +1,11 @@
 use std::fs::read_to_string;
 
+mod diagnostics;
 mod lexer;
 mod parser;
 
 use clap::Parser as clapParser;
+use diagnostics::Reportable;
 
 #[derive(clapParser)]
 struct Args {
@@ -44,5 +46,9 @@ fn main() {
         std::process::exit(1);
     });
 
-    parser::parse(&input);
+    let parser_output = parser::parse(&input);
+    parser_output.report(&input, &args.input);
+    for expr in parser_output.exprs {
+        println!("{expr}")
+    }
 }

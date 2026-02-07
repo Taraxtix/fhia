@@ -47,7 +47,7 @@ fn to_ty<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Ty {
     })
 }
 
-#[derive(Logos, Clone, PartialEq)]
+#[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"\s+")]
 pub enum Token<'src> {
     #[token(r"let")]
