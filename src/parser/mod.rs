@@ -1,4 +1,4 @@
-pub(crate) mod expr;
+pub mod expr;
 
 use std::{fs::OpenOptions, io::Write};
 
@@ -44,8 +44,8 @@ where
                     unreachable!()
                 };
                 Expr::Declaration {
-                    name: name,
-                    ty: ty,
+                    name,
+                    ty,
                     expr: Box::new(expr),
                 }
             })
@@ -63,9 +63,15 @@ where
             cast,
             just(Token::LParen)
                 .labelled("LParen")
-                .ignore_then(expr)
+                .ignore_then(expr.clone())
                 .then_ignore(just(Token::RParen).labelled("RParen"))
                 .labelled("Parenthesized expression")
+                .as_context(),
+            just(Token::LBrace)
+                .labelled("LBrace")
+                .ignore_then(expr)
+                .then_ignore(just(Token::RBrace).labelled("RBrace"))
+                .labelled("Braced expression")
                 .as_context(),
         ))
     })
@@ -111,8 +117,8 @@ pub fn parse(source: &str) -> ParseOutput<'_> {
         };
     }
 
-    let token_stream = Stream::from_iter(tokens.into_iter())
-        .map((0..source.len()).into(), |(tok, span)| (tok, span));
+    let token_stream =
+        Stream::from_iter(tokens).map((0..source.len()).into(), |(tok, span)| (tok, span));
 
     let mut file = OpenOptions::new()
         .write(true)
@@ -122,7 +128,7 @@ pub fn parse(source: &str) -> ParseOutput<'_> {
         .unwrap();
 
     let debug_info = program::<&[Token]>().debug().to_railroad_svg().to_string();
-    file.write(debug_info.as_bytes()).unwrap();
+    assert!(file.write(debug_info.as_bytes()).unwrap() == debug_info.len());
 
     match program().parse(token_stream).into_result() {
         Ok(exprs) => ParseOutput {

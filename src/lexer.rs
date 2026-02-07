@@ -10,7 +10,7 @@ fn to_i64<'a>(lex: &mut Lexer<'a, Token<'a>>) -> i64 {
         while let Some(new) = lit_str.strip_prefix("0") {
             lit_str = new.to_string()
         }
-        if lit_str.len() == 0 {
+        if lit_str.is_empty() {
             return 0;
         }
         lit_str.parse().expect("Invalid int regex")
@@ -49,6 +49,7 @@ fn to_ty<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Ty {
 
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"\s+")]
+#[logos(export_dir = "export/graph.mmd")] // Add debug feature to update graph
 pub enum Token<'src> {
     #[token(r"let")]
     Let,
@@ -58,8 +59,12 @@ pub enum Token<'src> {
     LParen,
     #[token(")")]
     RParen,
+    #[token("{")]
+    LBrace,
+    #[token("}")]
+    RBrace,
 
-    #[regex("r([iuf](32|64))|([iu](8|16|128|size))", to_ty, priority = 200)]
+    #[regex(r"([iuf](32|64))|([iu](8|16|128|size))", to_ty, priority = 200)]
     Ty(Ty),
 
     #[regex(r"[+-]?((0b[01]+|0o[0-7]+|0x[0-9a-fA-F]+)|\d+)", to_i64)]
@@ -81,11 +86,13 @@ impl Display for Token<'_> {
             Self::Assign => f.write_str("="),
             Self::I64(i) => f.write_fmt(format_args!("{i}")),
             Self::F64(float) => f.write_fmt(format_args!("f{float}")),
-            Self::Ident(ident) => f.write_str(*ident),
+            Self::Ident(ident) => f.write_str(ident),
             Self::Ty(ty) => f.write_fmt(format_args!("{ty}")),
             Self::Error => f.write_str("ERROR"),
-            Token::LParen => f.write_str("("),
-            Token::RParen => f.write_str(")"),
+            Self::LParen => f.write_str("("),
+            Self::RParen => f.write_str(")"),
+            Self::LBrace => f.write_str("{"),
+            Self::RBrace => f.write_str("}"),
         }
     }
 }

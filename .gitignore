@@ -13,3 +13,4 @@ test.fhia
 *.as
 *.o
 test
+export/**

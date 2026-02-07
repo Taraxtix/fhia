@@ -29,8 +29,7 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
         report = report.with_code(code);
     }
 
-    let mut order = 0;
-    for label in &diagnostic.labels {
+    for (order, label) in diagnostic.labels.iter().enumerate() {
         report = report.with_label(
             ALabel::new((source_name, label.span.clone()))
                 .with_message(label.message.clone())
@@ -38,9 +37,8 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
                     super::LabelKind::Main => Color::Red,
                     super::LabelKind::Context => Color::Cyan,
                 })
-                .with_order(order),
+                .with_order(order as i32),
         );
-        order += 1;
     }
 
     report
@@ -97,7 +95,7 @@ pub fn from_chumsky(err: Rich<'_, Token<'_>>) -> Diagnostic {
     if let Some((ctx, ctx_span)) = err
         .contexts()
         .take(MAX_CONTEXT_LABELS)
-        .map(|(pattern, span)| (pattern.to_string(), span.clone().into_range()))
+        .map(|(pattern, span)| (pattern.to_string(), (*span).into_range()))
         .reduce(|acc, curr| {
             (
                 if acc.0.is_empty() {
