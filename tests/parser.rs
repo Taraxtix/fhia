@@ -1,4 +1,4 @@
-use fhia::diagnostics::{self, Severity};
+use fhia::diagnostics::Severity;
 use fhia::parser::{
     self,
     expr::{Expr, Ty},

@@ -56,7 +56,11 @@ impl Diagnostic {
         self
     }
 
-    pub fn with_context_label(mut self, span: std::ops::Range<usize>, message: impl Into<String>) -> Self {
+    pub fn with_context_label(
+        mut self,
+        span: std::ops::Range<usize>,
+        message: impl Into<String>,
+    ) -> Self {
         self.labels.push(Label {
             span,
             message: message.into(),
@@ -64,5 +68,4 @@ impl Diagnostic {
         });
         self
     }
-
 }
