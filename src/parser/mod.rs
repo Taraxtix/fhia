@@ -37,10 +37,12 @@ where
 
         let decla = just(Token::Let)
             .ignore_then(ident)
+            .then_ignore(just(Token::Colon))
+            .then(ty)
             .then_ignore(just(Token::Assign))
             .then(expr.clone())
-            .map(|(ident, expr)| {
-                let Expr::Ident { name, ty } = ident else {
+            .map(|((ident, ty), expr)| {
+                let Expr::Ident { name, .. } = ident else {
                     unreachable!()
                 };
                 Expr::Declaration {

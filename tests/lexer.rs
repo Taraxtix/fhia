@@ -22,13 +22,14 @@ fn lex_let() {
 #[test]
 fn lex_symbols() {
     assert_eq!(
-        lex_all("=(){}"),
+        lex_all("=(){}:"),
         Ok(vec![
             Token::Assign,
             Token::LParen,
             Token::RParen,
             Token::LBrace,
-            Token::RBrace
+            Token::RBrace,
+            Token::Colon,
         ])
     )
 }

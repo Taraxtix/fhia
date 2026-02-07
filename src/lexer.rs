@@ -63,6 +63,8 @@ pub enum Token<'src> {
     LBrace,
     #[token("}")]
     RBrace,
+    #[token(":")]
+    Colon,
 
     #[regex(r"([iuf](32|64))|([iu](8|16|128|size))", to_ty, priority = 200)]
     Ty(Ty),
@@ -93,6 +95,7 @@ impl Display for Token<'_> {
             Self::RParen => f.write_str(")"),
             Self::LBrace => f.write_str("{"),
             Self::RBrace => f.write_str("}"),
+            Self::Colon => f.write_str(":"),
         }
     }
 }
