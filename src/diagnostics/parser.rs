@@ -7,6 +7,9 @@ use crate::parser::ParseOutput;
 
 const KEYWORD: Color = Color::Magenta;
 
+#[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
+/// # Panics
+/// - Panics if there is an error while printing the diagnostic to stderr
 pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
     let origin_span = diagnostic
         .labels
@@ -44,10 +47,13 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
     report
         .finish()
         .eprint((source_name, Source::from(source)))
-        .unwrap();
+        .expect("Failed to print to stderr");
 }
 
-pub fn from_chumsky(err: Rich<'_, Token<'_>>) -> Diagnostic {
+const MAX_CONTEXT_LABELS: usize = 2;
+
+#[must_use]
+pub fn from_chumsky(err: &Rich<'_, Token<'_>>) -> Diagnostic {
     let mut span = err.span().into_range();
 
     if span.start == span.end && span.start > 0 {
@@ -59,14 +65,12 @@ pub fn from_chumsky(err: Rich<'_, Token<'_>>) -> Diagnostic {
     } else {
         Diagnostic::error("Unexpected end of input")
     };
-    let found_msg: String;
-    if let Some(found) = err.found() {
-        found_msg = format!("{}", found.fg(KEYWORD));
-    } else {
-        found_msg = format!("{}", "EOF".fg(KEYWORD));
-    }
+    let found_msg: String = err.found().map_or_else(
+        || format!("{}", "EOF".fg(KEYWORD)),
+        |found| format!("{}", found.fg(KEYWORD)),
+    );
 
-    let mut expected: Vec<String> = err.expected().map(|e| e.to_string()).collect();
+    let mut expected: Vec<String> = err.expected().map(ToString::to_string).collect();
     expected.sort();
     expected.dedup();
 
@@ -91,7 +95,6 @@ pub fn from_chumsky(err: Rich<'_, Token<'_>>) -> Diagnostic {
         },
     );
 
-    const MAX_CONTEXT_LABELS: usize = 2;
     if let Some((ctx, ctx_span)) = err
         .contexts()
         .take(MAX_CONTEXT_LABELS)
@@ -101,7 +104,7 @@ pub fn from_chumsky(err: Rich<'_, Token<'_>>) -> Diagnostic {
                 if acc.0.is_empty() {
                     curr.0
                 } else {
-                    format! {"{} -> {}", acc.0, curr.0}
+                    format!("{} -> {}", acc.0, curr.0)
                 },
                 acc.1.start.min(curr.1.start)..acc.1.end.max(curr.1.end),
             )

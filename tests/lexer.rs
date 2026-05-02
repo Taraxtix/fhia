@@ -31,7 +31,7 @@ fn lex_symbols() {
             Token::RBrace,
             Token::Colon,
         ])
-    )
+    );
 }
 
 #[test]
@@ -70,6 +70,7 @@ fn lex_i64() {
     assert_ne!(lex_one(".0"), Ok(Token::I64(0)));
 }
 
+#[allow(clippy::approx_constant)]
 #[test]
 fn lex_f64() {
     assert_eq!(lex_one("3.14"), Ok(Token::F64(3.14)));

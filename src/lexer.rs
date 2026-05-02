@@ -3,12 +3,12 @@ use std::fmt::Display;
 use crate::parser::expr::Ty;
 use logos::{Lexer, Logos};
 
-fn to_i64<'a>(lex: &mut Lexer<'a, Token<'a>>) -> i64 {
+fn to_i64<'a>(lex: &Lexer<'a, Token<'a>>) -> i64 {
     let mut lit_str = lex.slice().to_string();
 
     let parse_base_10 = |mut lit_str: String| {
         while let Some(new) = lit_str.strip_prefix("0") {
-            lit_str = new.to_string()
+            lit_str = new.to_string();
         }
         if lit_str.is_empty() {
             return 0;
@@ -27,21 +27,21 @@ fn to_i64<'a>(lex: &mut Lexer<'a, Token<'a>>) -> i64 {
         parse_base_10(lit_str)
     } else {
         match &lit_str[..2] {
-            "0b" => u64::from_str_radix(&lit_str[2..], 2).unwrap() as i64,
-            "0o" => u64::from_str_radix(&lit_str[2..], 8).unwrap() as i64,
-            "0x" => u64::from_str_radix(&lit_str[2..], 16).unwrap() as i64,
+            "0b" => i64::from_str_radix(&lit_str[2..], 2).unwrap(),
+            "0o" => i64::from_str_radix(&lit_str[2..], 8).unwrap(),
+            "0x" => i64::from_str_radix(&lit_str[2..], 16).unwrap(),
             _ => parse_base_10(lit_str),
         }
     };
     if neg { -lit } else { lit }
 }
 
-fn to_f64<'a>(lex: &mut Lexer<'a, Token<'a>>) -> f64 {
+fn to_f64<'a>(lex: &Lexer<'a, Token<'a>>) -> f64 {
     lex.slice().parse().expect("Invalid float regex")
 }
 
-fn to_ty<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Ty {
-    lex.slice().try_into().unwrap_or_else(|_| {
+fn to_ty<'a>(lex: &Lexer<'a, Token<'a>>) -> Ty {
+    lex.slice().try_into().unwrap_or_else(|()| {
         println!("Invalid ty regex : {}", lex.slice());
         panic!()
     })

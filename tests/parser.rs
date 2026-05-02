@@ -72,6 +72,7 @@ fn parse_single_declaration_i64() {
     }
 }
 
+#[allow(clippy::approx_constant)]
 #[test]
 fn parse_single_declaration_f64() {
     let exprs = parse_ok("let x: f64 = 3.14");

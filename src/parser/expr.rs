@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Ty {
     I8,
     I16,
@@ -26,20 +26,20 @@ impl TryFrom<&str> for Ty {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "i8" => Ok(Ty::I8),
-            "i16" => Ok(Ty::I16),
-            "i32" => Ok(Ty::I32),
-            "i64" => Ok(Ty::I64),
-            "i128" => Ok(Ty::I128),
-            "u8" => Ok(Ty::U8),
-            "u16" => Ok(Ty::U16),
-            "u32" => Ok(Ty::U32),
-            "u64" => Ok(Ty::U64),
-            "u128" => Ok(Ty::U128),
-            "f32" => Ok(Ty::F32),
-            "f64" => Ok(Ty::F64),
-            "isize" => Ok(Ty::Isize),
-            "usize" => Ok(Ty::Usize),
+            "i8" => Ok(Self::I8),
+            "i16" => Ok(Self::I16),
+            "i32" => Ok(Self::I32),
+            "i64" => Ok(Self::I64),
+            "i128" => Ok(Self::I128),
+            "u8" => Ok(Self::U8),
+            "u16" => Ok(Self::U16),
+            "u32" => Ok(Self::U32),
+            "u64" => Ok(Self::U64),
+            "u128" => Ok(Self::U128),
+            "f32" => Ok(Self::F32),
+            "f64" => Ok(Self::F64),
+            "isize" => Ok(Self::Isize),
+            "usize" => Ok(Self::Usize),
             _ => Err(()),
         }
     }
@@ -48,21 +48,21 @@ impl TryFrom<&str> for Ty {
 impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Ty::I8 => f.write_str("i8"),
-            Ty::I16 => f.write_str("i16"),
-            Ty::I32 => f.write_str("i32"),
-            Ty::I64 => f.write_str("i64"),
-            Ty::I128 => f.write_str("i128"),
-            Ty::U8 => f.write_str("u8"),
-            Ty::U16 => f.write_str("u16"),
-            Ty::U32 => f.write_str("u32"),
-            Ty::U64 => f.write_str("u64"),
-            Ty::U128 => f.write_str("u128"),
-            Ty::F32 => f.write_str("f32"),
-            Ty::F64 => f.write_str("f64"),
-            Ty::Unknown => f.write_str("?"),
-            Ty::Isize => f.write_str("isize"),
-            Ty::Usize => f.write_str("usize"),
+            Self::I8 => f.write_str("i8"),
+            Self::I16 => f.write_str("i16"),
+            Self::I32 => f.write_str("i32"),
+            Self::I64 => f.write_str("i64"),
+            Self::I128 => f.write_str("i128"),
+            Self::U8 => f.write_str("u8"),
+            Self::U16 => f.write_str("u16"),
+            Self::U32 => f.write_str("u32"),
+            Self::U64 => f.write_str("u64"),
+            Self::U128 => f.write_str("u128"),
+            Self::F32 => f.write_str("f32"),
+            Self::F64 => f.write_str("f64"),
+            Self::Unknown => f.write_str("?"),
+            Self::Isize => f.write_str("isize"),
+            Self::Usize => f.write_str("usize"),
         }
     }
 }
@@ -72,7 +72,7 @@ pub enum Expr<'src> {
     Declaration {
         name: &'src str,
         ty: Ty,
-        expr: Box<Expr<'src>>,
+        expr: Box<Self>,
     },
     // I32(i32),
     I64(i64),
@@ -81,7 +81,7 @@ pub enum Expr<'src> {
     // F128(f128)
 
     // Ex: `u32 42` would turn into `Cast(U32, I32(42))`
-    Cast(Ty, Box<Expr<'src>>),
+    Cast(Ty, Box<Self>),
     Ident {
         name: &'src str,
         ty: Ty,

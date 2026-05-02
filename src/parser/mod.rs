@@ -10,7 +10,7 @@ use logos::Logos;
 
 use crate::diagnostics;
 use crate::lexer::Token;
-use expr::*;
+use expr::{Expr, Ty};
 
 fn expr<'a, I>() -> impl Parser<'a, I, Expr<'a>, extra::Err<Rich<'a, Token<'a>>>>
 where
@@ -95,6 +95,8 @@ pub struct ParseOutput<'a> {
     pub diagnostics: Vec<diagnostics::Diagnostic>,
 }
 
+/// # Panics
+/// - Panics if there is an error while opening or writing to the parser.svg file
 pub fn parse(source: &str) -> ParseOutput<'_> {
     let mut diagnostics = Vec::new();
     let mut tokens = Vec::new();
@@ -127,10 +129,14 @@ pub fn parse(source: &str) -> ParseOutput<'_> {
         .create(true)
         .truncate(true)
         .open("parser.svg")
-        .unwrap();
+        .expect("Failed to open parser.svg for writing");
 
     let debug_info = program::<&[Token]>().debug().to_railroad_svg().to_string();
-    assert!(file.write(debug_info.as_bytes()).unwrap() == debug_info.len());
+    assert!(
+        file.write(debug_info.as_bytes())
+            .expect("Failed to write to parser.svg")
+            == debug_info.len()
+    );
 
     match program().parse(token_stream).into_result() {
         Ok(exprs) => ParseOutput {
@@ -138,10 +144,7 @@ pub fn parse(source: &str) -> ParseOutput<'_> {
             diagnostics: Vec::new(),
         },
         Err(errs) => {
-            let diagnostics = errs
-                .into_iter()
-                .map(diagnostics::parser::from_chumsky)
-                .collect();
+            let diagnostics = errs.iter().map(diagnostics::parser::from_chumsky).collect();
             ParseOutput {
                 exprs: Vec::new(),
                 diagnostics,

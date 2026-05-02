@@ -2,10 +2,37 @@
 name = "fhia"
 version = "0.1.0"
 edition = "2024"
+description = "A functional programming language implemented in Rust."
+license = "MIT"
+repository = "github.com/Taraxtix/fhia"
+keywords = [
+    "programming language",
+    "compiler",
+    "rust",
+    "functional programming",
+]
+categories = ["programming-language", "compiler", "rust"]
 
 [dependencies]
 anyhow = "1.0.100"
 ariadne = "0.6.0"
-chumsky = {version = "0.12.0", features = ["nightly", "lexical-numbers", "debug"]}
-clap = {version = "4.5.31", features = ["derive"]}
-logos = {version = "0.16.1", features = []}
+chumsky = { version = "0.12.0", features = [
+    "nightly",
+    "lexical-numbers",
+    "debug",
+] }
+clap = { version = "4.5.31", features = ["derive"] }
+logos = { version = "0.16.1", features = [] }
+
+[lints.clippy]
+correctness = "warn"
+suspicious = "warn"
+complexity = "warn"
+perf = "warn"
+style = "warn"
+pedantic = "warn"
+
+cargo = "warn"
+multiple_crate_versions = { level = "allow", priority = 1 }
+
+nursery = "warn"

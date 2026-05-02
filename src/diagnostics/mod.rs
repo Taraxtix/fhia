@@ -43,6 +43,7 @@ impl Diagnostic {
         }
     }
 
+    #[must_use]
     pub fn with_main_label(
         mut self,
         span: std::ops::Range<usize>,
@@ -56,6 +57,7 @@ impl Diagnostic {
         self
     }
 
+    #[must_use]
     pub fn with_context_label(
         mut self,
         span: std::ops::Range<usize>,
