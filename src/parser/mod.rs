@@ -8,8 +8,7 @@ use chumsky::{
 };
 use logos::Logos;
 
-use crate::diagnostics;
-use crate::lexer::Token;
+use crate::{diagnostics, lexer::Token, typer::TypedOutput};
 use expr::{Expr, Ty};
 
 fn expr<'a, I>() -> impl Parser<'a, I, Expr<'a>, extra::Err<Rich<'a, Token<'a>>>>
@@ -93,6 +92,12 @@ where
 pub struct ParseOutput<'a> {
     pub exprs: Vec<Expr<'a>>,
     pub diagnostics: Vec<diagnostics::Diagnostic>,
+}
+impl<'a> ParseOutput<'a> {
+    #[must_use]
+    pub fn type_check(self) -> TypedOutput<'a> {
+        TypedOutput::type_check(self.exprs)
+    }
 }
 
 /// # Panics

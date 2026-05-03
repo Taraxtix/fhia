@@ -14,7 +14,6 @@ keywords = [
 categories = ["programming-language", "compiler", "rust"]
 
 [dependencies]
-anyhow = "1.0.100"
 ariadne = "0.6.0"
 chumsky = { version = "0.12.0", features = [
     "nightly",

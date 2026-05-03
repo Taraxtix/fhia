@@ -41,10 +41,9 @@ fn to_f64<'a>(lex: &Lexer<'a, Token<'a>>) -> f64 {
 }
 
 fn to_ty<'a>(lex: &Lexer<'a, Token<'a>>) -> Ty {
-    lex.slice().try_into().unwrap_or_else(|()| {
-        println!("Invalid ty regex : {}", lex.slice());
-        panic!()
-    })
+    lex.slice()
+        .try_into()
+        .unwrap_or_else(|()| unreachable!("invalid ty regex: {}", lex.slice()))
 }
 
 #[derive(Logos, Clone, PartialEq, Debug)]

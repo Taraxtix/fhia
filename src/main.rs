@@ -5,6 +5,7 @@ use std::fs::read_to_string;
 mod diagnostics;
 mod lexer;
 mod parser;
+mod typer;
 
 use clap::Parser as clapParser;
 use diagnostics::Reportable;
@@ -25,9 +26,10 @@ struct Args {
     // #[arg(long, default_value_t = false)]
     // lexer: bool,
     //
-    // /// Print the Parser's output
-    // #[arg(long, default_value_t = false)]
-    // parser: bool,
+    /// Print the Parser's output
+    #[arg(long, default_value_t = false)]
+    parser: bool,
+
     /// Print the Typer's output
     #[arg(long, default_value_t = false)]
     typer: bool,
@@ -50,7 +52,16 @@ fn main() {
 
     let parser_output = parser::parse(&input);
     parser_output.report(&input, &args.input);
-    for expr in parser_output.exprs {
-        println!("{expr}");
+    if args.parser {
+        for expr in &parser_output.exprs {
+            println!("{expr}");
+        }
+    }
+    let typed_output = parser_output.type_check();
+    typed_output.report(&input, &args.input);
+    if args.typer {
+        for expr in &typed_output.exprs {
+            println!("{expr}");
+        }
     }
 }

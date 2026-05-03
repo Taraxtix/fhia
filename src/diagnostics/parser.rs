@@ -4,6 +4,7 @@ use chumsky::prelude::Rich;
 use crate::diagnostics::{Diagnostic, Reportable, Severity};
 use crate::lexer::Token;
 use crate::parser::ParseOutput;
+use crate::typer::TypedOutput;
 
 const KEYWORD: Color = Color::Magenta;
 
@@ -117,6 +118,19 @@ pub fn from_chumsky(err: &Rich<'_, Token<'_>>) -> Diagnostic {
 }
 
 impl Reportable for ParseOutput<'_> {
+    fn report(&self, source: &str, source_name: &str) {
+        let mut should_exit = false;
+        for diagnostic in &self.diagnostics {
+            should_exit = diagnostic.severity == Severity::Error || should_exit;
+            render(diagnostic, source, source_name);
+        }
+        if should_exit {
+            std::process::exit(1);
+        }
+    }
+}
+
+impl Reportable for TypedOutput<'_> {
     fn report(&self, source: &str, source_name: &str) {
         let mut should_exit = false;
         for diagnostic in &self.diagnostics {

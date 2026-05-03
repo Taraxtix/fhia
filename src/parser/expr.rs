@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+use chumsky::span::Spanned;
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {
     I8,
     I16,
@@ -18,6 +20,7 @@ pub enum Ty {
     Usize,
     // F128,
     // Arrow(Box<Ty>, Box<Ty>), // X -> Y
+    Unit,
     Unknown, // Marker for typer
 }
 
@@ -60,6 +63,7 @@ impl Display for Ty {
             Self::U128 => f.write_str("u128"),
             Self::F32 => f.write_str("f32"),
             Self::F64 => f.write_str("f64"),
+            Self::Unit => f.write_str("()"),
             Self::Unknown => f.write_str("?"),
             Self::Isize => f.write_str("isize"),
             Self::Usize => f.write_str("usize"),
@@ -72,7 +76,7 @@ pub enum Expr<'src> {
     Declaration {
         name: &'src str,
         ty: Ty,
-        expr: Box<Self>,
+        expr: Box<Spanned<Self>>,
     },
     // I32(i32),
     I64(i64),
@@ -81,7 +85,7 @@ pub enum Expr<'src> {
     // F128(f128)
 
     // Ex: `u32 42` would turn into `Cast(U32, I32(42))`
-    Cast(Ty, Box<Self>),
+    Cast(Ty, Box<Spanned<Self>>),
     Ident {
         name: &'src str,
         ty: Ty,
@@ -92,11 +96,11 @@ impl Display for Expr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expr::Declaration { name, ty, expr } => {
-                f.write_fmt(format_args!("{name}: {ty} = ({expr})"))
+                f.write_fmt(format_args!("{name}: {ty} = ({})", expr.inner))
             }
             Expr::I64(lit) => f.write_fmt(format_args!("{lit}")),
             Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
-            Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({expr})")),
+            Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.inner)),
             Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
         }
     }
