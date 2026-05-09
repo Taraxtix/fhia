@@ -95,7 +95,7 @@ pub enum Expr<'src> {
 }
 
 impl Expr<'_> {
-    pub fn kind_name(&self) -> &'static str {
+    pub const fn kind_name(&self) -> &'static str {
         match self
         {
             Self::Declaration { .. } => "declaration",

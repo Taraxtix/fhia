@@ -47,15 +47,13 @@ impl<'a> ParsedItem<'a> {
     fn consumed(self) -> Vec<Spanned<Token<'a>>> {
         match self
         {
-            Self::Expr(old_c, _) => old_c,
-            Self::Token(old_c, _) => old_c,
             Self::Seq(item1, item2) =>
             {
                 let mut consumed = item1.consumed();
-                consumed.extend(item2.consumed().into_iter());
+                consumed.extend(item2.consumed());
                 consumed
             },
-            Self::Err(old_c, _) => old_c,
+            Self::Expr(old_c, _) | Self::Token(old_c, _) | Self::Err(old_c, _) => old_c,
         }
     }
 
@@ -96,12 +94,12 @@ impl<'a> ParserItem for ParsedItem<'a> {
         {
             Self::Expr(consumed, spanned) =>
             {
-                old_consumed.extend(consumed.into_iter());
+                old_consumed.extend(consumed);
                 Self::Expr(old_consumed, spanned)
             },
             Self::Token(consumed, spanned) =>
             {
-                old_consumed.extend(consumed.into_iter());
+                old_consumed.extend(consumed);
                 Self::Token(old_consumed, spanned)
             },
             Self::Seq(mut parsed_item, parsed_item1) =>
@@ -111,21 +109,21 @@ impl<'a> ParserItem for ParsedItem<'a> {
                 {
                     Self::Expr(consumed, spanned) =>
                     {
-                        old_consumed.extend(consumed.clone().into_iter());
+                        old_consumed.extend(consumed.clone());
                         *root = Self::Expr(old_consumed, spanned.clone());
                     },
                     Self::Token(consumed, spanned) =>
                     {
-                        old_consumed.extend(consumed.clone().into_iter());
+                        old_consumed.extend(consumed.clone());
                         *root = Self::Token(old_consumed, spanned.clone());
                     },
                     Self::Err(consumed, diagnostic) =>
                     {
-                        old_consumed.extend(consumed.clone().into_iter());
+                        old_consumed.extend(consumed.clone());
                         *root = Self::Err(old_consumed, diagnostic.clone());
                     },
                     Self::Seq(..) => unreachable!(),
-                };
+                }
                 Self::Seq(parsed_item, parsed_item1)
             },
             Self::Err(consumed, diagnostic) =>
@@ -241,8 +239,8 @@ fn parse_cast<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
                 ParsedItem::Token(mut consumed, Spanned(Token::Ty(ty), ty_span)),
                 ParsedItem::Expr(expr_consumed, Spanned(expr, expr_span)),
                 ] = item);
-            let range = ty_span.start..expr_span.clone().end;
-            consumed.extend(expr_consumed.into_iter());
+            let range = ty_span.start..expr_span.end;
+            consumed.extend(expr_consumed);
             ParsedItem::Expr(
                 consumed,
                 Spanned(Expr::Cast(ty, Box::new(Spanned(expr, expr_span))), range),
@@ -264,8 +262,8 @@ fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
                 ParsedItem::Expr(expr_consumed, Spanned(expr, expr_span)),
             ] = item);
             let span = ident_span.start..expr_span.end;
-            consumed.extend(ty_consumed.into_iter());
-            consumed.extend(expr_consumed.into_iter());
+            consumed.extend(ty_consumed);
+            consumed.extend(expr_consumed);
             ParsedItem::Expr(
                 consumed,
                 Spanned(

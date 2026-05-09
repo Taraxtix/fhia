@@ -1,12 +1,8 @@
-use ariadne::{Color, Fmt as _, Label as ALabel, Report, ReportKind, Source};
-use chumsky::prelude::Rich;
+use ariadne::{Color, Label as ALabel, Report, ReportKind, Source};
 
 use crate::diagnostics::{Diagnostic, Reportable, Severity};
-use crate::lexer::Token;
 use crate::parser::ParseOutput;
 use crate::typer::TypedOutput;
-
-const KEYWORD: Color = Color::Magenta;
 
 #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
 /// # Panics
@@ -19,7 +15,8 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
         .unwrap_or(0..0);
 
     let mut report = Report::build(
-        match diagnostic.severity {
+        match diagnostic.severity
+        {
             Severity::Error => ReportKind::Error,
             // Severity::Warning => ReportKind::Warning,
             // Severity::Note => ReportKind::Advice,
@@ -29,15 +26,18 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
     .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
     .with_message(&diagnostic.message);
 
-    if let Some(code) = diagnostic.code {
+    if let Some(code) = diagnostic.code
+    {
         report = report.with_code(code);
     }
 
-    for (order, label) in diagnostic.labels.iter().enumerate() {
+    for (order, label) in diagnostic.labels.iter().enumerate()
+    {
         report = report.with_label(
             ALabel::new((source_name, label.span.clone()))
                 .with_message(label.message.clone())
-                .with_color(match label.kind {
+                .with_color(match label.kind
+                {
                     super::LabelKind::Main => Color::Red,
                     super::LabelKind::Context => Color::Cyan,
                 })
@@ -51,80 +51,16 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
         .expect("Failed to print to stderr");
 }
 
-const MAX_CONTEXT_LABELS: usize = 2;
-
-#[must_use]
-pub fn from_chumsky(err: &Rich<'_, Token<'_>>) -> Diagnostic {
-    let mut span = err.span().into_range();
-
-    if span.start == span.end && span.start > 0 {
-        span.start -= 1;
-    }
-
-    let mut diagnostic = if err.found().is_some() {
-        Diagnostic::error("Unexpected token")
-    } else {
-        Diagnostic::error("Unexpected end of input")
-    };
-    let found_msg: String = err.found().map_or_else(
-        || format!("{}", "EOF".fg(KEYWORD)),
-        |found| format!("{}", found.fg(KEYWORD)),
-    );
-
-    let mut expected: Vec<String> = err.expected().map(ToString::to_string).collect();
-    expected.sort();
-    expected.dedup();
-
-    diagnostic = diagnostic.with_main_label(
-        span,
-        if expected.is_empty() {
-            format!("{}. Found: {found_msg}", err.reason())
-        } else if expected.len() == 1 {
-            format!(
-                "Expected: {}. But found: {found_msg}",
-                expected[0].clone().fg(KEYWORD)
-            )
-        } else {
-            format!(
-                "Expected one of: {}. But found: {found_msg}",
-                expected
-                    .into_iter()
-                    .map(|expected| expected.fg(KEYWORD).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        },
-    );
-
-    if let Some((ctx, ctx_span)) = err
-        .contexts()
-        .take(MAX_CONTEXT_LABELS)
-        .map(|(pattern, span)| (pattern.to_string(), (*span).into_range()))
-        .reduce(|acc, curr| {
-            (
-                if acc.0.is_empty() {
-                    curr.0
-                } else {
-                    format!("{} -> {}", acc.0, curr.0)
-                },
-                acc.1.start.min(curr.1.start)..acc.1.end.max(curr.1.end),
-            )
-        })
-    {
-        diagnostic = diagnostic.with_context_label(ctx_span, format!("Parsing: {ctx}"));
-    }
-
-    diagnostic
-}
-
 impl Reportable for ParseOutput<'_> {
     fn report(&self, source: &str, source_name: &str) {
         let mut should_exit = false;
-        for diagnostic in &self.diagnostics {
+        for diagnostic in &self.diagnostics
+        {
             should_exit = diagnostic.severity == Severity::Error || should_exit;
             render(diagnostic, source, source_name);
         }
-        if should_exit {
+        if should_exit
+        {
             std::process::exit(1);
         }
     }
@@ -133,11 +69,13 @@ impl Reportable for ParseOutput<'_> {
 impl Reportable for TypedOutput<'_> {
     fn report(&self, source: &str, source_name: &str) {
         let mut should_exit = false;
-        for diagnostic in &self.diagnostics {
+        for diagnostic in &self.diagnostics
+        {
             should_exit = diagnostic.severity == Severity::Error || should_exit;
             render(diagnostic, source, source_name);
         }
-        if should_exit {
+        if should_exit
+        {
             std::process::exit(1);
         }
     }

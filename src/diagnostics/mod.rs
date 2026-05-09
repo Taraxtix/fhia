@@ -20,26 +20,26 @@ pub enum LabelKind {
 
 #[derive(Clone, Debug)]
 pub struct Label {
-    pub span: std::ops::Range<usize>,
+    pub span:    std::ops::Range<usize>,
     pub message: String,
-    pub kind: LabelKind,
+    pub kind:    LabelKind,
 }
 
 #[derive(Clone, Debug)]
 pub struct Diagnostic {
     pub severity: Severity,
-    pub code: Option<u32>,
-    pub message: String,
-    pub labels: Vec<Label>,
+    pub code:     Option<u32>,
+    pub message:  String,
+    pub labels:   Vec<Label>,
 }
 
 impl Diagnostic {
     pub fn error(message: impl Into<String>) -> Self {
         Self {
             severity: Severity::Error,
-            code: None,
-            message: message.into(),
-            labels: Vec::new(),
+            code:     None,
+            message:  message.into(),
+            labels:   Vec::new(),
         }
     }
 
@@ -72,7 +72,7 @@ impl Diagnostic {
     }
 
     #[must_use]
-    pub fn with_code(mut self, code: u32) -> Self {
+    pub const fn with_code(mut self, code: u32) -> Self {
         self.code = Some(code);
         self
     }

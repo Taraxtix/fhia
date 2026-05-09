@@ -5,6 +5,7 @@ use std::{fs::read_to_string, ops::Range};
 mod diagnostics;
 mod lexer;
 mod parser;
+#[cfg(test)]
 mod tests;
 mod typer;
 
@@ -49,10 +50,7 @@ fn main() {
     let args = Args::parse();
 
     let input = read_to_string(&args.input).unwrap_or_else(|e| {
-        eprintln!(
-            "Failed to read input file '{path}': {e}",
-            path = &args.input
-        );
+        eprintln!("Failed to read input file '{path}': {e}", path = args.input);
         std::process::exit(1);
     });
 
