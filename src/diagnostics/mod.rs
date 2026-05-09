@@ -5,6 +5,35 @@ pub trait Reportable {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(usize)]
+pub enum ErrorCode {
+    InvalidToken         = 0,
+    UnexpectedToken      = 1,
+    TopLevelNotDeclaration = 2,
+    DeclarationMalformed = 3,
+    DuplicateDeclaration = 4,
+    UndefinedVariable    = 5,
+    TypeAscriptionMismatch = 6,
+    TypeMismatch         = 7,
+}
+
+impl ErrorCode {
+    pub const fn title(self) -> &'static str {
+        match self
+        {
+            Self::InvalidToken => "Invalid token",
+            Self::UnexpectedToken => "Unexpected token",
+            Self::TopLevelNotDeclaration => "Top level expressions must be declarations",
+            Self::DeclarationMalformed => "Declaration malformed",
+            Self::DuplicateDeclaration => "Duplicate declaration",
+            Self::UndefinedVariable => "Undefined variable",
+            Self::TypeAscriptionMismatch => "Type ascription mismatch",
+            Self::TypeMismatch => "Type mismatch",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Severity {
     Error,
     // Warning,
@@ -34,11 +63,11 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    pub fn error(message: impl Into<String>) -> Self {
+    pub fn error(code: ErrorCode) -> Self {
         Self {
             severity: Severity::Error,
-            code:     None,
-            message:  message.into(),
+            code:     Some(code as u32),
+            message:  code.title().to_string(),
             labels:   Vec::new(),
         }
     }
@@ -68,12 +97,6 @@ impl Diagnostic {
             message: message.into(),
             kind: LabelKind::Context,
         });
-        self
-    }
-
-    #[must_use]
-    pub const fn with_code(mut self, code: u32) -> Self {
-        self.code = Some(code);
         self
     }
 }

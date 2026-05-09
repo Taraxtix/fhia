@@ -1,0 +1,4 @@
+let implicit:     i64 = i64 u32 42
+let with_parens:  i64 = i64 (u32 42)
+let float_chain:  f64 = f64 i32 42
+let three_levels: i8  = i8  u32 i64 1000

@@ -1,0 +1,9 @@
+let dec:          i64 = 42
+let zero:         i64 = 0
+let leading_zero: i64 = 007
+let binary:       i64 = 0b1010
+let octal:        i64 = 0o17
+let hex_upper:    i64 = 0xFF
+let hex_lower:    i64 = 0xff
+let negative:     i64 = -5
+let negative_hex: i64 = -0xFF

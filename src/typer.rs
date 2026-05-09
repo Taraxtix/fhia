@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     Spanned,
-    diagnostics::Diagnostic,
+    diagnostics::{Diagnostic, ErrorCode},
     parser::expr::{Expr, Ty},
 };
 
@@ -58,13 +58,14 @@ impl<'a> TypedOutput<'a> {
         // Pass 1: pre-populate all declarations so every RHS sees the full scope
         for expr in &exprs
         {
-            if let Spanned(Expr::Declaration { name, ty, .. }, _) = expr
+            if let Spanned(Expr::Declaration { name, ty, .. }, span) = expr
             {
                 if env.is_in_current_scope(name)
                 {
-                    diagnostics.push(Diagnostic::error(format!(
-                        "'{name}' is already declared in this scope"
-                    )));
+                    diagnostics.push(
+                        Diagnostic::error(ErrorCode::DuplicateDeclaration)
+                            .with_main_label(span.clone(), format!("'{name}' redeclared here")),
+                    );
                 }
                 else
                 {
@@ -108,17 +109,22 @@ impl<'src> Spanned<Expr<'src>> {
             {
                 None =>
                 {
-                    diagnostics.push(Diagnostic::error(format!("Undefined variable '{name}'")));
+                    diagnostics.push(
+                        Diagnostic::error(ErrorCode::UndefinedVariable)
+                            .with_main_label(span.clone(), format!("'{name}' not defined")),
+                    );
                     Spanned(Expr::Ident { name, ty }, span)
                 },
                 Some(env_ty) =>
                 {
                     if ty != Ty::Unknown && ty != env_ty
                     {
-                        diagnostics.push(Diagnostic::error(format!(
-                            "Type ascription mismatch: '{name}' has type '{env_ty}' but is \
-                             ascribed '{ty}'"
-                        )));
+                        diagnostics.push(
+                            Diagnostic::error(ErrorCode::TypeAscriptionMismatch).with_main_label(
+                                span.clone(),
+                                format!("ascribed as '{ty}' here but '{name}' has type '{env_ty}'"),
+                            ),
+                        );
                     }
                     Spanned(Expr::Ident { name, ty: env_ty }, span)
                 },
@@ -137,10 +143,15 @@ impl<'src> Spanned<Expr<'src>> {
                 diagnostics.extend(expr_diagnostics);
                 if ty != typed_expr.ty()
                 {
-                    diagnostics.push(Diagnostic::error(format!(
-                        "Type mismatch: expected '{ty}', found '{}'",
-                        typed_expr.ty()
-                    )));
+                    let expr_ty = typed_expr.ty();
+                    diagnostics.push(
+                        Diagnostic::error(ErrorCode::TypeMismatch)
+                            .with_main_label(
+                                typed_expr.1.clone(),
+                                format!("found '{expr_ty}' here"),
+                            )
+                            .with_context_label(span.clone(), format!("expected '{ty}'")),
+                    );
                 }
                 Spanned(
                     Expr::Declaration {
