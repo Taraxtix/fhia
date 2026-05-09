@@ -18,56 +18,122 @@ use crate::{
 
 type ParserOutput<'a, T> = Result<T, Vec<ParsingError>>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum ParsedItem<'a> {
-    Expr(Vec<Spanned<Token<'a>>>, Spanned<Expr<'a>>),
-    Token(Vec<Spanned<Token<'a>>>, Spanned<Token<'a>>),
+    Expr(VecDeque<Spanned<Token<'a>>>, Spanned<Expr<'a>>),
+    Token(VecDeque<Spanned<Token<'a>>>, Spanned<Token<'a>>),
     Seq(Box<Self>, Box<Self>),
-    Err(Vec<Spanned<Token<'a>>>, Diagnostic),
+    Err(VecDeque<Spanned<Token<'a>>>, Diagnostic),
 }
 
 impl<'a> ParsedItem<'a> {
+    fn or(
+        parser: impl FnOnce(&mut VecDeque<Spanned<Token<'a>>>) -> Self,
+        input: &mut VecDeque<Spanned<Token<'a>>>,
+    ) -> impl FnOnce(Self) -> Self {
+        |prev| {
+            let mut item = parser(input);
+            item.consumed_mut().extend(prev.consumed());
+            item
+        }
+    }
+
     fn token_lit_as_expr(self) -> Option<Self> {
         match self
         {
             Self::Token(mut consumed, Spanned(Token::I64(i), span)) =>
             {
-                consumed.push(Spanned(Token::I64(i), span.clone()));
+                consumed.push_back(Spanned(Token::I64(i), span.clone()));
                 Some(Self::Expr(consumed, Spanned(Expr::I64(i), span)))
             },
             Self::Token(mut consumed, Spanned(Token::F64(f), span)) =>
             {
-                consumed.push(Spanned(Token::F64(f), span.clone()));
+                consumed.push_back(Spanned(Token::F64(f), span.clone()));
                 Some(Self::Expr(consumed, Spanned(Expr::F64(f), span)))
             },
             _ => None,
         }
     }
 
-    fn consumed(self) -> Vec<Spanned<Token<'a>>> {
+    fn consumed(self) -> VecDeque<Spanned<Token<'a>>> {
         match self
         {
             Self::Seq(item1, item2) =>
             {
-                let mut consumed = item1.consumed();
-                consumed.extend(item2.consumed());
-                consumed
+                assert!(item1.consumed().is_empty());
+                item2.consumed()
             },
             Self::Expr(old_c, _) | Self::Token(old_c, _) | Self::Err(old_c, _) => old_c,
         }
     }
 
-    fn get_seq_root_mut(&mut self) -> &mut Self {
+    fn consumed_mut(&mut self) -> &mut VecDeque<Spanned<Token<'a>>> {
         match self
         {
-            this @ (Self::Expr(..) | Self::Token(..) | Self::Err(..)) => this,
-            Self::Seq(parsed_item, _) => parsed_item.get_seq_root_mut(),
+            Self::Seq(item1, item2) =>
+            {
+                assert!(item1.consumed_mut().is_empty());
+                item2.consumed_mut()
+            },
+            Self::Expr(old_c, _) | Self::Token(old_c, _) | Self::Err(old_c, _) => old_c,
+        }
+    }
+
+    fn push_back_input(self, input: &mut VecDeque<Spanned<Token<'a>>>) {
+        match self
+        {
+            Self::Expr(consumed, _) | Self::Token(consumed, _) | Self::Err(consumed, _) =>
+            {
+                for tok in consumed.into_iter().rev()
+                {
+                    input.push_front(tok);
+                }
+            },
+            Self::Seq(_, parsed_item1) => parsed_item1.push_back_input(input),
+        }
+    }
+
+    fn ignore_then(
+        parser: impl FnOnce(&mut VecDeque<Spanned<Token<'a>>>) -> Self,
+        input: &mut VecDeque<Spanned<Token<'a>>>,
+    ) -> impl FnOnce(Self) -> Self {
+        |prev| {
+            let mut item = parser(input);
+            let consumed = item.consumed_mut();
+            let mut prev_consumed = prev.consumed();
+            while let Some(tok) = prev_consumed.pop_back()
+            {
+                consumed.push_front(tok);
+            }
+            item
+        }
+    }
+
+    fn then_ignore(
+        parser: impl FnOnce(&mut VecDeque<Spanned<Token<'a>>>) -> Self,
+        input: &mut VecDeque<Spanned<Token<'a>>>,
+    ) -> impl FnOnce(&mut Self) -> Self {
+        |prev| {
+            let mut item = parser(input);
+            let consumed = std::mem::take(item.consumed_mut());
+            prev.consumed_mut().extend(consumed);
+            item
+        }
+    }
+
+    fn then_ignore_on_error() -> impl FnOnce(Self, &mut Self) {
+        |mut prev, item| {
+            let consumed = prev.consumed_mut();
+            while let Some(tok) = consumed.pop_back()
+            {
+                item.consumed_mut().push_front(tok);
+            }
         }
     }
 }
 
 impl<'a> ParserItem for ParsedItem<'a> {
-    type Error = (Vec<Spanned<Token<'a>>>, Diagnostic);
+    type Error = (VecDeque<Spanned<Token<'a>>>, Diagnostic);
     type Output = Spanned<Expr<'a>>;
 
     fn is_err(&self) -> bool {
@@ -87,52 +153,6 @@ impl<'a> ParserItem for ParsedItem<'a> {
             _ => panic!("Cannot call into_output on a token or a sequence"),
         }
     }
-
-    fn replace(self, other: Self) -> Self {
-        let mut old_consumed = self.consumed();
-        match other
-        {
-            Self::Expr(consumed, spanned) =>
-            {
-                old_consumed.extend(consumed);
-                Self::Expr(old_consumed, spanned)
-            },
-            Self::Token(consumed, spanned) =>
-            {
-                old_consumed.extend(consumed);
-                Self::Token(old_consumed, spanned)
-            },
-            Self::Seq(mut parsed_item, parsed_item1) =>
-            {
-                let root = parsed_item.get_seq_root_mut();
-                match root
-                {
-                    Self::Expr(consumed, spanned) =>
-                    {
-                        old_consumed.extend(consumed.clone());
-                        *root = Self::Expr(old_consumed, spanned.clone());
-                    },
-                    Self::Token(consumed, spanned) =>
-                    {
-                        old_consumed.extend(consumed.clone());
-                        *root = Self::Token(old_consumed, spanned.clone());
-                    },
-                    Self::Err(consumed, diagnostic) =>
-                    {
-                        old_consumed.extend(consumed.clone());
-                        *root = Self::Err(old_consumed, diagnostic.clone());
-                    },
-                    Self::Seq(..) => unreachable!(),
-                }
-                Self::Seq(parsed_item, parsed_item1)
-            },
-            Self::Err(consumed, diagnostic) =>
-            {
-                old_consumed.extend(consumed);
-                Self::Err(old_consumed, diagnostic)
-            },
-        }
-    }
 }
 
 impl Parser for ParsedItem<'_> {
@@ -140,11 +160,51 @@ impl Parser for ParsedItem<'_> {
 
     fn from_item(item: Self::Item) -> Self { item }
 
-    fn make_sequence(self, other: Self::Item) -> Self {
+    // TODO: Refactor that
+    fn make_sequence(mut self, mut other: Self::Item) -> Self {
         assert!(
             !matches!(other, Self::Seq(..)),
             "`other` should never be a Sequence"
         );
+        match &mut self
+        {
+            Self::Expr(consumed, _) | Self::Token(consumed, _) | Self::Err(consumed, _) =>
+            {
+                match &mut other
+                {
+                    Self::Expr(other_consumed, _)
+                    | Self::Token(other_consumed, _)
+                    | Self::Err(other_consumed, _) =>
+                    {
+                        while let Some(tok) = consumed.pop_back()
+                        {
+                            other_consumed.push_front(tok);
+                        }
+                    },
+                    Self::Seq(..) => unreachable!(),
+                }
+            },
+            Self::Seq(_, parsed_item1) => match parsed_item1.as_mut()
+            {
+                Self::Expr(consumed, _) | Self::Token(consumed, _) | Self::Err(consumed, _) =>
+                {
+                    match &mut other
+                    {
+                        Self::Expr(other_consumed, _)
+                        | Self::Token(other_consumed, _)
+                        | Self::Err(other_consumed, _) =>
+                        {
+                            while let Some(tok) = consumed.pop_back()
+                            {
+                                other_consumed.push_front(tok);
+                            }
+                        },
+                        Self::Seq(..) => unreachable!(),
+                    }
+                },
+                Self::Seq(..) => unreachable!(),
+            },
+        }
         Self::Seq(Box::new(self), Box::new(other))
     }
 }
@@ -153,12 +213,15 @@ macro_rules! just {
     ($input:expr, $tok_pat:pat, $expected:literal) => {
         match $input.pop_front()
         {
-            Some(tok @ Spanned($tok_pat, _)) => ParsedItem::Token(vec![tok.clone()], tok),
+            Some(tok @ Spanned($tok_pat, _)) =>
+            {
+                ParsedItem::Token(VecDeque::from(vec![tok.clone()]), tok)
+            },
             Some(Spanned(tok, span)) =>
             {
                 $input.push_front(Spanned(tok.clone(), span.clone()));
                 ParsedItem::Err(
-                    vec![],
+                    VecDeque::from(vec![]),
                     Diagnostic::error(format!("Expected {}", $expected)).with_main_label(
                         span,
                         format!("Expected {} but found {} instead", $expected, tok),
@@ -166,7 +229,7 @@ macro_rules! just {
                 )
             },
             None => ParsedItem::Err(
-                vec![],
+                VecDeque::from(vec![]),
                 Diagnostic::error("Unexpected end of input")
                     .with_main_label(0..0, "Unexpected end of input"),
             ),
@@ -175,40 +238,55 @@ macro_rules! just {
 }
 
 macro_rules! assume {
+    // Base: single pattern = expression
     (let $pat:pat = $expr:expr) => {
-        let $pat = $expr
-        else
-        {
-            unreachable!()
-        };
-    };
-    (let Seq[$pat1:pat, $pat2:pat $(,)?] = $expr:expr) => {
-        assume!(let ParsedItem::Seq(__temp1, __temp2) = $expr);
-        assume!(let $pat1 = *__temp1);
-        assume!(let $pat2 = *__temp2);
+        let stringified = stringify!($pat);
+        println!("Assumed that\n```\n{:#?}\n```\nis of the form\n`{}`", &$expr, stringified);
+        let $pat = $expr else { unreachable!() };
     };
 
-    (let SeqPrev[$pat:pat] = $expr:expr) => {
-        assume!(let ParsedItem::Seq(__temp1, __temp2) = $expr);
-        assume!(let $pat = *__temp2);
+    // Entry point: reverse the pattern list first
+    (let Seq[$($pats:pat),+ $(,)?] = $expr:expr) => {
+        assume!(@seq_rev $expr; []; $($pats),+)
     };
 
-    (let SeqPrev[$pat:pat, $($rest:pat),+] = $expr:expr) => {
-        // This tranmuted value is never used (We use an invalid value (42) to help catch bug where it will be used somehow)
-        let __temp1: Box<ParsedItem<'_>> = unsafe { core::mem::transmute([42u8;8]) };
-        assume!(let SeqPrev[$($rest),+] = $expr);
-        assume!(let ParsedItem::Seq(__temp1, __temp2) = *__temp1);
-        assume!(let $pat = *__temp2);
+    // Reverse accumulator: empty acc
+    (@seq_rev $expr:expr; []; $head:pat, $($tail:pat),+) => {
+        assume!(@seq_rev $expr; [$head]; $($tail),+)
     };
 
-    (let Seq[$pat1:pat, $pat2:pat, $($rest:pat),+ $(,)?] = $expr:expr) => {
-        assume!(let SeqPrev[$pat1, $pat2, $($rest),+] = $expr);
+    // Reverse accumulator: non-empty acc
+    (@seq_rev $expr:expr; [$($acc:pat),+]; $head:pat, $($tail:pat),+) => {
+        assume!(@seq_rev $expr; [$head, $($acc),+]; $($tail),+)
+    };
+
+    // Reverse done: hand off to muncher
+    (@seq_rev $expr:expr; [$($reversed:pat),*]; $last:pat) => {
+        assume!(@seq $expr; $last, $($reversed),*)
+    };
+
+    // Muncher: two patterns left — base case
+    (@seq $expr:expr; $pat1:pat, $pat2:pat) => {
+        assume!(let ParsedItem::Seq(__a, __b) = $expr);
+        assume!(let $pat1 = *__b);
+        assume!(let $pat2 = *__a);
+    };
+
+    // Muncher: more than two — peel one from the RIGHT is impossible,
+    // so peel from the LEFT instead
+    (@seq $expr:expr; $pat1:pat, $($rest:pat),+) => {
+        assume!(let ParsedItem::Seq(__a, __b) = $expr);
+        assume!(let $pat1 = *__b);
+        assume!(@seq *__a; $($rest),+)
     };
 }
 
 fn parse_litteral<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
     just!(input, Token::I64(_), "a litteral")
-        .or(|| just!(input, Token::F64(_), "a litteral"))
+        .or(|prev| {
+            prev.push_back_input(input);
+            just!(input, Token::F64(_), "a litteral")
+        })
         .map(|item| {
             item.token_lit_as_expr()
                 .expect("just! should ensure that the token is a litteral")
@@ -250,10 +328,16 @@ fn parse_cast<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
 
 fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
     just!(input, Token::Let, "Expected `let`")
-        .ignore_then(|| parse_ident(input))
-        .then_ignore(|| just!(input, Token::Colon, "Expected `:`"))
+        .ignore_then(ParsedItem::ignore_then(parse_ident, input))
+        .then_ignore(
+            ParsedItem::then_ignore(|input| just!(input, Token::Colon, "Expected `:`"), input),
+            ParsedItem::then_ignore_on_error(),
+        )
         .then(|| just!(input, Token::Ty(_), "Expected a type"))
-        .then_ignore(|| just!(input, Token::Assign, "Expected `=`"))
+        .then_ignore(
+            ParsedItem::then_ignore(|input| just!(input, Token::Assign, "Expected `=`"), input),
+            ParsedItem::then_ignore_on_error(),
+        )
         .then(|| parse_expr(input))
         .map(|item| {
             assume!(let Seq[
@@ -280,18 +364,37 @@ fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
 
 fn parse_expr<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
     parse_decla(input)
-        .or(|| parse_litteral(input))
-        .or(|| parse_cast(input))
-        .or(|| {
-            just!(input, Token::LParen, "Expected `(`")
-                .ignore_then(|| parse_expr(input))
-                .then_ignore(|| just!(input, Token::RParen, "Expected `)`"))
-        })
-        .or(|| {
-            just!(input, Token::LBrace, "Expected `(`")
-                .ignore_then(|| parse_expr(input))
-                .then_ignore(|| just!(input, Token::RBrace, "Expected `)`"))
-        })
+        .or(ParsedItem::or(parse_litteral, input))
+        .or(ParsedItem::or(parse_ident, input))
+        .or(ParsedItem::or(parse_cast, input))
+        .or(ParsedItem::or(
+            |input| {
+                just!(input, Token::LParen, "Expected `(`")
+                    .ignore_then(ParsedItem::ignore_then(|input| parse_expr(input), input))
+                    .then_ignore(
+                        ParsedItem::then_ignore(
+                            |input| just!(input, Token::RParen, "Expected `)`"),
+                            input,
+                        ),
+                        ParsedItem::then_ignore_on_error(),
+                    )
+            },
+            input,
+        ))
+        .or(ParsedItem::or(
+            |input| {
+                just!(input, Token::LBrace, "Expected `{`")
+                    .ignore_then(ParsedItem::ignore_then(|input| parse_expr(input), input))
+                    .then_ignore(
+                        ParsedItem::then_ignore(
+                            |input| just!(input, Token::RBrace, "Expected `}`"),
+                            input,
+                        ),
+                        ParsedItem::then_ignore_on_error(),
+                    )
+            },
+            input,
+        ))
 }
 
 fn parse_program<'a>(
@@ -312,7 +415,23 @@ fn parse_program<'a>(
                 .with_main_label(span, "Top level expressions must be declarations")
                 .with_code(1),
             ),
-            Err((_, err)) => errors.push(err),
+            Err((consumed, err)) =>
+            {
+                if consumed.is_empty()
+                {
+                    // parse_expr made no progress — this token cannot start any expression.
+                    // Pop it to guarantee termination; report a precise error for it.
+                    let Spanned(_, span) = input.pop_front().expect("checked non-empty above");
+                    errors.push(
+                        Diagnostic::error("Unexpected token")
+                            .with_main_label(span, "This token cannot start a top-level declaration"),
+                    );
+                }
+                else
+                {
+                    errors.push(err);
+                }
+            },
         }
     }
     if errors.is_empty() { Ok(exprs) } else { Err(errors) }
