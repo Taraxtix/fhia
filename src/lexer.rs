@@ -1,32 +1,40 @@
 use std::fmt::Display;
 
-use crate::parser::expr::Ty;
 use logos::{Lexer, Logos};
+
+use crate::parser::expr::Ty;
 
 fn to_i64<'a>(lex: &Lexer<'a, Token<'a>>) -> i64 {
     let mut lit_str = lex.slice().to_string();
 
     let parse_base_10 = |mut lit_str: String| {
-        while let Some(new) = lit_str.strip_prefix("0") {
+        while let Some(new) = lit_str.strip_prefix("0")
+        {
             lit_str = new.to_string();
         }
-        if lit_str.is_empty() {
+        if lit_str.is_empty()
+        {
             return 0;
         }
         lit_str.parse().expect("Invalid int regex")
     };
 
     let neg = lit_str.starts_with('-');
-    if neg {
+    if neg
+    {
         lit_str = lit_str
             .strip_prefix('-')
             .expect("Checked above")
             .to_string();
     }
-    let lit = if lit_str.len() < 3 {
+    let lit = if lit_str.len() < 3
+    {
         parse_base_10(lit_str)
-    } else {
-        match &lit_str[..2] {
+    }
+    else
+    {
+        match &lit_str[..2]
+        {
             "0b" => i64::from_str_radix(&lit_str[2..], 2).unwrap(),
             "0o" => i64::from_str_radix(&lit_str[2..], 8).unwrap(),
             "0x" => i64::from_str_radix(&lit_str[2..], 16).unwrap(),
@@ -82,7 +90,8 @@ pub enum Token<'src> {
 
 impl Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match self
+        {
             Self::Let => f.write_str("let"),
             Self::Assign => f.write_str("="),
             Self::I64(i) => f.write_fmt(format_args!("{i}")),

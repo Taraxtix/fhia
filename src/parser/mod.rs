@@ -423,8 +423,10 @@ fn parse_program<'a>(
                     // Pop it to guarantee termination; report a precise error for it.
                     let Spanned(_, span) = input.pop_front().expect("checked non-empty above");
                     errors.push(
-                        Diagnostic::error("Unexpected token")
-                            .with_main_label(span, "This token cannot start a top-level declaration"),
+                        Diagnostic::error("Unexpected token").with_main_label(
+                            span,
+                            "This token cannot start a top-level declaration",
+                        ),
                     );
                 }
                 else

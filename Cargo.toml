@@ -15,14 +15,9 @@ categories = ["programming-language", "compiler", "rust"]
 
 [dependencies]
 ariadne = "0.6.0"
-chumsky = { version = "0.13.0", features = [
-    "nightly",
-    "lexical-numbers",
-    "debug",
-] }
 clap = { version = "4.5.31", features = ["derive"] }
 logos = { version = "0.16.1", features = [] }
-lexparse = { path = "../lexparse" }
+lexparse = { git = "https://github.com/Taraxtix/lexparse.git" }
 
 [lints.clippy]
 correctness = "warn"
@@ -31,8 +26,5 @@ complexity = "warn"
 perf = "warn"
 style = "warn"
 pedantic = "warn"
-
 cargo = "warn"
-multiple_crate_versions = { level = "allow", priority = 1 }
-
 nursery = "warn"
