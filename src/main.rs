@@ -1,14 +1,17 @@
 #![feature(stmt_expr_attributes)]
 
-use std::fs::read_to_string;
+use std::{fs::read_to_string, ops::Range};
 
 mod diagnostics;
 mod lexer;
 mod parser;
+mod tests;
 mod typer;
 
 use clap::Parser as clapParser;
 use diagnostics::Reportable;
+
+use crate::diagnostics::Diagnostic;
 
 #[derive(clapParser)]
 struct Args {
@@ -25,7 +28,6 @@ struct Args {
     // /// Print the Lexer's output
     // #[arg(long, default_value_t = false)]
     // lexer: bool,
-    //
     /// Print the Parser's output
     #[arg(long, default_value_t = false)]
     parser: bool,
@@ -38,6 +40,10 @@ struct Args {
     #[arg(long, default_value_t = true)] // TODO: Change to false when implemented
     no_std: bool,
 }
+
+#[derive(Clone, Debug)]
+pub struct Spanned<T>(pub T, pub Range<usize>);
+pub type ParsingError = Diagnostic;
 
 fn main() {
     let args = Args::parse();
@@ -52,16 +58,20 @@ fn main() {
 
     let parser_output = parser::parse(&input);
     parser_output.report(&input, &args.input);
-    if args.parser {
-        for expr in &parser_output.exprs {
-            println!("{expr}");
+    if args.parser
+    {
+        for expr in &parser_output.exprs
+        {
+            println!("{}", expr.0);
         }
     }
     let typed_output = parser_output.type_check();
     typed_output.report(&input, &args.input);
-    if args.typer {
-        for expr in &typed_output.exprs {
-            println!("{expr}");
+    if args.typer
+    {
+        for expr in &typed_output.exprs
+        {
+            println!("{}", expr.0);
         }
     }
 }

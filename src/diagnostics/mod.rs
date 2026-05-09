@@ -70,4 +70,10 @@ impl Diagnostic {
         });
         self
     }
+
+    #[must_use]
+    pub fn with_code(mut self, code: u32) -> Self {
+        self.code = Some(code);
+        self
+    }
 }

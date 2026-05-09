@@ -1,10 +1,11 @@
-use fhia::diagnostics::Severity;
-use fhia::parser::{
+use crate::Spanned;
+use crate::diagnostics::{Diagnostic, Severity};
+use crate::parser::{
     self,
     expr::{Expr, Ty},
 };
 
-fn parse_ok(input: &str) -> Vec<Expr<'_>> {
+fn parse_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
     let output = parser::parse(input);
     assert!(
         output.diagnostics.is_empty(),
@@ -14,7 +15,7 @@ fn parse_ok(input: &str) -> Vec<Expr<'_>> {
     output.exprs
 }
 
-fn parse_err(input: &str) -> Vec<fhia::diagnostics::Diagnostic> {
+fn parse_err(input: &str) -> Vec<Diagnostic> {
     let output = parser::parse(input);
     assert!(
         !output.diagnostics.is_empty(),
@@ -43,11 +44,22 @@ fn parse_whitespace_flexibility() {
         "let x:i64= 1",
         "let x:i64=1",
     ];
-    for input in inputs {
+    for input in inputs
+    {
         let exprs = parse_ok(input);
         assert_eq!(exprs.len(), 1, "failed on: {input}");
         assert!(
-            matches!(&exprs[0], Expr::Declaration { name: "x", ty: Ty::I64, .. }),
+            matches!(
+                &exprs[0],
+                Spanned(
+                    Expr::Declaration {
+                        name: "x",
+                        ty: Ty::I64,
+                        ..
+                    },
+                    _
+                )
+            ),
             "failed on: {input}"
         );
     }
@@ -57,12 +69,14 @@ fn parse_whitespace_flexibility() {
 fn parse_declaration_i64() {
     let exprs = parse_ok("let x: i64 = 42");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { name, ty, expr } => {
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::I64);
-            assert!(matches!(expr.as_ref(), Expr::I64(42)));
-        }
+            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -72,12 +86,14 @@ fn parse_declaration_i64() {
 fn parse_declaration_f64() {
     let exprs = parse_ok("let x: f64 = 3.14");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { name, ty, expr } => {
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::F64);
-            assert!(matches!(expr.as_ref(), Expr::F64(f) if (*f - 3.14).abs() < 1e-9));
-        }
+            assert!(matches!(expr.as_ref(), Spanned(Expr::F64(f), _) if (*f - 3.14).abs() < 1e-9));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -87,12 +103,15 @@ fn parse_ident_in_rhs() {
     // an identifier on the RHS is valid syntax; its type is Unknown at parse time
     let exprs = parse_ok("let x: i64 = y");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { expr, .. } => match expr.as_ref() {
-            Expr::Ident { name, ty } => {
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
+        {
+            Spanned(Expr::Ident { name, ty }, _) =>
+            {
                 assert_eq!(*name, "y");
                 assert_eq!(*ty, Ty::Unknown);
-            }
+            },
             _ => panic!("expected ident"),
         },
         _ => panic!("expected declaration"),
@@ -103,12 +122,15 @@ fn parse_ident_in_rhs() {
 fn parse_cast_expression() {
     let exprs = parse_ok("let x: u32 = u32 42");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { expr, .. } => match expr.as_ref() {
-            Expr::Cast(ty, inner) => {
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
+        {
+            Spanned(Expr::Cast(ty, inner), _) =>
+            {
                 assert_eq!(*ty, Ty::U32);
-                assert!(matches!(inner.as_ref(), Expr::I64(42)));
-            }
+                assert!(matches!(inner.as_ref(), Spanned(Expr::I64(42), _)));
+            },
             _ => panic!("expected cast"),
         },
         _ => panic!("expected declaration"),
@@ -118,14 +140,17 @@ fn parse_cast_expression() {
 #[test]
 fn parse_nested_cast() {
     // cast wrapping another cast — both with and without parens
-    let check = |exprs: Vec<Expr<'_>>| {
+    let check = |exprs: Vec<Spanned<Expr<'_>>>| {
         assert_eq!(exprs.len(), 1);
-        match &exprs[0] {
-            Expr::Declaration { expr, .. } => match expr.as_ref() {
-                Expr::Cast(outer_ty, inner) => {
+        match &exprs[0]
+        {
+            Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
+            {
+                Spanned(Expr::Cast(outer_ty, inner), _) =>
+                {
                     assert_eq!(*outer_ty, Ty::I64);
-                    assert!(matches!(inner.as_ref(), Expr::Cast(Ty::U32, _)));
-                }
+                    assert!(matches!(inner.as_ref(), Spanned(Expr::Cast(Ty::U32, _), _)));
+                },
                 _ => panic!("expected outer cast"),
             },
             _ => panic!("expected declaration"),
@@ -139,10 +164,12 @@ fn parse_nested_cast() {
 fn parse_parenthesized_expression() {
     let exprs = parse_ok("let x: i64 = (42)");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { expr, .. } => {
-            assert!(matches!(expr.as_ref(), Expr::I64(42)));
-        }
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) =>
+        {
+            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -151,10 +178,12 @@ fn parse_parenthesized_expression() {
 fn parse_braced_expression() {
     let exprs = parse_ok("let x: i64 = {42}");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { expr, .. } => {
-            assert!(matches!(expr.as_ref(), Expr::I64(42)));
-        }
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) =>
+        {
+            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -162,10 +191,15 @@ fn parse_braced_expression() {
 #[test]
 fn parse_nested_grouping() {
     // braces and parens are interchangeable grouping delimiters
-    for input in ["let x: i64 = ((42))", "let x: i64 = {(42)}", "let x: i64 = ({42})"] {
+    for input in [
+        "let x: i64 = ((42))",
+        "let x: i64 = {(42)}",
+        "let x: i64 = ({42})",
+    ]
+    {
         let exprs = parse_ok(input);
         assert!(
-            matches!(&exprs[0], Expr::Declaration { expr, .. } if matches!(expr.as_ref(), Expr::I64(42))),
+            matches!(&exprs[0], Spanned(Expr::Declaration { expr, .. }, _) if matches!(expr.as_ref(), Spanned(Expr::I64(42), _))),
             "failed on: {input}"
         );
     }
@@ -175,8 +209,28 @@ fn parse_nested_grouping() {
 fn parse_multiple_declarations() {
     let exprs = parse_ok("let a: i64 = 1  let b: f64 = 2.");
     assert_eq!(exprs.len(), 2);
-    assert!(matches!(&exprs[0], Expr::Declaration { name: "a", ty: Ty::I64, .. }));
-    assert!(matches!(&exprs[1], Expr::Declaration { name: "b", ty: Ty::F64, .. }));
+    assert!(matches!(
+        &exprs[0],
+        Spanned(
+            Expr::Declaration {
+                name: "a",
+                ty: Ty::I64,
+                ..
+            },
+            _
+        )
+    ));
+    assert!(matches!(
+        &exprs[1],
+        Spanned(
+            Expr::Declaration {
+                name: "b",
+                ty: Ty::F64,
+                ..
+            },
+            _
+        )
+    ));
 }
 
 // =============================================================================
@@ -184,9 +238,7 @@ fn parse_multiple_declarations() {
 // =============================================================================
 
 #[test]
-fn parse_missing_assign() {
-    parse_with_error("let x: i64 1");
-}
+fn parse_missing_assign() { parse_with_error("let x: i64 1"); }
 
 #[test]
 fn parse_missing_colon() {
@@ -201,19 +253,13 @@ fn parse_missing_type() {
 }
 
 #[test]
-fn parse_unclosed_paren() {
-    parse_with_error("let x: i64 = (1");
-}
+fn parse_unclosed_paren() { parse_with_error("let x: i64 = (1"); }
 
 #[test]
-fn parse_unclosed_brace() {
-    parse_with_error("let x: i64 = {1");
-}
+fn parse_unclosed_brace() { parse_with_error("let x: i64 = {1"); }
 
 #[test]
-fn parse_invalid_token() {
-    parse_with_error("let x: i64 = @");
-}
+fn parse_invalid_token() { parse_with_error("let x: i64 = @"); }
 
 #[test]
 fn parse_keyword_as_value() {

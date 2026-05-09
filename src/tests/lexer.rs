@@ -1,15 +1,14 @@
-use fhia::lexer::Token;
-use fhia::parser::expr::Ty;
 use logos::Logos;
+
+use crate::lexer::Token;
+use crate::parser::expr::Ty;
 
 fn lex_one(input: &str) -> Result<Token<'_>, ()> {
     let mut lexer = Token::lexer(input);
     lexer.next().expect("expected at least one token")
 }
 
-fn lex_all(input: &str) -> Result<Vec<Token<'_>>, ()> {
-    Token::lexer(input).collect()
-}
+fn lex_all(input: &str) -> Result<Vec<Token<'_>>, ()> { Token::lexer(input).collect() }
 
 // =============================================================================
 // Keyword

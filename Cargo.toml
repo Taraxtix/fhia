@@ -15,13 +15,14 @@ categories = ["programming-language", "compiler", "rust"]
 
 [dependencies]
 ariadne = "0.6.0"
-chumsky = { version = "0.12.0", features = [
+chumsky = { version = "0.13.0", features = [
     "nightly",
     "lexical-numbers",
     "debug",
 ] }
 clap = { version = "4.5.31", features = ["derive"] }
 logos = { version = "0.16.1", features = [] }
+lexparse = { path = "../lexparse" }
 
 [lints.clippy]
 correctness = "warn"

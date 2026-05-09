@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use chumsky::span::Spanned;
+use crate::Spanned;
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {
@@ -28,7 +28,8 @@ impl TryFrom<&str> for Ty {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
+        match value
+        {
             "i8" => Ok(Self::I8),
             "i16" => Ok(Self::I16),
             "i32" => Ok(Self::I32),
@@ -50,7 +51,8 @@ impl TryFrom<&str> for Ty {
 
 impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match self
+        {
             Self::I8 => f.write_str("i8"),
             Self::I16 => f.write_str("i16"),
             Self::I32 => f.write_str("i32"),
@@ -75,7 +77,7 @@ impl Display for Ty {
 pub enum Expr<'src> {
     Declaration {
         name: &'src str,
-        ty: Ty,
+        ty:   Ty,
         expr: Box<Spanned<Self>>,
     },
     // I32(i32),
@@ -88,19 +90,34 @@ pub enum Expr<'src> {
     Cast(Ty, Box<Spanned<Self>>),
     Ident {
         name: &'src str,
-        ty: Ty,
+        ty:   Ty,
     },
+}
+
+impl Expr<'_> {
+    pub fn kind_name(&self) -> &'static str {
+        match self
+        {
+            Self::Declaration { .. } => "declaration",
+            Self::I64(_) => "i64 litteral",
+            Self::F64(_) => "f64 litteral",
+            Self::Cast(_, _) => "cast expression",
+            Self::Ident { .. } => "identifier",
+        }
+    }
 }
 
 impl Display for Expr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Expr::Declaration { name, ty, expr } => {
-                f.write_fmt(format_args!("{name}: {ty} = ({})", expr.inner))
-            }
+        match self
+        {
+            Expr::Declaration { name, ty, expr } =>
+            {
+                f.write_fmt(format_args!("{name}: {ty} = ({})", expr.0))
+            },
             Expr::I64(lit) => f.write_fmt(format_args!("{lit}")),
             Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
-            Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.inner)),
+            Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.0)),
             Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
         }
     }

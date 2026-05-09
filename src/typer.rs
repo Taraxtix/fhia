@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use chumsky::span::Spanned;
-
 use crate::{
+    Spanned,
     diagnostics::Diagnostic,
     parser::expr::{Expr, Ty},
 };
@@ -35,9 +34,7 @@ impl<'src> Env<'src> {
             .is_some_and(|scope| scope.contains_key(name))
     }
 
-    pub fn push_scope(&mut self) {
-        self.scopes.push(HashMap::new());
-    }
+    pub fn push_scope(&mut self) { self.scopes.push(HashMap::new()); }
 
     /// # Panics
     /// - Panics if you attempt to pop the root scope
@@ -48,24 +45,29 @@ impl<'src> Env<'src> {
 }
 
 pub struct TypedOutput<'a> {
-    pub exprs: Vec<Expr<'a>>,
+    pub exprs:       Vec<Spanned<Expr<'a>>>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> TypedOutput<'a> {
     #[must_use]
-    pub fn type_check(exprs: Vec<Expr<'a>>) -> Self {
+    pub fn type_check(exprs: Vec<Spanned<Expr<'a>>>) -> Self {
         let mut diagnostics: Vec<Diagnostic> = Vec::new();
         let mut env = Env::new();
 
         // Pass 1: pre-populate all declarations so every RHS sees the full scope
-        for expr in &exprs {
-            if let Expr::Declaration { name, ty, .. } = expr {
-                if env.is_in_current_scope(name) {
+        for expr in &exprs
+        {
+            if let Spanned(Expr::Declaration { name, ty, .. }, _) = expr
+            {
+                if env.is_in_current_scope(name)
+                {
                     diagnostics.push(Diagnostic::error(format!(
                         "'{name}' is already declared in this scope"
                     )));
-                } else {
+                }
+                else
+                {
                     env.declare(name, *ty);
                 }
             }
@@ -84,67 +86,71 @@ impl<'a> TypedOutput<'a> {
     }
 }
 
-impl<'src> Expr<'src> {
+impl<'src> Spanned<Expr<'src>> {
     const fn ty(&self) -> Ty {
-        match self {
-            Self::I64(_) => Ty::I64,
-            Self::F64(_) => Ty::F64,
-            Self::Ident { ty, .. } | Self::Declaration { ty, .. } | Self::Cast(ty, _) => *ty,
+        match self
+        {
+            Spanned(Expr::I64(_), _) => Ty::I64,
+            Spanned(Expr::F64(_), _) => Ty::F64,
+            Spanned(
+                Expr::Ident { ty, .. } | Expr::Declaration { ty, .. } | Expr::Cast(ty, _),
+                _,
+            ) => *ty,
         }
     }
 
     fn type_check(self, env: &mut Env<'src>) -> (Self, Vec<Diagnostic>) {
         let mut diagnostics = Vec::new();
-        let expr = match self {
-            Self::I64(_) | Self::F64(_) => self,
-            Self::Ident { name, ty } => match env.lookup(name) {
-                None => {
+        let expr = match self
+        {
+            Spanned(Expr::I64(_) | Expr::F64(_), _) => self,
+            Spanned(Expr::Ident { name, ty }, span) => match env.lookup(name)
+            {
+                None =>
+                {
                     diagnostics.push(Diagnostic::error(format!("Undefined variable '{name}'")));
-                    Self::Ident {
-                        name,
-                        ty: Ty::Unknown,
-                    }
-                }
-                Some(env_ty) => {
-                    if ty != Ty::Unknown && ty != env_ty {
+                    Spanned(Expr::Ident { name, ty }, span)
+                },
+                Some(env_ty) =>
+                {
+                    if ty != Ty::Unknown && ty != env_ty
+                    {
                         diagnostics.push(Diagnostic::error(format!(
-                            "Type ascription mismatch: '{name}' has type '{env_ty}' but is ascribed '{ty}'"
+                            "Type ascription mismatch: '{name}' has type '{env_ty}' but is \
+                             ascribed '{ty}'"
                         )));
                     }
-                    Self::Ident { name, ty: env_ty }
-                }
+                    Spanned(Expr::Ident { name, ty: env_ty }, span)
+                },
             },
-            Self::Cast(ty, expr) => {
+            Spanned(Expr::Cast(ty, expr), span) =>
+            {
                 let (typed_expr, expr_diagnostics) = expr.type_check(env);
                 diagnostics.extend(expr_diagnostics);
-                Self::Cast(
-                    ty,
-                    Box::new(Spanned {
-                        inner: typed_expr,
-                        span: expr.span,
-                    }),
-                )
-            }
-            Self::Declaration { ty, expr, name } => {
+                Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
+            },
+            Spanned(Expr::Declaration { ty, expr, name }, span) =>
+            {
                 env.push_scope();
                 let (typed_expr, expr_diagnostics) = expr.type_check(env);
                 env.pop_scope();
                 diagnostics.extend(expr_diagnostics);
-                if ty != typed_expr.ty() {
+                if ty != typed_expr.ty()
+                {
                     diagnostics.push(Diagnostic::error(format!(
                         "Type mismatch: expected '{ty}', found '{}'",
                         typed_expr.ty()
                     )));
                 }
-                Self::Declaration {
-                    ty,
-                    expr: Box::new(Spanned {
-                        inner: typed_expr,
-                        span: expr.span,
-                    }),
-                    name,
-                }
-            }
+                Spanned(
+                    Expr::Declaration {
+                        ty,
+                        expr: Box::new(typed_expr),
+                        name,
+                    },
+                    span,
+                )
+            },
         };
         (expr, diagnostics)
     }

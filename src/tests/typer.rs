@@ -1,10 +1,11 @@
-use fhia::diagnostics::Severity;
-use fhia::parser::{
+use crate::Spanned;
+use crate::diagnostics::Severity;
+use crate::parser::{
     self,
     expr::{Expr, Ty},
 };
 
-fn type_ok(input: &str) -> Vec<Expr<'_>> {
+fn type_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
     let parse_output = parser::parse(input);
     assert!(
         parse_output.diagnostics.is_empty(),
@@ -20,7 +21,7 @@ fn type_ok(input: &str) -> Vec<Expr<'_>> {
     typed_output.exprs
 }
 
-fn type_err(input: &str) -> Vec<fhia::diagnostics::Diagnostic> {
+fn type_err(input: &str) -> Vec<crate::diagnostics::Diagnostic> {
     let parse_output = parser::parse(input);
     assert!(
         parse_output.diagnostics.is_empty(),
@@ -48,12 +49,14 @@ fn type_with_error(input: &str) {
 fn type_i64_declaration() {
     let exprs = type_ok("let x: i64 = 42");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { name, ty, expr } => {
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::I64);
-            assert!(matches!(expr.as_ref(), Expr::I64(42)));
-        }
+            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -62,12 +65,14 @@ fn type_i64_declaration() {
 fn type_f64_declaration() {
     let exprs = type_ok("let x: f64 = 1.");
     assert_eq!(exprs.len(), 1);
-    match &exprs[0] {
-        Expr::Declaration { name, ty, expr } => {
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::F64);
-            assert!(matches!(expr.as_ref(), Expr::F64(_)));
-        }
+            assert!(matches!(expr.as_ref(), Spanned(Expr::F64(_), _)));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -92,9 +97,9 @@ fn type_all_numeric_types_with_cast() {
 #[test]
 fn type_cast_cross_numeric_types() {
     // all casts are currently accepted regardless of inner expression type
-    type_ok("let x: f64 = f64 42");   // i64 → f64
-    type_ok("let x: i32 = i32 1.");   // f64 → i32
-    type_ok("let x: u8  = u8  -5");   // signed → unsigned
+    type_ok("let x: f64 = f64 42"); // i64 → f64
+    type_ok("let x: i32 = i32 1."); // f64 → i32
+    type_ok("let x: u8  = u8  -5"); // signed → unsigned
 }
 
 #[test]
@@ -102,12 +107,15 @@ fn type_ident_resolved_from_env() {
     // the ident's type should be filled in from the environment
     let exprs = type_ok("let x: i64 = 42  let y: i64 = x");
     assert_eq!(exprs.len(), 2);
-    match &exprs[1] {
-        Expr::Declaration { expr, .. } => match expr.as_ref() {
-            Expr::Ident { name, ty } => {
+    match &exprs[1]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
+        {
+            Spanned(Expr::Ident { name, ty }, _) =>
+            {
                 assert_eq!(*name, "x");
                 assert_eq!(*ty, Ty::I64);
-            }
+            },
             _ => panic!("expected ident inside declaration"),
         },
         _ => panic!("expected declaration"),
@@ -120,10 +128,15 @@ fn type_ident_chain_resolved() {
     let exprs = type_ok("let x: i64 = 42  let y: i64 = x  let z: i64 = y");
     assert_eq!(exprs.len(), 3);
     // all idents in the chain carry the resolved type
-    match &exprs[2] {
-        Expr::Declaration { expr, .. } => {
-            assert!(matches!(expr.as_ref(), Expr::Ident { ty: Ty::I64, .. }));
-        }
+    match &exprs[2]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) =>
+        {
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::Ident { ty: Ty::I64, .. }, _)
+            ));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -139,10 +152,21 @@ fn type_forward_reference() {
     // x references y which is declared after it — must succeed
     let exprs = type_ok("let x: i64 = y  let y: i64 = 42");
     assert_eq!(exprs.len(), 2);
-    match &exprs[0] {
-        Expr::Declaration { expr, .. } => {
-            assert!(matches!(expr.as_ref(), Expr::Ident { name: "y", ty: Ty::I64 }));
-        }
+    match &exprs[0]
+    {
+        Spanned(Expr::Declaration { expr, .. }, _) =>
+        {
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(
+                    Expr::Ident {
+                        name: "y",
+                        ty:   Ty::I64,
+                    },
+                    _
+                )
+            ));
+        },
         _ => panic!("expected declaration"),
     }
 }
@@ -158,14 +182,10 @@ fn type_forward_reference_chain() {
 // =============================================================================
 
 #[test]
-fn type_mismatch_float_literal_in_int_decl() {
-    type_with_error("let x: i64 = 1.");
-}
+fn type_mismatch_float_literal_in_int_decl() { type_with_error("let x: i64 = 1."); }
 
 #[test]
-fn type_mismatch_int_literal_in_float_decl() {
-    type_with_error("let x: f64 = 42");
-}
+fn type_mismatch_int_literal_in_float_decl() { type_with_error("let x: f64 = 42"); }
 
 #[test]
 fn type_mismatch_cast_target_differs_from_decl() {
