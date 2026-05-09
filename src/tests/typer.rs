@@ -1,5 +1,5 @@
 use crate::Spanned;
-use crate::diagnostics::Severity;
+use crate::diagnostics::{Diagnostic, ErrorCode};
 use crate::parser::{
     self,
     expr::{Expr, Ty},
@@ -21,7 +21,7 @@ fn type_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
     typed_output.exprs
 }
 
-fn type_err(input: &str) -> Vec<crate::diagnostics::Diagnostic> {
+fn type_err(input: &str) -> Vec<Diagnostic> {
     let parse_output = parser::parse(input);
     assert!(
         parse_output.diagnostics.is_empty(),
@@ -34,11 +34,6 @@ fn type_err(input: &str) -> Vec<crate::diagnostics::Diagnostic> {
         "expected type diagnostics, got none"
     );
     typed_output.diagnostics
-}
-
-fn type_with_error(input: &str) {
-    let diagnostics = type_err(input);
-    assert!(diagnostics.iter().any(|d| d.severity == Severity::Error));
 }
 
 // =============================================================================
@@ -182,43 +177,86 @@ fn type_forward_reference_chain() {
 // =============================================================================
 
 #[test]
-fn type_mismatch_float_literal_in_int_decl() { type_with_error("let x: i64 = 1."); }
+fn type_mismatch_float_literal_in_int_decl() {
+    let diags = type_err("let x: i64 = 1.");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    );
+}
 
 #[test]
-fn type_mismatch_int_literal_in_float_decl() { type_with_error("let x: f64 = 42"); }
+fn type_mismatch_int_literal_in_float_decl() {
+    let diags = type_err("let x: f64 = 42");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    );
+}
 
 #[test]
 fn type_mismatch_cast_target_differs_from_decl() {
     // cast produces u32, but declaration expects i64
-    type_with_error("let x: i64 = u32 42");
+    let diags = type_err("let x: i64 = u32 42");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    );
 }
 
 #[test]
 fn type_mismatch_ident_type_differs_from_decl() {
     // x is i64, but y expects f64
-    type_with_error("let x: i64 = 42  let y: f64 = x");
+    let diags = type_err("let x: i64 = 42  let y: f64 = x");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    );
 }
 
 #[test]
 fn type_undefined_variable() {
     let diags = type_err("let x: i64 = y");
-    assert!(diags.iter().any(|d| d.message.contains("Undefined")));
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::UndefinedVariable as u32))
+    );
 }
 
 #[test]
 fn type_duplicate_declaration() {
     // same name twice in the same scope is an error regardless of type
     let diags = type_err("let x: i64 = 1  let x: i64 = 2");
-    assert!(diags.iter().any(|d| d.message.contains("already declared")));
+    dbg!(&diags);
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DuplicateDeclaration as u32))
+    );
 
     let diags = type_err("let x: i64 = 42  let x: f64 = 1.");
-    assert!(diags.iter().any(|d| d.message.contains("already declared")));
+    dbg!(&diags);
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DuplicateDeclaration as u32))
+    );
 }
 
 #[test]
 fn type_undefined_propagates_through_cast() {
     // undefined variable inside a cast still produces an error
-    type_with_error("let x: i64 = i64 y");
+    let diags = type_err("let x: i64 = i64 y");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::UndefinedVariable as u32))
+    );
 }
 
 #[test]
@@ -226,5 +264,9 @@ fn type_all_errors_reported() {
     // both declarations are ill-typed; both errors must be reported, not just the first
     let diags = type_err("let x: i64 = 1.  let y: i64 = 1.");
     assert!(diags.len() >= 2);
-    assert!(diags.iter().all(|d| d.severity == Severity::Error));
+    assert!(
+        diags
+            .iter()
+            .all(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    );
 }

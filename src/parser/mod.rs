@@ -159,11 +159,10 @@ impl<'a> ParserItem for ParsedItem<'a> {
         {
             Self::Expr(_, expr) => Ok(expr),
             Self::Err(consumed, err) => Err((consumed, err)),
-            s => match s.extract_err()
-            {
-                Some(err) => Err(err),
-                None => panic!("Cannot call into_output on a non-error token or sequence"),
-            },
+            s => s.extract_err().map_or_else(
+                || panic!("Cannot call into_output on a non-error token or sequence"),
+                Err,
+            ),
         }
     }
 }
@@ -456,8 +455,8 @@ fn parse_program<'a>(
             {
                 if consumed.is_empty()
                 {
-                    // parse_expr made no progress — this token cannot start any expression.
-                    // Pop it to guarantee termination; report a precise error for it.
+                    // parse_expr made no progress
+                    // Pop the first Token to guarantee termination
                     let Spanned(_, span) = input.pop_front().expect("checked non-empty above");
                     errors.push(
                         Diagnostic::error(ErrorCode::UnexpectedToken).with_main_label(

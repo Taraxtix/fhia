@@ -1,5 +1,5 @@
 use crate::Spanned;
-use crate::diagnostics::{Diagnostic, Severity};
+use crate::diagnostics::{Diagnostic, ErrorCode};
 use crate::parser::{
     self,
     expr::{Expr, Ty},
@@ -22,11 +22,6 @@ fn parse_err(input: &str) -> Vec<Diagnostic> {
         "expected diagnostics, got none"
     );
     output.diagnostics
-}
-
-fn parse_with_error(input: &str) {
-    let diagnostics = parse_err(input);
-    assert!(diagnostics.iter().any(|d| d.severity == Severity::Error));
 }
 
 // =============================================================================
@@ -238,43 +233,106 @@ fn parse_multiple_declarations() {
 // =============================================================================
 
 #[test]
-fn parse_missing_assign() { parse_with_error("let x: i64 1"); }
+fn parse_missing_assign() {
+    let diags = parse_err("let x: i64 1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
+}
 
 #[test]
 fn parse_missing_colon() {
-    parse_with_error("let x i64 = 1");
-    parse_with_error("let xi64 = 1");
+    let diags = parse_err("let x i64 = 1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
+    let diags = parse_err("let xi64 = 1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
 }
 
 #[test]
 fn parse_missing_type() {
-    parse_with_error("let x: = 1");
-    parse_with_error("let x = 1");
+    let diags = parse_err("let x: = 1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
+    let diags = parse_err("let x = 1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
 }
 
 #[test]
-fn parse_unclosed_paren() { parse_with_error("let x: i64 = (1"); }
+fn parse_unclosed_paren() {
+    let diags = parse_err("let x: i64 = (1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
+}
 
 #[test]
-fn parse_unclosed_brace() { parse_with_error("let x: i64 = {1"); }
+fn parse_unclosed_brace() {
+    let diags = parse_err("let x: i64 = {1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
+}
 
 #[test]
-fn parse_invalid_token() { parse_with_error("let x: i64 = @"); }
+fn parse_invalid_token() {
+    let diags = parse_err("let x: i64 = @");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::InvalidToken as u32))
+    );
+}
 
 #[test]
 fn parse_keyword_as_value() {
     // `let` is not a valid expression
-    parse_with_error("let x: i64 = let");
+    let diags = parse_err("let x: i64 = let");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
 }
 
 #[test]
 fn parse_keyword_as_name() {
     // `let` cannot be used as an identifier name
-    parse_with_error("let let: i64 = 1");
+    let diags = parse_err("let let: i64 = 1");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
 }
 
 #[test]
 fn parse_incomplete_cast() {
     // a type token with no following expression is not valid
-    parse_with_error("let x: i64 = i64");
+    let diags = parse_err("let x: i64 = i64");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
 }
