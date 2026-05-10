@@ -15,6 +15,7 @@ pub enum ErrorCode {
     UndefinedVariable    = 5,
     TypeAscriptionMismatch = 6,
     TypeMismatch         = 7,
+    InvalidCastOperand   = 8,
 }
 
 impl ErrorCode {
@@ -29,6 +30,7 @@ impl ErrorCode {
             Self::UndefinedVariable => "Undefined variable",
             Self::TypeAscriptionMismatch => "Type ascription mismatch",
             Self::TypeMismatch => "Type mismatch",
+            Self::InvalidCastOperand => "Invalid cast operand",
         }
     }
 }

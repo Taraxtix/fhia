@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::Spanned;
 use crate::diagnostics::{Diagnostic, ErrorCode};
 use crate::parser::{
@@ -5,7 +7,7 @@ use crate::parser::{
     expr::{Expr, Ty},
 };
 
-fn type_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
+fn type_ok(input: &str) -> VecDeque<Spanned<Expr<'_>>> {
     let parse_output = parser::parse(input);
     assert!(
         parse_output.diagnostics.is_empty(),

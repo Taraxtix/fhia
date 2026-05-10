@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::{
     Spanned,
@@ -45,7 +45,7 @@ impl<'src> Env<'src> {
 }
 
 pub struct TypedOutput<'a> {
-    pub exprs:       Vec<Spanned<Expr<'a>>>,
+    pub exprs:       VecDeque<Spanned<Expr<'a>>>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -82,13 +82,14 @@ impl<'a> TypedOutput<'a> {
                 diagnostics.extend(diags);
                 expr
             })
-            .collect::<Vec<_>>();
+            .collect::<VecDeque<_>>();
         Self { exprs, diagnostics }
     }
 }
 
 impl<'src> Spanned<Expr<'src>> {
-    const fn ty(&self) -> Ty {
+    #[must_use]
+    pub const fn ty(&self) -> Ty {
         match self
         {
             Spanned(Expr::I64(_), _) => Ty::I64,
@@ -133,6 +134,13 @@ impl<'src> Spanned<Expr<'src>> {
             {
                 let (typed_expr, expr_diagnostics) = expr.type_check(env);
                 diagnostics.extend(expr_diagnostics);
+                if typed_expr.ty() == Ty::Unit
+                {
+                    diagnostics.push(
+                        Diagnostic::error(ErrorCode::InvalidCastOperand)
+                            .with_main_label(typed_expr.1.clone(), "cannot cast a `()` value"),
+                    );
+                }
                 Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
             },
             Spanned(Expr::Declaration { ty, expr, name }, span) =>
