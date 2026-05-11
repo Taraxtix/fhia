@@ -1,6 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
-pub fn topo_order<'a>(dep_map: &HashMap<&'a str, Vec<&'a str>>) -> Vec<&'a str> {
+pub fn topo_order<'a>(
+    dep_map: &HashMap<&'a str, Vec<&'a str>>,
+) -> Result<Vec<&'a str>, Vec<&'a str>> {
     let mut in_deg: HashMap<&'a str, usize> = dep_map.iter().map(|(&n, d)| (n, d.len())).collect();
 
     let mut rdeps: HashMap<&'a str, Vec<&'a str>> = HashMap::new();
@@ -32,10 +34,16 @@ pub fn topo_order<'a>(dep_map: &HashMap<&'a str, Vec<&'a str>>) -> Vec<&'a str> 
         }
     }
 
-    assert_eq!(
-        order.len(),
-        dep_map.len(),
-        "cycle in top-level declarations"
-    );
-    order
+    if order.len() == dep_map.len()
+    {
+        Ok(order)
+    }
+    else
+    {
+        let cycle = in_deg
+            .into_iter()
+            .filter_map(|(name, deg)| (deg > 0).then_some(name))
+            .collect();
+        Err(cycle)
+    }
 }

@@ -56,7 +56,6 @@ fn to_ty<'a>(lex: &Lexer<'a, Token<'a>>) -> Ty {
 
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"\s+")]
-#[logos(export_dir = "export/graph.mmd")] // Add debug feature to update graph
 pub enum Token<'src> {
     #[token(r"let")]
     Let,

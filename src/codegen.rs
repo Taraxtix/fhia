@@ -42,9 +42,9 @@ struct Codegen<'ctx, 'src> {
 }
 
 impl TypedOutput<'_> {
-    pub fn compile(self, args: &Args) {
+    pub fn compile(self, args: &Args, source: &str) {
         let context = Context::create();
-        Codegen::new(&context).compile(self.exprs, args);
+        Codegen::new(&context).compile(self.exprs, args, source);
     }
 }
 
@@ -86,7 +86,7 @@ where
         }
     }
 
-    pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args) {
+    pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args, source: &str) {
         let fn_type = self.context.i32_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
         let main_entry = self.context.append_basic_block(main_fn, "entry");
@@ -96,7 +96,8 @@ where
 
         let mut dep_map: HashMap<&'src str, Vec<&'src str>> = HashMap::new();
         let mut bodies: HashMap<&'src str, Box<Spanned<Expr<'src>>>> = HashMap::new();
-        for Spanned(expr, _) in exprs
+        let mut decl_spans: HashMap<&'src str, std::ops::Range<usize>> = HashMap::new();
+        for Spanned(expr, span) in exprs
         {
             if let Expr::Declaration {
                 name, expr: body, ..
@@ -108,10 +109,26 @@ where
                 deps.retain(|&d| self.vars.contains_key(d) && d != name);
                 dep_map.insert(name, deps);
                 bodies.insert(name, body);
+                decl_spans.insert(name, span);
             }
         }
 
-        for name in topo_order(&dep_map)
+        let order = topo_order(&dep_map).unwrap_or_else(|cycle| {
+            let mut diag = crate::diagnostics::Diagnostic::error(
+                crate::diagnostics::ErrorCode::CyclicDeclaration,
+            );
+            for name in &cycle
+            {
+                if let Some(span) = decl_spans.get(name)
+                {
+                    diag =
+                        diag.with_main_label(span.clone(), format!("'{name}' is part of a cycle"));
+                }
+            }
+            crate::diagnostics::parser::render(&diag, source, &args.input);
+            std::process::exit(1);
+        });
+        for name in order
         {
             self.gen_decl(name, *bodies.remove(name).unwrap());
         }

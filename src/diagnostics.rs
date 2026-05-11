@@ -16,6 +16,7 @@ pub enum ErrorCode {
     TypeAscriptionMismatch = 6,
     TypeMismatch         = 7,
     InvalidCastOperand   = 8,
+    CyclicDeclaration    = 9,
 }
 
 impl ErrorCode {
@@ -31,6 +32,7 @@ impl ErrorCode {
             Self::TypeAscriptionMismatch => "Type ascription mismatch",
             Self::TypeMismatch => "Type mismatch",
             Self::InvalidCastOperand => "Invalid cast operand",
+            Self::CyclicDeclaration => "Cyclic declaration",
         }
     }
 }
