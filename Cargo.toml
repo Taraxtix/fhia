@@ -18,6 +18,7 @@ ariadne = "0.6.0"
 clap = { version = "4.5.31", features = ["derive"] }
 logos = { version = "0.16.1", features = [] }
 lexparse = { git = "https://github.com/Taraxtix/lexparse.git" }
+inkwell = { version = "0.9.0", features = ["llvm22-1"] }
 
 [lints.clippy]
 correctness = "warn"

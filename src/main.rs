@@ -2,6 +2,7 @@
 
 use std::{fs::read_to_string, ops::Range};
 
+mod codegen;
 mod diagnostics;
 mod lexer;
 mod parser;
@@ -14,6 +15,7 @@ use diagnostics::Reportable;
 
 use crate::diagnostics::Diagnostic;
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(clapParser)]
 struct Args {
     /// Input file to compile
@@ -37,6 +39,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     typer: bool,
 
+    /// Print the LLVM IR
+    #[arg(long, default_value_t = false)]
+    llvm_ir: bool,
+
     /// Don't link std module
     #[arg(long, default_value_t = true)] // TODO: Change to false when implemented
     no_std: bool,
@@ -58,6 +64,7 @@ fn main() {
     parser_output.report(&input, &args.input);
     if args.parser
     {
+        println!("-------------------------------------------------");
         for expr in &parser_output.exprs
         {
             println!("{}", expr.0);
@@ -67,9 +74,11 @@ fn main() {
     typed_output.report(&input, &args.input);
     if args.typer
     {
+        println!("-------------------------------------------------");
         for expr in &typed_output.exprs
         {
             println!("{}", expr.0);
         }
     }
+    typed_output.compile(&args);
 }

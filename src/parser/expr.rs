@@ -24,6 +24,33 @@ pub enum Ty {
     Unknown, // Marker for typer
 }
 
+impl Ty {
+    pub const fn is_signed(self) -> bool {
+        matches!(
+            self,
+            Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::I128 | Self::Isize
+        )
+    }
+
+    pub const fn is_llvm_int(self) -> bool {
+        matches!(
+            self,
+            Self::I8
+                | Self::I16
+                | Self::I32
+                | Self::I64
+                | Self::I128
+                | Self::Isize
+                | Self::U8
+                | Self::U16
+                | Self::U32
+                | Self::U64
+                | Self::U128
+                | Self::Usize
+        )
+    }
+}
+
 impl TryFrom<&str> for Ty {
     type Error = ();
 
