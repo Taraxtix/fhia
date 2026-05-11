@@ -9,6 +9,7 @@ mod parser;
 #[cfg(test)]
 mod tests;
 mod typer;
+mod util;
 
 use clap::Parser as clapParser;
 use diagnostics::Reportable;

@@ -10,7 +10,7 @@ use inkwell::{
     module::Module,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetData, TargetMachine},
     types::{BasicTypeEnum, FloatType, IntType},
-    values::{BasicValueEnum, PointerValue},
+    values::{BasicValue, BasicValueEnum, PointerValue},
 };
 
 use crate::{
@@ -18,6 +18,7 @@ use crate::{
     Spanned,
     parser::expr::{Expr, Ty},
     typer::TypedOutput,
+    util::topo_order,
 };
 
 struct Codegen<'ctx, 'src> {
@@ -75,40 +76,33 @@ where
     }
 
     pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args) {
-        let i32_ty = self.context.i32_type();
-        let fn_type = i32_ty.fn_type(&[], false);
+        let fn_type = self.context.i32_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
-        let entry = self.context.append_basic_block(main_fn, "entry");
-        self.builder.position_at_end(entry);
+        let main_entry = self.context.append_basic_block(main_fn, "entry");
+        self.builder.position_at_end(main_entry);
 
-        // Pass 1: allocate stack space for every top-level declaration so that
-        // forward references are valid when we generate the RHS bodies.
-        for Spanned(expr, _) in &exprs
+        self.alloc_decls(&exprs);
+
+        let mut dep_map: HashMap<&'src str, Vec<&'src str>> = HashMap::new();
+        let mut bodies: HashMap<&'src str, Box<Spanned<Expr<'src>>>> = HashMap::new();
+        for Spanned(expr, _) in exprs
         {
-            if let Expr::Declaration { name, ty, .. } = expr
+            if let Expr::Declaration {
+                name, expr: body, ..
+            } = expr
             {
-                let llvm_ty = self.ty_to_llvm(*ty);
-                let alloca = self
-                    .builder
-                    .build_alloca(llvm_ty, name)
-                    .expect("build_alloca failed");
-                self.vars.insert(name, (alloca, llvm_ty));
+                let mut deps = body.0.deps();
+                deps.sort_unstable();
+                deps.dedup();
+                deps.retain(|&d| self.vars.contains_key(d) && d != name);
+                dep_map.insert(name, deps);
+                bodies.insert(name, body);
             }
         }
 
-        // Pass 2: generate RHS expressions and store into the pre-allocated slots.
-        for Spanned(expr, _) in exprs
+        for name in topo_order(&dep_map)
         {
-            if let Expr::Declaration { name, expr, .. } = expr
-            {
-                let (alloca, _) = self.vars[name];
-                if let Some(value) = self.gen_expr(*expr)
-                {
-                    self.builder
-                        .build_store(alloca, value)
-                        .expect("build_store failed");
-                }
-            }
+            self.gen_decl(name, *bodies.remove(name).unwrap());
         }
 
         self.builder
@@ -126,27 +120,64 @@ where
         }
     }
 
-    fn gen_expr(&mut self, expr: Spanned<Expr<'src>>) -> Option<BasicValueEnum<'ctx>> {
+    fn alloc_decls(&mut self, exprs: &VecDeque<Spanned<Expr<'src>>>) {
+        for Spanned(expr, _) in exprs
+        {
+            if let Expr::Declaration { name, ty, .. } = expr
+            {
+                let llvm_ty = self.ty_to_llvm(*ty);
+                let alloca = self
+                    .builder
+                    .build_alloca(llvm_ty, name)
+                    .expect("build_alloca failed");
+                self.vars.insert(name, (alloca, llvm_ty));
+            }
+        }
+    }
+
+    fn gen_decl(&mut self, name: &'src str, body: Spanned<Expr<'src>>) {
+        let (alloca, ty) = self.vars[name];
+        let value = self.gen_expr(body);
+        let align = self.target_data.get_abi_alignment(&ty);
+        self.builder
+            .build_store(alloca, value)
+            .expect("build_store failed")
+            .set_alignment(align)
+            .expect("set_alignment failed");
+    }
+
+    fn gen_expr(&mut self, expr: Spanned<Expr<'src>>) -> inkwell::values::BasicValueEnum<'ctx> {
         let Spanned(expr, _span) = expr;
         match expr
         {
-            Expr::Declaration { name, ty, expr } =>
-            {
-                self.gen_decla(name, ty, *expr);
-                None
-            },
+            Expr::Declaration { .. } => unreachable!("declarations are handled by gen_decl"),
             #[allow(clippy::cast_sign_loss)]
-            Expr::I64(value) => Some(self.context.i64_type().const_int(value as u64, true).into()),
-            Expr::F64(value) => Some(self.context.f64_type().const_float(value).into()),
-            Expr::Cast(ty, expr) => Some(self.gen_cast(ty, *expr)),
+            Expr::I64(value) => self.context.i64_type().const_int(value as u64, true).into(),
+            Expr::F64(value) => self.context.f64_type().const_float(value).into(),
+            Expr::Cast(ty, expr) => self.gen_cast(ty, *expr),
             Expr::Ident { name, .. } =>
             {
                 let (ptr, ty) = *self.vars.get(name).expect("undefined var");
-                Some(
-                    self.builder
-                        .build_load(ty, ptr, name)
-                        .expect("build_load failed"),
-                )
+                let align = self.target_data.get_abi_alignment(&ty);
+                let load = self
+                    .builder
+                    .build_load(ty, ptr, name)
+                    .expect("build_load failed");
+                match load
+                {
+                    BasicValueEnum::IntValue(v) => v
+                        .as_instruction_value()
+                        .unwrap()
+                        .set_alignment(align)
+                        .unwrap(),
+                    BasicValueEnum::FloatValue(v) => v
+                        .as_instruction_value()
+                        .unwrap()
+                        .set_alignment(align)
+                        .unwrap(),
+                    _ => unreachable!(),
+                }
+                load
             },
         }
     }
@@ -170,28 +201,10 @@ where
         }
     }
 
-    fn gen_decla(&mut self, name: &'src str, ty: Ty, expr: Spanned<Expr<'src>>) {
-        let ty = self.ty_to_llvm(ty);
-        let alloca = self
-            .builder
-            .build_alloca(ty, name)
-            .expect("build_alloca failed");
-
-        if let Some(value) = self.gen_expr(expr)
-        {
-            self.builder
-                .build_store(alloca, value)
-                .expect("build_store failed");
-        }
-        self.vars.insert(name, (alloca, ty));
-    }
-
     fn gen_cast(&mut self, dst: Ty, expr: Spanned<Expr<'src>>) -> BasicValueEnum<'ctx> {
         let src = expr.ty();
 
-        let value = self
-            .gen_expr(expr)
-            .expect("Cast operand has `()` type. Should have been caught by the typer");
+        let value = self.gen_expr(expr);
 
         match (value, dst)
         {

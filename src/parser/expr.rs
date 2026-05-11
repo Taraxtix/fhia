@@ -121,7 +121,7 @@ pub enum Expr<'src> {
     },
 }
 
-impl Expr<'_> {
+impl<'src> Expr<'src> {
     pub const fn kind_name(&self) -> &'static str {
         match self
         {
@@ -130,6 +130,23 @@ impl Expr<'_> {
             Self::F64(_) => "f64 litteral",
             Self::Cast(_, _) => "cast expression",
             Self::Ident { .. } => "identifier",
+        }
+    }
+
+    pub fn deps(&self) -> Vec<&'src str> {
+        let mut out = Vec::new();
+        self.collect_deps(&mut out);
+        out
+    }
+
+    fn collect_deps(&self, out: &mut Vec<&'src str>) {
+        match self
+        {
+            Self::Ident { name, .. } => out.push(name),
+            Self::Cast(_, inner) => inner.0.collect_deps(out),
+            Self::I64(_) | Self::F64(_) =>
+            {},
+            Self::Declaration { .. } => unreachable!("nested declaration in dep collection"),
         }
     }
 }
