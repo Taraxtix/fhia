@@ -1,6 +1,9 @@
 use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
+    fs,
+    path::Path,
+    process::Command,
 };
 
 use inkwell::{
@@ -8,7 +11,15 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetData, TargetMachine},
+    targets::{
+        CodeModel,
+        FileType,
+        InitializationConfig,
+        RelocMode,
+        Target,
+        TargetData,
+        TargetMachine,
+    },
     types::{BasicTypeEnum, FloatType, IntType},
     values::{BasicValue, BasicValueEnum, PointerValue},
 };
@@ -25,7 +36,7 @@ struct Codegen<'ctx, 'src> {
     context:     &'ctx Context,
     module:      Module<'ctx>,
     builder:     Builder<'ctx>,
-    _machine:    TargetMachine,
+    machine:     TargetMachine,
     target_data: TargetData,
     vars:        HashMap<&'src str, (PointerValue<'ctx>, BasicTypeEnum<'ctx>)>,
 }
@@ -69,7 +80,7 @@ where
             context,
             module,
             builder,
-            _machine: machine,
+            machine,
             target_data,
             vars: HashMap::new(),
         }
@@ -118,6 +129,17 @@ where
                 self.module.print_to_string().to_string()
             );
         }
+
+        let obj_path = Path::new(&args.output).with_extension("o");
+        self.emit_object(&obj_path);
+        link(&obj_path, &args.output);
+        fs::remove_file(&obj_path).expect("Failed to remove temporary object file");
+    }
+
+    fn emit_object(&self, path: &Path) {
+        self.machine
+            .write_to_file(&self.module, FileType::Object, path)
+            .expect("Failed to emit object file");
     }
 
     fn alloc_decls(&mut self, exprs: &VecDeque<Spanned<Expr<'src>>>) {
@@ -288,4 +310,18 @@ where
     fn int_type(&self, ty: Ty) -> IntType<'ctx> { self.ty_to_llvm(ty).into_int_type() }
 
     fn float_type(&self, ty: Ty) -> FloatType<'ctx> { self.ty_to_llvm(ty).into_float_type() }
+}
+
+fn link(obj: &Path, output: &str) {
+    let status = Command::new("cc")
+        .arg(obj)
+        .arg("-o")
+        .arg(output)
+        .status()
+        .expect("Failed to invoke linker (is `cc` installed?)");
+    if !status.success()
+    {
+        eprintln!("error: linker exited with non-zero status");
+        std::process::exit(1);
+    }
 }
