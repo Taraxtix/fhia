@@ -17,6 +17,8 @@ pub enum ErrorCode {
     TypeMismatch         = 7,
     InvalidCastOperand   = 8,
     CyclicDeclaration    = 9,
+    MissingMain          = 10,
+    IncorrectMainType    = 11,
 }
 
 impl ErrorCode {
@@ -33,6 +35,8 @@ impl ErrorCode {
             Self::TypeMismatch => "Type mismatch",
             Self::InvalidCastOperand => "Invalid cast operand",
             Self::CyclicDeclaration => "Cyclic declaration",
+            Self::MissingMain => "Missing main declaration",
+            Self::IncorrectMainType => "Incorrect main type",
         }
     }
 }

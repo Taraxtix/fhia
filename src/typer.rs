@@ -69,10 +69,30 @@ impl<'a> TypedOutput<'a> {
                 }
                 else
                 {
+                    if *name == "main"
+                    {
+                        match ty
+                        {
+                            Ty::I32 => (),
+                            ty => diagnostics.push(
+                                Diagnostic::error(ErrorCode::IncorrectMainType).with_main_label(
+                                    span.clone(),
+                                    format!(
+                                        "expected main type to be one of:\n\t- i32\nBut was {ty}"
+                                    ),
+                                ),
+                            ),
+                        }
+                    }
                     env.declare(name, *ty);
                 }
             }
         }
+
+        env.lookup("main").or_else(|| {
+            diagnostics.push(Diagnostic::error(ErrorCode::MissingMain));
+            None
+        });
 
         // Pass 2: type-check each RHS with the fully-populated scope
         let exprs = exprs
