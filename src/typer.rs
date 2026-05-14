@@ -77,9 +77,7 @@ impl<'a> TypedOutput<'a> {
                             ty => diagnostics.push(
                                 Diagnostic::error(ErrorCode::IncorrectMainType).with_main_label(
                                     span.clone(),
-                                    format!(
-                                        "expected main type to be one of:\n\t- i32\nBut was {ty}"
-                                    ),
+                                    format!("expected main type to be one of: [i32], but was {ty}"),
                                 ),
                             ),
                         }

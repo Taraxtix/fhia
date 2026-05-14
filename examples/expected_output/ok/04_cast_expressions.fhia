@@ -1,0 +1,36 @@
+-------------------------------------------------
+int_narrowed: u32 = (u32 (42))
+int_to_float: f64 = (f64 (42))
+float_to_int: i32 = (i32 (f1.5))
+neg_to_unsigned: u8 = (u8 (-5))
+cross_int_sizes: i8 = (i8 (1000))
+main: i32 = (float_to_int: ?)
+-------------------------------------------------
+int_narrowed: u32 = (u32 (42))
+int_to_float: f64 = (f64 (42))
+float_to_int: i32 = (i32 (f1.5))
+neg_to_unsigned: u8 = (u8 (-5))
+cross_int_sizes: i8 = (i8 (1000))
+main: i32 = (float_to_int: i32)
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %int_narrowed = alloca i32, align 4
+  %int_to_float = alloca double, align 8
+  %float_to_int = alloca i32, align 4
+  %neg_to_unsigned = alloca i8, align 1
+  %cross_int_sizes = alloca i8, align 1
+  %main = alloca i32, align 4
+  store i8 -24, ptr %cross_int_sizes, align 1
+  store i32 1, ptr %float_to_int, align 4
+  store i32 42, ptr %int_narrowed, align 4
+  store double 4.200000e+01, ptr %int_to_float, align 8
+  store i8 -5, ptr %neg_to_unsigned, align 1
+  %float_to_int1 = load i32, ptr %float_to_int, align 4
+  store i32 %float_to_int1, ptr %main, align 4
+  ret i32 0
+}
+Return code: 0

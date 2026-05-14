@@ -1,0 +1,26 @@
+-------------------------------------------------
+raw: i64 = (42)
+cast: i64 = (i64 (raw: ?))
+main: i32 = (i32 (cast: ?))
+-------------------------------------------------
+raw: i64 = (42)
+cast: i64 = (i64 (raw: i64))
+main: i32 = (i32 (cast: i64))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %raw = alloca i64, align 8
+  %cast = alloca i64, align 8
+  %main = alloca i32, align 4
+  store i64 42, ptr %raw, align 8
+  %raw1 = load i64, ptr %raw, align 8
+  store i64 %raw1, ptr %cast, align 8
+  %cast2 = load i64, ptr %cast, align 8
+  %trunc = trunc i64 %cast2 to i32
+  store i32 %trunc, ptr %main, align 4
+  ret i32 0
+}
+Return code: 0

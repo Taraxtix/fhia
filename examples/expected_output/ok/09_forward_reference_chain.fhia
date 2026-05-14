@@ -1,0 +1,31 @@
+-------------------------------------------------
+x: i64 = (z: ?)
+y: i64 = (x: ?)
+z: i64 = (42)
+main: i32 = (i32 (y: ?))
+-------------------------------------------------
+x: i64 = (z: i64)
+y: i64 = (x: i64)
+z: i64 = (42)
+main: i32 = (i32 (y: i64))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %x = alloca i64, align 8
+  %y = alloca i64, align 8
+  %z = alloca i64, align 8
+  %main = alloca i32, align 4
+  store i64 42, ptr %z, align 8
+  %z1 = load i64, ptr %z, align 8
+  store i64 %z1, ptr %x, align 8
+  %x2 = load i64, ptr %x, align 8
+  store i64 %x2, ptr %y, align 8
+  %y3 = load i64, ptr %y, align 8
+  %trunc = trunc i64 %y3 to i32
+  store i32 %trunc, ptr %main, align 4
+  ret i32 0
+}
+Return code: 0

@@ -14,24 +14,31 @@ pub fn topo_order<'a>(
         }
     }
 
-    let mut queue: VecDeque<&'a str> = in_deg
-        .iter()
-        .filter_map(|(&n, &d)| (d == 0).then_some(n))
-        .collect();
+    let mut queue: VecDeque<&'a str> = {
+        let mut v: Vec<&'a str> = in_deg
+            .iter()
+            .filter_map(|(&n, &d)| (d == 0).then_some(n))
+            .collect();
+        v.sort_unstable();
+        v.into()
+    };
 
     let mut order = Vec::with_capacity(dep_map.len());
     while let Some(name) = queue.pop_front()
     {
         order.push(name);
-        for &dependent in rdeps.get(name).map_or([].as_slice(), Vec::as_slice)
-        {
-            let d = in_deg.get_mut(dependent).unwrap();
-            *d -= 1;
-            if *d == 0
-            {
-                queue.push_back(dependent);
-            }
-        }
+        let mut newly_freed: Vec<&'a str> = rdeps
+            .get(name)
+            .map_or([].as_slice(), Vec::as_slice)
+            .iter()
+            .filter_map(|&dep| {
+                let d = in_deg.get_mut(dep).unwrap();
+                *d -= 1;
+                (*d == 0).then_some(dep)
+            })
+            .collect();
+        newly_freed.sort_unstable();
+        queue.extend(newly_freed);
     }
 
     if order.len() == dep_map.len()

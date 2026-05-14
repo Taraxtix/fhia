@@ -1,0 +1,31 @@
+-------------------------------------------------
+implicit: i64 = (i64 (u32 (42)))
+with_parens: i64 = (i64 (u32 (42)))
+float_chain: f64 = (f64 (i32 (42)))
+three_levels: i8 = (i8 (u32 (i64 (1000))))
+main: i32 = (i32 (0))
+-------------------------------------------------
+implicit: i64 = (i64 (u32 (42)))
+with_parens: i64 = (i64 (u32 (42)))
+float_chain: f64 = (f64 (i32 (42)))
+three_levels: i8 = (i8 (u32 (i64 (1000))))
+main: i32 = (i32 (0))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %implicit = alloca i64, align 8
+  %with_parens = alloca i64, align 8
+  %float_chain = alloca double, align 8
+  %three_levels = alloca i8, align 1
+  %main = alloca i32, align 4
+  store double 4.200000e+01, ptr %float_chain, align 8
+  store i64 42, ptr %implicit, align 8
+  store i32 0, ptr %main, align 4
+  store i8 -24, ptr %three_levels, align 1
+  store i64 42, ptr %with_parens, align 8
+  ret i32 0
+}
+Return code: 0

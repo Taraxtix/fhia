@@ -1,0 +1,51 @@
+-------------------------------------------------
+dec: i64 = (42)
+zero: i64 = (0)
+leading_zero: i64 = (7)
+binary: i64 = (10)
+octal: i64 = (15)
+hex_upper: i64 = (255)
+hex_lower: i64 = (255)
+negative: i64 = (-5)
+negative_hex: i64 = (-255)
+main: i32 = (i32 (0))
+-------------------------------------------------
+dec: i64 = (42)
+zero: i64 = (0)
+leading_zero: i64 = (7)
+binary: i64 = (10)
+octal: i64 = (15)
+hex_upper: i64 = (255)
+hex_lower: i64 = (255)
+negative: i64 = (-5)
+negative_hex: i64 = (-255)
+main: i32 = (i32 (0))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %dec = alloca i64, align 8
+  %zero = alloca i64, align 8
+  %leading_zero = alloca i64, align 8
+  %binary = alloca i64, align 8
+  %octal = alloca i64, align 8
+  %hex_upper = alloca i64, align 8
+  %hex_lower = alloca i64, align 8
+  %negative = alloca i64, align 8
+  %negative_hex = alloca i64, align 8
+  %main = alloca i32, align 4
+  store i64 10, ptr %binary, align 8
+  store i64 42, ptr %dec, align 8
+  store i64 255, ptr %hex_lower, align 8
+  store i64 255, ptr %hex_upper, align 8
+  store i64 7, ptr %leading_zero, align 8
+  store i32 0, ptr %main, align 4
+  store i64 -5, ptr %negative, align 8
+  store i64 -255, ptr %negative_hex, align 8
+  store i64 15, ptr %octal, align 8
+  store i64 0, ptr %zero, align 8
+  ret i32 0
+}
+Return code: 0

@@ -1,0 +1,51 @@
+-------------------------------------------------
+simple: f64 = (f3.14)
+trailing_dot: f64 = (f1)
+leading_dot: f64 = (f0.5)
+zero: f64 = (f0)
+scientific: f64 = (f1000)
+sci_neg_exp: f64 = (f0.001)
+sci_upper: f64 = (f1000)
+negative: f64 = (f-1.5)
+neg_zero: f64 = (f-0)
+main: i32 = (i32 (0))
+-------------------------------------------------
+simple: f64 = (f3.14)
+trailing_dot: f64 = (f1)
+leading_dot: f64 = (f0.5)
+zero: f64 = (f0)
+scientific: f64 = (f1000)
+sci_neg_exp: f64 = (f0.001)
+sci_upper: f64 = (f1000)
+negative: f64 = (f-1.5)
+neg_zero: f64 = (f-0)
+main: i32 = (i32 (0))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %simple = alloca double, align 8
+  %trailing_dot = alloca double, align 8
+  %leading_dot = alloca double, align 8
+  %zero = alloca double, align 8
+  %scientific = alloca double, align 8
+  %sci_neg_exp = alloca double, align 8
+  %sci_upper = alloca double, align 8
+  %negative = alloca double, align 8
+  %neg_zero = alloca double, align 8
+  %main = alloca i32, align 4
+  store double 5.000000e-01, ptr %leading_dot, align 8
+  store i32 0, ptr %main, align 4
+  store double -0.000000e+00, ptr %neg_zero, align 8
+  store double -1.500000e+00, ptr %negative, align 8
+  store double 1.000000e-03, ptr %sci_neg_exp, align 8
+  store double 1.000000e+03, ptr %sci_upper, align 8
+  store double 1.000000e+03, ptr %scientific, align 8
+  store double 3.140000e+00, ptr %simple, align 8
+  store double 1.000000e+00, ptr %trailing_dot, align 8
+  store double 0.000000e+00, ptr %zero, align 8
+  ret i32 0
+}
+Return code: 0

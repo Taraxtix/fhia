@@ -1,0 +1,71 @@
+-------------------------------------------------
+a: i8 = (i8 (42))
+b: i16 = (i16 (42))
+c: i32 = (i32 (42))
+d: i64 = (42)
+e: i128 = (i128 (42))
+f: u8 = (u8 (42))
+g: u16 = (u16 (42))
+h: u32 = (u32 (42))
+i: u64 = (u64 (42))
+j: u128 = (u128 (42))
+k: isize = (isize (42))
+l: usize = (usize (42))
+m: f32 = (f32 (f1))
+n: f64 = (f1)
+main: i32 = (i32 (0))
+-------------------------------------------------
+a: i8 = (i8 (42))
+b: i16 = (i16 (42))
+c: i32 = (i32 (42))
+d: i64 = (42)
+e: i128 = (i128 (42))
+f: u8 = (u8 (42))
+g: u16 = (u16 (42))
+h: u32 = (u32 (42))
+i: u64 = (u64 (42))
+j: u128 = (u128 (42))
+k: isize = (isize (42))
+l: usize = (usize (42))
+m: f32 = (f32 (f1))
+n: f64 = (f1)
+main: i32 = (i32 (0))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @main() {
+entry:
+  %a = alloca i8, align 1
+  %b = alloca i16, align 2
+  %c = alloca i32, align 4
+  %d = alloca i64, align 8
+  %e = alloca i128, align 8
+  %f = alloca i8, align 1
+  %g = alloca i16, align 2
+  %h = alloca i32, align 4
+  %i = alloca i64, align 8
+  %j = alloca i128, align 8
+  %k = alloca i64, align 8
+  %l = alloca i64, align 8
+  %m = alloca float, align 4
+  %n = alloca double, align 8
+  %main = alloca i32, align 4
+  store i8 42, ptr %a, align 1
+  store i16 42, ptr %b, align 2
+  store i32 42, ptr %c, align 4
+  store i64 42, ptr %d, align 8
+  store i128 42, ptr %e, align 16
+  store i8 42, ptr %f, align 1
+  store i16 42, ptr %g, align 2
+  store i32 42, ptr %h, align 4
+  store i64 42, ptr %i, align 8
+  store i128 42, ptr %j, align 16
+  store i64 42, ptr %k, align 8
+  store i64 42, ptr %l, align 8
+  store float 1.000000e+00, ptr %m, align 4
+  store i32 0, ptr %main, align 4
+  store double 1.000000e+00, ptr %n, align 8
+  ret i32 0
+}
+Return code: 0
