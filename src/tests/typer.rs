@@ -122,8 +122,7 @@ fn type_ident_resolved_from_env() {
 #[test]
 fn type_ident_chain_resolved() {
     // z depends on y depends on x; all should resolve without error
-    let exprs =
-        type_ok("let main: i32 = i32 0  let x: i64 = 42  let y: i64 = x  let z: i64 = y");
+    let exprs = type_ok("let main: i32 = i32 0  let x: i64 = 42  let y: i64 = x  let z: i64 = y");
     assert_eq!(exprs.len(), 4);
     // all idents in the chain carry the resolved type
     match &exprs[3]
