@@ -7,3 +7,4 @@ let sci_neg_exp:  f64 = 1.0e-3
 let sci_upper:    f64 = 1.0E3
 let negative:     f64 = -1.5
 let neg_zero:     f64 = -0.0
+let main:         i32 = i32 0

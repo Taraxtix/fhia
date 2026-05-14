@@ -12,3 +12,4 @@ let k: isize = isize 42
 let l: usize = usize 42
 let m: f32   = f32   1.
 let n: f64   = 1.
+let main: i32 = i32 0

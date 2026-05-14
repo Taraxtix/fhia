@@ -7,3 +7,4 @@ let hex_upper:    i64 = 0xFF
 let hex_lower:    i64 = 0xff
 let negative:     i64 = -5
 let negative_hex: i64 = -0xFF
+let main:         i32 = i32 0

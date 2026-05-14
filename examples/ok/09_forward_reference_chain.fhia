@@ -1,3 +1,4 @@
-let x: i64 = z
-let y: i64 = x
-let z: i64 = 42
+let x:    i64 = z
+let y:    i64 = x
+let z:    i64 = 42
+let main: i32 = i32 y
