@@ -16,20 +16,19 @@ main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
+@paren = global i64 0
+@brace = global i64 0
+@nested = global i64 0
+@cast_paren = global i64 0
+@cast_brace = global i64 0
+
 define i32 @main() {
 entry:
-  %paren = alloca i64, align 8
-  %brace = alloca i64, align 8
-  %nested = alloca i64, align 8
-  %cast_paren = alloca i64, align 8
-  %cast_brace = alloca i64, align 8
-  %main = alloca i32, align 4
-  store i64 42, ptr %brace, align 8
-  store i64 42, ptr %cast_brace, align 8
-  store i64 42, ptr %cast_paren, align 8
-  store i32 0, ptr %main, align 4
-  store i64 42, ptr %nested, align 8
-  store i64 42, ptr %paren, align 8
+  store i64 42, ptr @brace, align 8
+  store i64 42, ptr @cast_brace, align 8
+  store i64 42, ptr @cast_paren, align 8
+  store i64 42, ptr @nested, align 8
+  store i64 42, ptr @paren, align 8
   ret i32 0
 }
 Return code: 0

@@ -2,12 +2,14 @@ use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fs,
+    mem::MaybeUninit,
     path::Path,
     process::Command,
 };
 
 use inkwell::{
     OptimizationLevel,
+    basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     module::Module,
@@ -20,7 +22,7 @@ use inkwell::{
         TargetData,
         TargetMachine,
     },
-    types::{BasicTypeEnum, FloatType, IntType},
+    types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType},
     values::{BasicValue, BasicValueEnum, PointerValue},
 };
 
@@ -38,7 +40,7 @@ struct Codegen<'ctx, 'src> {
     builder:     Builder<'ctx>,
     machine:     TargetMachine,
     target_data: TargetData,
-    vars:        HashMap<&'src str, (PointerValue<'ctx>, BasicTypeEnum<'ctx>)>,
+    vars:        HashMap<&'src str, (PointerValue<'ctx>, AnyTypeEnum<'ctx>)>,
 }
 
 impl TypedOutput<'_> {
@@ -87,39 +89,43 @@ where
     }
 
     pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args, source: &str) {
-        let fn_type = self.context.i32_type().fn_type(&[], false);
-        let main_fn = self.module.add_function("main", fn_type, None);
-        let main_entry = self.context.append_basic_block(main_fn, "entry");
+        let main_entry = self.alloc_top_level_decls(&exprs);
         self.builder.position_at_end(main_entry);
-
-        self.alloc_decls(&exprs);
+        // self.alloc_decls(&exprs);
 
         let mut dep_map: HashMap<&'src str, Vec<&'src str>> = HashMap::new();
-        let mut bodies: HashMap<&'src str, Box<Spanned<Expr<'src>>>> = HashMap::new();
-        let mut decl_spans: HashMap<&'src str, std::ops::Range<usize>> = HashMap::new();
-        for Spanned(expr, span) in exprs
+        let mut decls: HashMap<&'src str, Spanned<Expr<'src>>> = HashMap::new();
+        // Pass 1: Populate the HashMaps
+        for expr in exprs
         {
-            if let Expr::Declaration {
-                name, expr: body, ..
-            } = expr
+            let (name, deps) = match &expr
             {
-                let mut deps = body.0.deps();
-                deps.sort_unstable();
-                deps.dedup();
-                deps.retain(|&d| self.vars.contains_key(d) && d != name);
-                dep_map.insert(name, deps);
-                bodies.insert(name, body);
-                decl_spans.insert(name, span);
-            }
+                Spanned(
+                    Expr::Declaration {
+                        name, expr: body, ..
+                    },
+                    _,
+                ) =>
+                {
+                    let name = *name;
+                    let mut deps = body.0.deps();
+                    deps.retain(|&d| self.vars.contains_key(d) && d != name);
+                    (name, deps)
+                },
+                _ => unreachable!(),
+            };
+            dep_map.insert(name, deps);
+            decls.insert(name, expr);
         }
 
+        // Pass 2: Compute topological order
         let order = topo_order(&dep_map).unwrap_or_else(|cycle| {
             let mut diag = crate::diagnostics::Diagnostic::error(
                 crate::diagnostics::ErrorCode::CyclicDeclaration,
             );
             for name in &cycle
             {
-                if let Some(span) = decl_spans.get(name)
+                if let Some(Spanned(_, span)) = decls.get(name)
                 {
                     diag =
                         diag.with_main_label(span.clone(), format!("'{name}' is part of a cycle"));
@@ -128,13 +134,29 @@ where
             crate::diagnostics::parser::render(&diag, source, &args.input);
             std::process::exit(1);
         });
+
+        // Pass 3: Generate the declarations
+        let mut main_body = None;
         for name in order
         {
-            self.gen_decl(name, *bodies.remove(name).unwrap());
+            let Spanned(Expr::Declaration { expr: body, .. }, _) = decls.remove(name).unwrap()
+            else
+            {
+                unreachable!()
+            };
+            if name == "main"
+            {
+                main_body = Some(*body);
+            }
+            else
+            {
+                self.gen_decl(name, *body);
+            }
         }
 
+        let ret_val = self.gen_expr(main_body.expect("no main declaration"));
         self.builder
-            .build_return(Some(&self.context.i32_type().const_int(0, false)))
+            .build_return(Some(&ret_val))
             .expect("build_return failed");
 
         self.module.verify().expect("Module was not correct");
@@ -159,7 +181,36 @@ where
             .expect("Failed to emit object file");
     }
 
-    fn alloc_decls(&mut self, exprs: &VecDeque<Spanned<Expr<'src>>>) {
+    fn alloc_top_level_decls(&mut self, exprs: &VecDeque<Spanned<Expr<'src>>>) -> BasicBlock<'ctx> {
+        let mut main_entry: MaybeUninit<BasicBlock> = MaybeUninit::uninit();
+        for Spanned(expr, _) in exprs
+        {
+            if let Expr::Declaration { name, ty, .. } = expr
+            {
+                let (alloca, llvm_ty) = if *name == "main"
+                {
+                    let fn_type = self.ty_to_llvm(*ty).fn_type(&[], false);
+                    // TODO: Replace by `if let Arrow(..) = *ty {use straight ty_to_llvm} else {use ty_to_llvm.fn_type(&[], false)}`
+                    let main_fn = self.module.add_function("main", fn_type, None);
+                    main_entry =
+                        MaybeUninit::new(self.context.append_basic_block(main_fn, "entry"));
+                    (main_fn.as_global_value(), fn_type.as_any_type_enum())
+                }
+                else
+                {
+                    let llvm_ty = self.ty_to_llvm(*ty);
+                    let global = self.module.add_global(llvm_ty, None, name);
+                    global.set_initializer(&llvm_ty.const_zero());
+                    (global, llvm_ty.as_any_type_enum())
+                };
+
+                self.vars.insert(name, (alloca.as_pointer_value(), llvm_ty));
+            }
+        }
+        unsafe { main_entry.assume_init() }
+    }
+
+    fn _alloc_decls(&mut self, exprs: &VecDeque<Spanned<Expr<'src>>>) {
         for Spanned(expr, _) in exprs
         {
             if let Expr::Declaration { name, ty, .. } = expr
@@ -169,7 +220,7 @@ where
                     .builder
                     .build_alloca(llvm_ty, name)
                     .expect("build_alloca failed");
-                self.vars.insert(name, (alloca, llvm_ty));
+                self.vars.insert(name, (alloca, llvm_ty.as_any_type_enum()));
             }
         }
     }
@@ -198,9 +249,10 @@ where
             {
                 let (ptr, ty) = *self.vars.get(name).expect("undefined var");
                 let align = self.target_data.get_abi_alignment(&ty);
+                let basic_ty = BasicTypeEnum::try_from(ty).expect("Variable type must be basic");
                 let load = self
                     .builder
-                    .build_load(ty, ptr, name)
+                    .build_load(basic_ty, ptr, name)
                     .expect("build_load failed");
                 match load
                 {

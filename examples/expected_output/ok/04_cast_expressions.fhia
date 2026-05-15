@@ -16,21 +16,20 @@ main: i32 = (float_to_int: i32)
 ; ModuleID = 'main'
 source_filename = "main"
 
+@int_narrowed = global i32 0
+@int_to_float = global double 0.000000e+00
+@float_to_int = global i32 0
+@neg_to_unsigned = global i8 0
+@cross_int_sizes = global i8 0
+
 define i32 @main() {
 entry:
-  %int_narrowed = alloca i32, align 4
-  %int_to_float = alloca double, align 8
-  %float_to_int = alloca i32, align 4
-  %neg_to_unsigned = alloca i8, align 1
-  %cross_int_sizes = alloca i8, align 1
-  %main = alloca i32, align 4
-  store i8 -24, ptr %cross_int_sizes, align 1
-  store i32 1, ptr %float_to_int, align 4
-  store i32 42, ptr %int_narrowed, align 4
-  store double 4.200000e+01, ptr %int_to_float, align 8
-  store i8 -5, ptr %neg_to_unsigned, align 1
-  %float_to_int1 = load i32, ptr %float_to_int, align 4
-  store i32 %float_to_int1, ptr %main, align 4
-  ret i32 0
+  store i8 -24, ptr @cross_int_sizes, align 1
+  store i32 1, ptr @float_to_int, align 4
+  store i32 42, ptr @int_narrowed, align 4
+  store double 4.200000e+01, ptr @int_to_float, align 8
+  store i8 -5, ptr @neg_to_unsigned, align 1
+  %float_to_int = load i32, ptr @float_to_int, align 4
+  ret i32 %float_to_int
 }
-Return code: 0
+Return code: 1

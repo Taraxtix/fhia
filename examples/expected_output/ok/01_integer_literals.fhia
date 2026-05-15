@@ -24,28 +24,27 @@ main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
+@dec = global i64 0
+@zero = global i64 0
+@leading_zero = global i64 0
+@binary = global i64 0
+@octal = global i64 0
+@hex_upper = global i64 0
+@hex_lower = global i64 0
+@negative = global i64 0
+@negative_hex = global i64 0
+
 define i32 @main() {
 entry:
-  %dec = alloca i64, align 8
-  %zero = alloca i64, align 8
-  %leading_zero = alloca i64, align 8
-  %binary = alloca i64, align 8
-  %octal = alloca i64, align 8
-  %hex_upper = alloca i64, align 8
-  %hex_lower = alloca i64, align 8
-  %negative = alloca i64, align 8
-  %negative_hex = alloca i64, align 8
-  %main = alloca i32, align 4
-  store i64 10, ptr %binary, align 8
-  store i64 42, ptr %dec, align 8
-  store i64 255, ptr %hex_lower, align 8
-  store i64 255, ptr %hex_upper, align 8
-  store i64 7, ptr %leading_zero, align 8
-  store i32 0, ptr %main, align 4
-  store i64 -5, ptr %negative, align 8
-  store i64 -255, ptr %negative_hex, align 8
-  store i64 15, ptr %octal, align 8
-  store i64 0, ptr %zero, align 8
+  store i64 10, ptr @binary, align 8
+  store i64 42, ptr @dec, align 8
+  store i64 255, ptr @hex_lower, align 8
+  store i64 255, ptr @hex_upper, align 8
+  store i64 7, ptr @leading_zero, align 8
+  store i64 -5, ptr @negative, align 8
+  store i64 -255, ptr @negative_hex, align 8
+  store i64 15, ptr @octal, align 8
+  store i64 0, ptr @zero, align 8
   ret i32 0
 }
 Return code: 0

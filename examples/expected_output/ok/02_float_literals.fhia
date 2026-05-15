@@ -24,28 +24,27 @@ main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
+@simple = global double 0.000000e+00
+@trailing_dot = global double 0.000000e+00
+@leading_dot = global double 0.000000e+00
+@zero = global double 0.000000e+00
+@scientific = global double 0.000000e+00
+@sci_neg_exp = global double 0.000000e+00
+@sci_upper = global double 0.000000e+00
+@negative = global double 0.000000e+00
+@neg_zero = global double 0.000000e+00
+
 define i32 @main() {
 entry:
-  %simple = alloca double, align 8
-  %trailing_dot = alloca double, align 8
-  %leading_dot = alloca double, align 8
-  %zero = alloca double, align 8
-  %scientific = alloca double, align 8
-  %sci_neg_exp = alloca double, align 8
-  %sci_upper = alloca double, align 8
-  %negative = alloca double, align 8
-  %neg_zero = alloca double, align 8
-  %main = alloca i32, align 4
-  store double 5.000000e-01, ptr %leading_dot, align 8
-  store i32 0, ptr %main, align 4
-  store double -0.000000e+00, ptr %neg_zero, align 8
-  store double -1.500000e+00, ptr %negative, align 8
-  store double 1.000000e-03, ptr %sci_neg_exp, align 8
-  store double 1.000000e+03, ptr %sci_upper, align 8
-  store double 1.000000e+03, ptr %scientific, align 8
-  store double 3.140000e+00, ptr %simple, align 8
-  store double 1.000000e+00, ptr %trailing_dot, align 8
-  store double 0.000000e+00, ptr %zero, align 8
+  store double 5.000000e-01, ptr @leading_dot, align 8
+  store double -0.000000e+00, ptr @neg_zero, align 8
+  store double -1.500000e+00, ptr @negative, align 8
+  store double 1.000000e-03, ptr @sci_neg_exp, align 8
+  store double 1.000000e+03, ptr @sci_upper, align 8
+  store double 1.000000e+03, ptr @scientific, align 8
+  store double 3.140000e+00, ptr @simple, align 8
+  store double 1.000000e+00, ptr @trailing_dot, align 8
+  store double 0.000000e+00, ptr @zero, align 8
   ret i32 0
 }
 Return code: 0

@@ -136,6 +136,8 @@ impl<'src> Expr<'src> {
     pub fn deps(&self) -> Vec<&'src str> {
         let mut out = Vec::new();
         self.collect_deps(&mut out);
+        out.sort_unstable();
+        out.dedup();
         out
     }
 

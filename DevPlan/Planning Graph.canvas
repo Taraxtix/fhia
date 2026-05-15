@@ -3,8 +3,8 @@
     {
       "type": "text",
       "id": "a57e6a56c92b1cc9",
-      "x": 1568.2570034594385,
-      "y": -454.8853671731463,
+      "x": -1420,
+      "y": 401.2931583871898,
       "width": 229,
       "height": 63,
       "color": "4",
@@ -13,17 +13,18 @@
     {
       "type": "text",
       "id": "efcd7478e81079ec",
-      "x": 1326.7570034594385,
-      "y": -91.88536717314628,
+      "x": -1404,
+      "y": 188.2931583871898,
       "width": 197,
       "height": 63,
+      "color": "4",
       "text": "Check for main type"
     },
     {
       "type": "text",
       "id": "55f98acd62d731c5",
-      "x": 1942.0070034594385,
-      "y": -892.8853671731463,
+      "x": -1600,
+      "y": -1040,
       "width": 153,
       "height": 63,
       "color": "2",
@@ -32,8 +33,8 @@
     {
       "type": "text",
       "id": "1bb8e9823c95ffa4",
-      "x": 1847.2570034594385,
-      "y": -454.8853671731463,
+      "x": -2020,
+      "y": -720,
       "width": 419,
       "height": 63,
       "color": "2",
@@ -42,18 +43,18 @@
     {
       "type": "text",
       "id": "f3069fba6abc78ff",
-      "x": 1928.2570034594385,
-      "y": 547.1146328268537,
+      "x": -2120.6841289831277,
+      "y": 368.7068416128102,
       "width": 340,
       "height": 63,
-      "color": "3",
+      "color": "4",
       "text": "Generate Top-level declaration as globals"
     },
     {
       "type": "text",
       "id": "4ba8655c71d78669",
-      "x": 1247.2570034594385,
-      "y": 121.11463282685372,
+      "x": -1480,
+      "y": -480,
       "width": 356,
       "height": 63,
       "text": "Allow main to be `&'static [&'static str]`"
@@ -61,8 +62,8 @@
     {
       "type": "text",
       "id": "63de5efaa002cd16",
-      "x": 1319.2570034594385,
-      "y": 547.1146328268537,
+      "x": -1411.5,
+      "y": -24.706841612810194,
       "width": 212,
       "height": 63,
       "color": "4",
@@ -71,8 +72,8 @@
     {
       "type": "text",
       "id": "efee8e7ff85c482b",
-      "x": 1283.2570034594385,
-      "y": 334.1146328268537,
+      "x": -1444,
+      "y": -267,
       "width": 284,
       "height": 63,
       "text": "Allow main to be any integer type"
@@ -80,17 +81,18 @@
     {
       "type": "text",
       "id": "2d2b2dac595a5d4f",
-      "x": 2013.2570034594385,
-      "y": 334.1146328268537,
+      "x": -2035.6841289831277,
+      "y": 155.7068416128102,
       "width": 170,
       "height": 63,
+      "color": "3",
       "text": "DeclKind in AST"
     },
     {
       "type": "text",
       "id": "ad0b1885b99d55dc",
-      "x": 2021.590336792772,
-      "y": 121.11463282685372,
+      "x": -1776.1841289831277,
+      "y": -282.2931583871898,
       "width": 210,
       "height": 63,
       "text": "is_const_expr checker"
@@ -98,8 +100,8 @@
     {
       "type": "text",
       "id": "34886652a1d35d2f",
-      "x": 2011.590336792772,
-      "y": -91.88536717314628,
+      "x": -1786.1841289831277,
+      "y": -495.2931583871898,
       "width": 230,
       "height": 63,
       "text": "const globals in codegen"
@@ -107,8 +109,8 @@
     {
       "type": "text",
       "id": "8040e054179a54c8",
-      "x": 1742.590336792772,
-      "y": 121.11463282685372,
+      "x": -2065.1841289831277,
+      "y": -495.2931583871898,
       "width": 229,
       "height": 63,
       "text": "static globals in codegen"
@@ -116,8 +118,8 @@
     {
       "type": "text",
       "id": "5e19f499880d5079",
-      "x": -318.74299654056153,
-      "y": -454.8853671731463,
+      "x": -3716.017462316461,
+      "y": 155.7068416128102,
       "width": 205,
       "height": 63,
       "text": "Operator precedence"
@@ -125,8 +127,8 @@
     {
       "type": "text",
       "id": "7ec82d10acd45a9c",
-      "x": 210.25700345943847,
-      "y": -454.8853671731463,
+      "x": -4260,
+      "y": 140,
       "width": 263,
       "height": 63,
       "text": "Remove [+-] from literal regex"
@@ -134,8 +136,8 @@
     {
       "type": "text",
       "id": "2f0a5dfc061f5e30",
-      "x": -835.909663207228,
-      "y": -454.8853671731463,
+      "x": -3140,
+      "y": 160,
       "width": 150,
       "height": 63,
       "text": "Boolean type"
@@ -143,8 +145,8 @@
     {
       "type": "text",
       "id": "b9dae9bba73a576f",
-      "x": -1060,
-      "y": 31.885367173146278,
+      "x": -2625.6841289831277,
+      "y": 368.7068416128102,
       "width": 218,
       "height": 63,
       "text": "Unit type as expression"
@@ -152,8 +154,8 @@
     {
       "type": "text",
       "id": "2e453f8529a956ca",
-      "x": -1045.2429965405615,
-      "y": -140,
+      "x": -2623.1841289831277,
+      "y": 155.7068416128102,
       "width": 213,
       "height": 63,
       "text": "Sequence expressions"
@@ -161,8 +163,8 @@
     {
       "type": "text",
       "id": "00bebd2f13c757b9",
-      "x": -1340,
-      "y": -494.1146328268537,
+      "x": -2701.6841289831277,
+      "y": -495.2931583871898,
       "width": 246,
       "height": 63,
       "text": "break/continue expressions"
@@ -170,8 +172,8 @@
     {
       "type": "text",
       "id": "defa1ca661af51f2",
-      "x": 244.4236701261052,
-      "y": -892.8853671731463,
+      "x": -4208.184128983128,
+      "y": -282.2931583871898,
       "width": 146,
       "height": 63,
       "text": "Unary minus"
@@ -179,8 +181,8 @@
     {
       "type": "text",
       "id": "3184ff719e815dd2",
-      "x": -1040,
-      "y": -900,
+      "x": -2671.517462316461,
+      "y": -282.2931583871898,
       "width": 179,
       "height": 63,
       "text": "If else expression"
@@ -188,8 +190,8 @@
     {
       "type": "text",
       "id": "baeee633ecab53e8",
-      "x": -1257.2429965405615,
-      "y": -907,
+      "x": -2854.517462316461,
+      "y": -282.2931583871898,
       "width": 133,
       "height": 63,
       "text": "While loop"
@@ -197,8 +199,8 @@
     {
       "type": "text",
       "id": "09a5f7d220c15e2c",
-      "x": 196.4236701261052,
-      "y": -1105.8853671731463,
+      "x": -4260,
+      "y": -500,
       "width": 242,
       "height": 63,
       "text": "Binary arithmetic operators"
@@ -206,8 +208,8 @@
     {
       "type": "text",
       "id": "467a05f2fdf35213",
-      "x": -386.24299654056153,
-      "y": -892.8853671731463,
+      "x": -3698.517462316461,
+      "y": -282.2931583871898,
       "width": 255,
       "height": 63,
       "text": "Binary comparison operators"
@@ -215,8 +217,8 @@
     {
       "type": "text",
       "id": "06e2beebc1645d76",
-      "x": -81.24299654056153,
-      "y": -892.8853671731463,
+      "x": -3926.517462316461,
+      "y": -282.2931583871898,
       "width": 178,
       "height": 63,
       "text": "Bitwise operators"
@@ -224,8 +226,8 @@
     {
       "type": "text",
       "id": "1e6100c320c55762",
-      "x": -1249.2429965405615,
-      "y": -1120,
+      "x": -3040,
+      "y": -500,
       "width": 117,
       "height": 63,
       "text": "For loop"
@@ -233,8 +235,8 @@
     {
       "type": "text",
       "id": "f69b6394a86d56bc",
-      "x": 776.2570034594385,
-      "y": 121.11463282685372,
+      "x": -1017.8158710168718,
+      "y": -262.2931583871898,
       "width": 200,
       "height": 63,
       "text": "Function type in AST"
@@ -242,8 +244,8 @@
     {
       "type": "text",
       "id": "2842579968e658ee",
-      "x": 777.2570034594385,
-      "y": -91.88536717314628,
+      "x": -1014.2984087004104,
+      "y": -480,
       "width": 198,
       "height": 63,
       "text": "Function declaration"
@@ -251,8 +253,8 @@
     {
       "type": "text",
       "id": "b8901e8b141d5715",
-      "x": 756.2570034594385,
-      "y": -454.8853671731463,
+      "x": -2432.6841289831277,
+      "y": -282.2931583871898,
       "width": 180,
       "height": 63,
       "text": "Local let bindings"
@@ -260,8 +262,8 @@
     {
       "type": "text",
       "id": "7e1a2e0bdd085413",
-      "x": 523.2570034594385,
-      "y": -454.8853671731463,
+      "x": -1014.2984087004104,
+      "y": -720,
       "width": 183,
       "height": 63,
       "text": "Return expression"
@@ -269,8 +271,8 @@
     {
       "type": "text",
       "id": "b19228e10df4556e",
-      "x": -1018.4429965405614,
-      "y": -1318.8853671731463,
+      "x": -2140,
+      "y": -1040,
       "width": 162,
       "height": 63,
       "text": "Type inference"
@@ -278,8 +280,8 @@
     {
       "type": "text",
       "id": "5b027939db385f77",
-      "x": 1026.2570034594385,
-      "y": 121.11463282685372,
+      "x": -511.33333333333303,
+      "y": -262.2931583871898,
       "width": 171,
       "height": 63,
       "text": "Reference types"
@@ -287,8 +289,8 @@
     {
       "type": "text",
       "id": "ea364f9224665387",
-      "x": 340,
-      "y": -260,
+      "x": -757.8158710168718,
+      "y": -720,
       "width": 224,
       "height": 63,
       "text": "Function call expression"
@@ -296,8 +298,8 @@
     {
       "type": "text",
       "id": "f521e1c8856d5a7a",
-      "x": 1239.2570034594385,
-      "y": -454.8853671731463,
+      "x": -1395,
+      "y": -718.2931583871898,
       "width": 279,
       "height": 63,
       "text": "main as real function declaration"
@@ -305,8 +307,8 @@
     {
       "type": "text",
       "id": "049acb7f9f835f74",
-      "x": 757.7570034594385,
-      "y": -892.8853671731463,
+      "x": -2202.6841289831277,
+      "y": -282.2931583871898,
       "width": 177,
       "height": 63,
       "text": "Mutable bindings"
@@ -314,8 +316,8 @@
     {
       "type": "text",
       "id": "67dcccc74484504d",
-      "x": -1311.4429965405614,
-      "y": -1318.8853671731463,
+      "x": -497.33333333333303,
+      "y": -475.2931583871898,
       "width": 143,
       "height": 63,
       "text": "Struct types"
@@ -323,8 +325,8 @@
     {
       "type": "text",
       "id": "f117f74436185d1f",
-      "x": -1602.4429965405614,
-      "y": -1318.8853671731463,
+      "x": -290.96507536707713,
+      "y": -720,
       "width": 141,
       "height": 63,
       "text": "Enum types"
@@ -332,8 +334,8 @@
     {
       "type": "text",
       "id": "c0658681a4a95efd",
-      "x": 1036.7570034594385,
-      "y": -91.88536717314628,
+      "x": -497.8158710168718,
+      "y": -718.2931583871898,
       "width": 150,
       "height": 63,
       "text": "String literals"
@@ -341,8 +343,8 @@
     {
       "type": "text",
       "id": "2330323296bc5fff",
-      "x": 1000,
-      "y": -460,
+      "x": -620,
+      "y": -1060,
       "width": 169,
       "height": 63,
       "text": "Standard library"
@@ -350,8 +352,8 @@
     {
       "type": "text",
       "id": "b3dfe5a7f02a57a8",
-      "x": -564.2429965405615,
-      "y": -892.8853671731463,
+      "x": -3032.517462316461,
+      "y": -282.2931583871898,
       "width": 128,
       "height": 63,
       "text": "Unary not"
@@ -359,30 +361,23 @@
     {
       "type": "text",
       "id": "076c4e6834df5ec2",
-      "x": -834.2429965405615,
-      "y": -892.8853671731463,
+      "x": -3360,
+      "y": -280,
       "width": 220,
       "height": 63,
       "text": "Binary logical operators"
+    },
+    {
+      "type": "text",
+      "id": "8b75bcc9-f404-4836-a650-b47f9d11bf28",
+      "x": -2320,
+      "y": -500,
+      "width": 189,
+      "height": 63,
+      "text": "Local mut bindings"
     }
   ],
   "edges": [
-    {
-      "id": "65ddb0650f1fe76d",
-      "fromNode": "55f98acd62d731c5",
-      "fromSide": "bottom",
-      "toNode": "a57e6a56c92b1cc9",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "ee589f02534423ed",
-      "fromNode": "efcd7478e81079ec",
-      "fromSide": "bottom",
-      "toNode": "4ba8655c71d78669",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
     {
       "id": "74ef5bbccf2c73f2",
       "fromNode": "4ba8655c71d78669",
@@ -512,14 +507,6 @@
       "toEnd": "arrow"
     },
     {
-      "id": "f00000000000002e",
-      "fromNode": "b8901e8b141d5715",
-      "fromSide": "bottom",
-      "toNode": "2842579968e658ee",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
       "id": "f00000000000002f",
       "fromNode": "b8901e8b141d5715",
       "fromSide": "bottom",
@@ -552,42 +539,10 @@
       "toEnd": "arrow"
     },
     {
-      "id": "f000000000000033",
-      "fromNode": "f521e1c8856d5a7a",
-      "fromSide": "bottom",
-      "toNode": "efcd7478e81079ec",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "f000000000000034",
-      "fromNode": "049acb7f9f835f74",
-      "fromSide": "bottom",
-      "toNode": "b8901e8b141d5715",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "f00000000000003a",
-      "fromNode": "c0658681a4a95efd",
-      "fromSide": "bottom",
-      "toNode": "5b027939db385f77",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
       "id": "f00000000000003b",
       "fromNode": "2330323296bc5fff",
       "fromSide": "bottom",
       "toNode": "c0658681a4a95efd",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "f00000000000003c",
-      "fromNode": "2330323296bc5fff",
-      "fromSide": "bottom",
-      "toNode": "2842579968e658ee",
       "toSide": "top",
       "toEnd": "arrow"
     },
@@ -674,26 +629,120 @@
       "shape": "curved"
     },
     {
-      "id": "f000000000000046",
-      "fromNode": "baeee633ecab53e8",
-      "fromSide": "bottom",
-      "toNode": "00bebd2f13c757b9",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "f000000000000048",
-      "fromNode": "00bebd2f13c757b9",
-      "fromSide": "bottom",
-      "toNode": "2e453f8529a956ca",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
       "id": "9a93a1fc-d6ef-4585-a0b6-62949c99361f",
       "fromNode": "2e453f8529a956ca",
       "fromSide": "bottom",
       "toNode": "b9dae9bba73a576f",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "b983c3e1-2b13-4777-9a38-86603555aae6",
+      "fromNode": "f521e1c8856d5a7a",
+      "fromSide": "bottom",
+      "toNode": "4ba8655c71d78669",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "bc3c19e6-8227-4ee5-8d09-3b06b9875537",
+      "fromNode": "63de5efaa002cd16",
+      "fromSide": "bottom",
+      "toNode": "efcd7478e81079ec",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "33ccbf6d-b983-4c77-af59-32bad8bf999e",
+      "fromNode": "efcd7478e81079ec",
+      "fromSide": "bottom",
+      "toNode": "a57e6a56c92b1cc9",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "65d06c50-439d-43df-8623-cabd36ed9a3f",
+      "fromNode": "2330323296bc5fff",
+      "fromSide": "bottom",
+      "toNode": "ea364f9224665387",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "d1cb1593-49a4-43cd-bba7-ada57802a18b",
+      "fromNode": "00bebd2f13c757b9",
+      "fromSide": "bottom",
+      "toNode": "baeee633ecab53e8",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "97abfe3d-831c-46f4-9c3e-f79f2a8d6889",
+      "fromNode": "049acb7f9f835f74",
+      "fromSide": "bottom",
+      "toNode": "2d2b2dac595a5d4f",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "f9a1ade6-a8b3-4546-84c9-b5f616c8bd00",
+      "fromNode": "8b75bcc9-f404-4836-a650-b47f9d11bf28",
+      "fromSide": "bottom",
+      "toNode": "b8901e8b141d5715",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "59be96cf-7bfd-4e67-b8e7-f1709d9f4002",
+      "fromNode": "8b75bcc9-f404-4836-a650-b47f9d11bf28",
+      "fromSide": "bottom",
+      "toNode": "049acb7f9f835f74",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "5fd9562d-418d-49b5-a4b2-d61d8103510b",
+      "fromNode": "f117f74436185d1f",
+      "fromSide": "bottom",
+      "toNode": "67dcccc74484504d",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "0125edb3-c211-448c-99fe-527e349c3e5d",
+      "fromNode": "67dcccc74484504d",
+      "fromSide": "bottom",
+      "toNode": "5b027939db385f77",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "ee9572c0-0b55-4c20-9f49-4cb451840318",
+      "fromNode": "c0658681a4a95efd",
+      "fromSide": "bottom",
+      "toNode": "67dcccc74484504d",
       "toSide": "top",
       "toEnd": "arrow",
       "style": "solid",

@@ -10,17 +10,16 @@ main: i32 = (i32 (cast: i64))
 ; ModuleID = 'main'
 source_filename = "main"
 
+@raw = global i64 0
+@cast = global i64 0
+
 define i32 @main() {
 entry:
-  %raw = alloca i64, align 8
-  %cast = alloca i64, align 8
-  %main = alloca i32, align 4
-  store i64 42, ptr %raw, align 8
-  %raw1 = load i64, ptr %raw, align 8
-  store i64 %raw1, ptr %cast, align 8
-  %cast2 = load i64, ptr %cast, align 8
-  %trunc = trunc i64 %cast2 to i32
-  store i32 %trunc, ptr %main, align 4
-  ret i32 0
+  store i64 42, ptr @raw, align 8
+  %raw = load i64, ptr @raw, align 8
+  store i64 %raw, ptr @cast, align 8
+  %cast = load i64, ptr @cast, align 8
+  %trunc = trunc i64 %cast to i32
+  ret i32 %trunc
 }
-Return code: 0
+Return code: 42
