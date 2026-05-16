@@ -1,17 +1,17 @@
 -------------------------------------------------
-paren: i64 = (42)
-brace: i64 = (42)
-nested: i64 = (42)
-cast_paren: i64 = (i64 (42))
-cast_brace: i64 = (i64 (42))
-main: i32 = (i32 (0))
+let paren: i64 = (42)
+let brace: i64 = (42)
+let nested: i64 = (42)
+let cast_paren: i64 = (i64 (42))
+let cast_brace: i64 = (i64 (42))
+let main: i32 = (i32 (0))
 -------------------------------------------------
-paren: i64 = (42)
-brace: i64 = (42)
-nested: i64 = (42)
-cast_paren: i64 = (i64 (42))
-cast_brace: i64 = (i64 (42))
-main: i32 = (i32 (0))
+let paren: i64 = (42)
+let brace: i64 = (42)
+let nested: i64 = (42)
+let cast_paren: i64 = (i64 (42))
+let cast_brace: i64 = (i64 (42))
+let main: i32 = (i32 (0))
 -------------------------------------------------
 ; ModuleID = 'main'
 source_filename = "main"

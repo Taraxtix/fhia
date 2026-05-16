@@ -48,7 +48,7 @@ fn type_i64_declaration() {
     assert_eq!(exprs.len(), 2);
     match &exprs[1]
     {
-        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        Spanned(Expr::Declaration { name, ty, expr, .. }, _) =>
         {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::I64);
@@ -64,7 +64,7 @@ fn type_f64_declaration() {
     assert_eq!(exprs.len(), 2);
     match &exprs[1]
     {
-        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        Spanned(Expr::Declaration { name, ty, expr, .. }, _) =>
         {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::F64);

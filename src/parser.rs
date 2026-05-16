@@ -3,7 +3,7 @@ pub mod expr;
 use core::panic;
 use std::collections::VecDeque;
 
-use expr::Expr;
+use expr::{DeclKind, Expr};
 use lexparse::{Parser, ParserItem};
 use logos::Logos;
 
@@ -22,6 +22,7 @@ type ParserOutput<'a, T> = Result<T, Vec<ParsingError>>;
 enum ParsedItem<'a> {
     Expr(VecDeque<Spanned<Token<'a>>>, Spanned<Expr<'a>>),
     Token(VecDeque<Spanned<Token<'a>>>, Spanned<Token<'a>>),
+    Opt(VecDeque<Spanned<Token<'a>>>, Option<Box<Self>>),
     Seq(Box<Self>, Box<Self>),
     Err(VecDeque<Spanned<Token<'a>>>, Diagnostic),
 }
@@ -63,7 +64,10 @@ impl<'a> ParsedItem<'a> {
                 assert!(item1.consumed().is_empty());
                 item2.consumed()
             },
-            Self::Expr(old_c, _) | Self::Token(old_c, _) | Self::Err(old_c, _) => old_c,
+            Self::Expr(old_c, _)
+            | Self::Token(old_c, _)
+            | Self::Err(old_c, _)
+            | Self::Opt(old_c, _) => old_c,
         }
     }
 
@@ -75,7 +79,10 @@ impl<'a> ParsedItem<'a> {
                 assert!(item1.consumed_mut().is_empty());
                 item2.consumed_mut()
             },
-            Self::Expr(old_c, _) | Self::Token(old_c, _) | Self::Err(old_c, _) => old_c,
+            Self::Expr(old_c, _)
+            | Self::Token(old_c, _)
+            | Self::Err(old_c, _)
+            | Self::Opt(old_c, _) => old_c,
         }
     }
 
@@ -84,6 +91,7 @@ impl<'a> ParsedItem<'a> {
         {
             Self::Err(c, d) => Some((c, d)),
             Self::Seq(a, b) => b.extract_err().or_else(|| a.extract_err()),
+            Self::Opt(_, inner) => inner.and_then(|i| i.extract_err()),
             _ => None,
         }
     }
@@ -91,7 +99,10 @@ impl<'a> ParsedItem<'a> {
     fn push_back_input(self, input: &mut VecDeque<Spanned<Token<'a>>>) {
         match self
         {
-            Self::Expr(consumed, _) | Self::Token(consumed, _) | Self::Err(consumed, _) =>
+            Self::Expr(consumed, _)
+            | Self::Token(consumed, _)
+            | Self::Err(consumed, _)
+            | Self::Opt(consumed, _) =>
             {
                 for tok in consumed.into_iter().rev()
                 {
@@ -148,7 +159,7 @@ impl<'a> ParserItem for ParsedItem<'a> {
     fn is_err(&self) -> bool {
         match self
         {
-            Self::Expr(..) | Self::Token(..) => false,
+            Self::Expr(..) | Self::Token(..) | Self::Opt(..) => false,
             Self::Seq(item1, item2) => item1.is_err() || item2.is_err(),
             Self::Err(..) => true,
         }
@@ -180,13 +191,34 @@ impl Parser for ParsedItem<'_> {
         );
         match &mut self
         {
-            Self::Expr(consumed, _) | Self::Token(consumed, _) | Self::Err(consumed, _) =>
+            Self::Expr(consumed, _)
+            | Self::Token(consumed, _)
+            | Self::Err(consumed, _)
+            | Self::Opt(consumed, _) => match &mut other
             {
-                match &mut other
+                Self::Expr(other_consumed, _)
+                | Self::Token(other_consumed, _)
+                | Self::Err(other_consumed, _)
+                | Self::Opt(other_consumed, _) =>
+                {
+                    while let Some(tok) = consumed.pop_back()
+                    {
+                        other_consumed.push_front(tok);
+                    }
+                },
+                Self::Seq(..) => unreachable!(),
+            },
+            Self::Seq(_, parsed_item1) => match parsed_item1.as_mut()
+            {
+                Self::Expr(consumed, _)
+                | Self::Token(consumed, _)
+                | Self::Err(consumed, _)
+                | Self::Opt(consumed, _) => match &mut other
                 {
                     Self::Expr(other_consumed, _)
                     | Self::Token(other_consumed, _)
-                    | Self::Err(other_consumed, _) =>
+                    | Self::Err(other_consumed, _)
+                    | Self::Opt(other_consumed, _) =>
                     {
                         while let Some(tok) = consumed.pop_back()
                         {
@@ -194,25 +226,6 @@ impl Parser for ParsedItem<'_> {
                         }
                     },
                     Self::Seq(..) => unreachable!(),
-                }
-            },
-            Self::Seq(_, parsed_item1) => match parsed_item1.as_mut()
-            {
-                Self::Expr(consumed, _) | Self::Token(consumed, _) | Self::Err(consumed, _) =>
-                {
-                    match &mut other
-                    {
-                        Self::Expr(other_consumed, _)
-                        | Self::Token(other_consumed, _)
-                        | Self::Err(other_consumed, _) =>
-                        {
-                            while let Some(tok) = consumed.pop_back()
-                            {
-                                other_consumed.push_front(tok);
-                            }
-                        },
-                        Self::Seq(..) => unreachable!(),
-                    }
                 },
                 Self::Seq(..) => unreachable!(),
             },
@@ -338,9 +351,37 @@ fn parse_cast<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
         })
 }
 
+fn parse_opt_mut<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
+    if matches!(input.front(), Some(Spanned(Token::Mut, _)))
+    {
+        let tok = input.pop_front().unwrap();
+        ParsedItem::Opt(
+            VecDeque::from([tok.clone()]),
+            Some(Box::new(ParsedItem::Token(VecDeque::new(), tok))),
+        )
+    }
+    else
+    {
+        ParsedItem::Opt(VecDeque::new(), None)
+    }
+}
+
 fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
     let result = just!(input, Token::Let, "`let`", ErrorCode::DeclarationMalformed)
-        .ignore_then(ParsedItem::ignore_then(parse_ident, input))
+        .then(|| parse_opt_mut(input))
+        .or(ParsedItem::or(
+            |input| {
+                just!(
+                    input,
+                    Token::Const,
+                    "`const`",
+                    ErrorCode::DeclarationMalformed
+                )
+                .then(|| ParsedItem::Opt(VecDeque::new(), None))
+            },
+            input,
+        ))
+        .then(|| parse_ident(input))
         .then_ignore(
             ParsedItem::then_ignore(
                 |input| just!(input, Token::Colon, "`:`", ErrorCode::DeclarationMalformed),
@@ -366,17 +407,29 @@ fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
         .then(|| parse_expr(input))
         .map(|item| {
             assume!(let Seq[
-                ParsedItem::Expr(mut consumed, Spanned(Expr::Ident { name, .. }, ident_span)),
+                ParsedItem::Token(mut consumed, Spanned(decl_kind, decl_kind_span)),
+                ParsedItem::Opt(opt_consumed, opt_mut),
+                ParsedItem::Expr(ident_consumed, Spanned(Expr::Ident { name, .. }, _)),
                 ParsedItem::Token(ty_consumed, Spanned(Token::Ty(ty), _)),
                 ParsedItem::Expr(expr_consumed, Spanned(expr, expr_span)),
             ] = item);
-            let span = ident_span.start..expr_span.end;
+            let kind = match (&decl_kind, opt_mut.is_some())
+            {
+                (Token::Let, true) => DeclKind::Let { is_mut: true },
+                (Token::Let, false) => DeclKind::Let { is_mut: false },
+                (Token::Const, _) => DeclKind::Const,
+                _ => unreachable!(),
+            };
+            let span = decl_kind_span.start..expr_span.end;
+            consumed.extend(opt_consumed);
+            consumed.extend(ident_consumed);
             consumed.extend(ty_consumed);
             consumed.extend(expr_consumed);
             ParsedItem::Expr(
                 consumed,
                 Spanned(
                     Expr::Declaration {
+                        kind,
                         name,
                         ty,
                         expr: Box::new(Spanned(expr, expr_span)),
@@ -399,9 +452,9 @@ fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
 }
 
 fn parse_expr<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    // Commit to a declaration as soon as `let` is seen — no backtracking to
+    // Commit to a declaration as soon as `let`, `mut` or `const` is seen — no backtracking to
     // other alternatives if the declaration is malformed.
-    if matches!(input.front(), Some(Spanned(Token::Let, _)))
+    if matches!(input.front(), Some(Spanned(Token::Let | Token::Const, _)))
     {
         return parse_decla(input);
     }

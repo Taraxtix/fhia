@@ -103,6 +103,7 @@ impl Display for Ty {
 #[derive(Clone, Debug)]
 pub enum Expr<'src> {
     Declaration {
+        kind: DeclKind,
         name: &'src str,
         ty:   Ty,
         expr: Box<Spanned<Self>>,
@@ -157,14 +158,33 @@ impl Display for Expr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self
         {
-            Expr::Declaration { name, ty, expr } =>
-            {
-                f.write_fmt(format_args!("{name}: {ty} = ({})", expr.0))
-            },
+            Expr::Declaration {
+                kind,
+                name,
+                ty,
+                expr,
+            } => f.write_fmt(format_args!("{kind} {name}: {ty} = ({})", expr.0)),
             Expr::I64(lit) => f.write_fmt(format_args!("{lit}")),
             Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
             Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.0)),
             Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum DeclKind {
+    Const,
+    Let { is_mut: bool },
+}
+
+impl Display for DeclKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self
+        {
+            Self::Const => f.write_str("const"),
+            Self::Let { is_mut: false } => f.write_str("let"),
+            Self::Let { is_mut: true } => f.write_str("let mut"),
         }
     }
 }

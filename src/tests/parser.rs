@@ -2,7 +2,7 @@ use crate::Spanned;
 use crate::diagnostics::{Diagnostic, ErrorCode};
 use crate::parser::{
     self,
-    expr::{Expr, Ty},
+    expr::{DeclKind, Expr, Ty},
 };
 
 fn parse_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
@@ -66,8 +66,58 @@ fn parse_declaration_i64() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        Spanned(Expr::Declaration { name, ty, expr, .. }, _) =>
         {
+            assert_eq!(*name, "x");
+            assert_eq!(*ty, Ty::I64);
+            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+        },
+        _ => panic!("expected declaration"),
+    }
+}
+
+#[test]
+fn parse_declaration_let_mut() {
+    let exprs = parse_ok("let mut x: i64 = 42");
+    assert_eq!(exprs.len(), 1);
+    match &exprs[0]
+    {
+        Spanned(
+            Expr::Declaration {
+                kind,
+                name,
+                ty,
+                expr,
+            },
+            _,
+        ) =>
+        {
+            assert!(matches!(kind, DeclKind::Let { is_mut: true }));
+            assert_eq!(*name, "x");
+            assert_eq!(*ty, Ty::I64);
+            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+        },
+        _ => panic!("expected declaration"),
+    }
+}
+
+#[test]
+fn parse_declaration_const() {
+    let exprs = parse_ok("const x: i64 = 42");
+    assert_eq!(exprs.len(), 1);
+    match &exprs[0]
+    {
+        Spanned(
+            Expr::Declaration {
+                kind,
+                name,
+                ty,
+                expr,
+            },
+            _,
+        ) =>
+        {
+            assert!(matches!(kind, DeclKind::Const));
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::I64);
             assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
@@ -83,7 +133,7 @@ fn parse_declaration_f64() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { name, ty, expr }, _) =>
+        Spanned(Expr::Declaration { name, ty, expr, .. }, _) =>
         {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::F64);

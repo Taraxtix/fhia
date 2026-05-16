@@ -1,6 +1,6 @@
 -------------------------------------------------
-x: i64 = (i64 (y: ?))
-main: i32 = (i32 (0))
+let x: i64 = (i64 (y: ?))
+let main: i32 = (i32 (0))
 [31m[05] Error:[0m Undefined variable
    [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Prog/fhia/examples/fails/type/02_undefined_in_cast.fhia:1:21 [38;5;246m][0m
    [38;5;246m│[0m

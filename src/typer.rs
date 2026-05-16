@@ -161,7 +161,15 @@ impl<'src> Spanned<Expr<'src>> {
                 }
                 Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
             },
-            Spanned(Expr::Declaration { ty, expr, name }, span) =>
+            Spanned(
+                Expr::Declaration {
+                    ty,
+                    expr,
+                    name,
+                    kind,
+                },
+                span,
+            ) =>
             {
                 env.push_scope();
                 let (typed_expr, expr_diagnostics) = expr.type_check(env);
@@ -184,6 +192,7 @@ impl<'src> Spanned<Expr<'src>> {
                         ty,
                         expr: Box::new(typed_expr),
                         name,
+                        kind,
                     },
                     span,
                 )

@@ -1,15 +1,15 @@
 -------------------------------------------------
-implicit: i64 = (i64 (u32 (42)))
-with_parens: i64 = (i64 (u32 (42)))
-float_chain: f64 = (f64 (i32 (42)))
-three_levels: i8 = (i8 (u32 (i64 (1000))))
-main: i32 = (i32 (0))
+let implicit: i64 = (i64 (u32 (42)))
+let with_parens: i64 = (i64 (u32 (42)))
+let float_chain: f64 = (f64 (i32 (42)))
+let three_levels: i8 = (i8 (u32 (i64 (1000))))
+let main: i32 = (i32 (0))
 -------------------------------------------------
-implicit: i64 = (i64 (u32 (42)))
-with_parens: i64 = (i64 (u32 (42)))
-float_chain: f64 = (f64 (i32 (42)))
-three_levels: i8 = (i8 (u32 (i64 (1000))))
-main: i32 = (i32 (0))
+let implicit: i64 = (i64 (u32 (42)))
+let with_parens: i64 = (i64 (u32 (42)))
+let float_chain: f64 = (f64 (i32 (42)))
+let three_levels: i8 = (i8 (u32 (i64 (1000))))
+let main: i32 = (i32 (0))
 -------------------------------------------------
 ; ModuleID = 'main'
 source_filename = "main"

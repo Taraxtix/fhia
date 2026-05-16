@@ -85,7 +85,7 @@
       "y": 0,
       "width": 170,
       "height": 63,
-      "color": "3",
+      "color": "4",
       "text": "DeclKind in AST"
     },
     {
@@ -95,6 +95,7 @@
       "y": -282.2931583871898,
       "width": 210,
       "height": 63,
+      "color": "3",
       "text": "is_const_expr checker"
     },
     {
