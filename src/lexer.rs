@@ -59,6 +59,10 @@ fn to_ty<'a>(lex: &Lexer<'a, Token<'a>>) -> Ty {
 pub enum Token<'src> {
     #[token(r"let")]
     Let,
+    #[token(r"const")]
+    Const,
+    #[token(r"mut")]
+    Mut,
     #[token("=")]
     Assign,
     #[token("(")]
@@ -103,6 +107,8 @@ impl Display for Token<'_> {
             Self::LBrace => f.write_str("{"),
             Self::RBrace => f.write_str("}"),
             Self::Colon => f.write_str(":"),
+            Self::Const => f.write_str("const"),
+            Self::Mut => f.write_str("mut"),
         }
     }
 }

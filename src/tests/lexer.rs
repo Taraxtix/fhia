@@ -17,6 +17,8 @@ fn lex_all(input: &str) -> Result<Vec<Token<'_>>, ()> { Token::lexer(input).coll
 #[test]
 fn lex_keyword() {
     assert_eq!(lex_one("let"), Ok(Token::Let));
+    assert_eq!(lex_one("mut"), Ok(Token::Mut));
+    assert_eq!(lex_one("const"), Ok(Token::Const));
 
     // must be an exact word — prefix/suffix disqualify it
     assert_ne!(lex_one("lett"), Ok(Token::Let));

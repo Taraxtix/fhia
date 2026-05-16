@@ -38,13 +38,13 @@
       "width": 419,
       "height": 63,
       "color": "2",
-      "text": "Generate Top-level declaration as `const` or `static`"
+      "text": "Generate Top-level declaration as `const` or globals"
     },
     {
       "type": "text",
       "id": "f3069fba6abc78ff",
-      "x": -2120.6841289831277,
-      "y": 368.7068416128102,
+      "x": -2080,
+      "y": 380,
       "width": 340,
       "height": 63,
       "color": "4",
@@ -81,8 +81,8 @@
     {
       "type": "text",
       "id": "2d2b2dac595a5d4f",
-      "x": -2035.6841289831277,
-      "y": 155.7068416128102,
+      "x": -2000,
+      "y": 0,
       "width": 170,
       "height": 63,
       "color": "3",
@@ -105,15 +105,6 @@
       "width": 230,
       "height": 63,
       "text": "const globals in codegen"
-    },
-    {
-      "type": "text",
-      "id": "8040e054179a54c8",
-      "x": -2065.1841289831277,
-      "y": -495.2931583871898,
-      "width": 229,
-      "height": 63,
-      "text": "static globals in codegen"
     },
     {
       "type": "text",
@@ -375,6 +366,16 @@
       "width": 189,
       "height": 63,
       "text": "Local mut bindings"
+    },
+    {
+      "type": "text",
+      "id": "c00ce228-abd0-42d4-a496-9af14d37288d",
+      "x": -2040,
+      "y": 200,
+      "width": 260,
+      "height": 80,
+      "color": "4",
+      "text": "`mut` & `const` in the lexer"
     }
   ],
   "edges": [
@@ -407,14 +408,6 @@
       "fromNode": "1bb8e9823c95ffa4",
       "fromSide": "bottom",
       "toNode": "34886652a1d35d2f",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "f000000000000015",
-      "fromNode": "1bb8e9823c95ffa4",
-      "fromSide": "bottom",
-      "toNode": "8040e054179a54c8",
       "toSide": "top",
       "toEnd": "arrow"
     },
@@ -589,28 +582,8 @@
       "shape": "curved"
     },
     {
-      "id": "6302859d-16e2-4248-94c4-c2e2f621f15f",
-      "fromNode": "2d2b2dac595a5d4f",
-      "fromSide": "bottom",
-      "toNode": "f3069fba6abc78ff",
-      "toSide": "top",
-      "toEnd": "arrow",
-      "style": "solid",
-      "shape": "curved"
-    },
-    {
       "id": "a03a9059-ea86-4b02-8420-596f016471ec",
       "fromNode": "ad0b1885b99d55dc",
-      "fromSide": "bottom",
-      "toNode": "2d2b2dac595a5d4f",
-      "toSide": "top",
-      "toEnd": "arrow",
-      "style": "solid",
-      "shape": "curved"
-    },
-    {
-      "id": "77ee7a43-2cf8-4ca2-b1e9-b9184330566e",
-      "fromNode": "8040e054179a54c8",
       "fromSide": "bottom",
       "toNode": "2d2b2dac595a5d4f",
       "toSide": "top",
@@ -743,6 +716,26 @@
       "fromNode": "c0658681a4a95efd",
       "fromSide": "bottom",
       "toNode": "67dcccc74484504d",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "68919304-67a8-4e41-b575-4912ca4b9340",
+      "fromNode": "2d2b2dac595a5d4f",
+      "fromSide": "bottom",
+      "toNode": "c00ce228-abd0-42d4-a496-9af14d37288d",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "0c3828bf-d75f-46d0-b1b9-a3ff88070344",
+      "fromNode": "c00ce228-abd0-42d4-a496-9af14d37288d",
+      "fromSide": "bottom",
+      "toNode": "f3069fba6abc78ff",
       "toSide": "top",
       "toEnd": "arrow",
       "style": "solid",
