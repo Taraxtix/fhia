@@ -1,6 +1,6 @@
 let int_narrowed:    u32 = u32 42
 let int_to_float:    f64 = f64 42
 let float_to_int:    i32 = i32 1.5
-let neg_to_unsigned: u8  = u8  -5
+// let neg_to_unsigned: u8  = u8  -5
 let cross_int_sizes: i8  = i8  1000
 let main:            i32 = float_to_int

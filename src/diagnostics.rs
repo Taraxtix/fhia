@@ -19,6 +19,7 @@ pub enum ErrorCode {
     CyclicDeclaration    = 9,
     MissingMain          = 10,
     IncorrectMainType    = 11,
+    IntLiteralOutOfRange = 12,
 }
 
 impl ErrorCode {
@@ -37,6 +38,7 @@ impl ErrorCode {
             Self::CyclicDeclaration => "Cyclic declaration",
             Self::MissingMain => "Missing main declaration",
             Self::IncorrectMainType => "Incorrect main type",
+            Self::IntLiteralOutOfRange => "Integer literal out of range",
         }
     }
 }

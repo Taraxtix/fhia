@@ -6,8 +6,6 @@ let binary: i64 = (10)
 let octal: i64 = (15)
 let hex_upper: i64 = (255)
 let hex_lower: i64 = (255)
-let negative: i64 = (-5)
-let negative_hex: i64 = (-255)
 let main: i32 = (i32 (0))
 -------------------------------------------------
 let dec: i64 = (42)
@@ -17,8 +15,6 @@ let binary: i64 = (10)
 let octal: i64 = (15)
 let hex_upper: i64 = (255)
 let hex_lower: i64 = (255)
-let negative: i64 = (-5)
-let negative_hex: i64 = (-255)
 let main: i32 = (i32 (0))
 -------------------------------------------------
 ; ModuleID = 'main'
@@ -31,8 +27,6 @@ source_filename = "main"
 @octal = global i64 0
 @hex_upper = global i64 0
 @hex_lower = global i64 0
-@negative = global i64 0
-@negative_hex = global i64 0
 
 define i32 @main() {
 entry:
@@ -41,8 +35,6 @@ entry:
   store i64 255, ptr @hex_lower, align 8
   store i64 255, ptr @hex_upper, align 8
   store i64 7, ptr @leading_zero, align 8
-  store i64 -5, ptr @negative, align 8
-  store i64 -255, ptr @negative_hex, align 8
   store i64 15, ptr @octal, align 8
   store i64 0, ptr @zero, align 8
   ret i32 0

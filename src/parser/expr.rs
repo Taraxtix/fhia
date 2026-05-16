@@ -1,19 +1,10 @@
-use std::fmt::Display;
+use std::{fmt::Display, num::NonZero};
 
 use crate::Spanned;
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {
-    I8,
-    I16,
-    I32,
-    I64,
-    I128,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
+    Int { signed: bool, width: NonZero<u32> },
     F32,
     F64,
     Isize,
@@ -22,32 +13,16 @@ pub enum Ty {
     // Arrow(Box<Ty>, Box<Ty>), // X -> Y
     Unit,
     Unknown, // Marker for typer
+    IntLit,  // Unresolved integer literal — resolved to a concrete Int type by the typer
 }
 
 impl Ty {
     pub const fn is_signed(self) -> bool {
-        matches!(
-            self,
-            Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::I128 | Self::Isize
-        )
+        matches!(self, Self::Int { signed: true, .. } | Self::Isize)
     }
 
     pub const fn is_llvm_int(self) -> bool {
-        matches!(
-            self,
-            Self::I8
-                | Self::I16
-                | Self::I32
-                | Self::I64
-                | Self::I128
-                | Self::Isize
-                | Self::U8
-                | Self::U16
-                | Self::U32
-                | Self::U64
-                | Self::U128
-                | Self::Usize
-        )
+        matches!(self, Self::Int { .. } | Self::Isize | Self::Usize)
     }
 }
 
@@ -57,20 +32,22 @@ impl TryFrom<&str> for Ty {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value
         {
-            "i8" => Ok(Self::I8),
-            "i16" => Ok(Self::I16),
-            "i32" => Ok(Self::I32),
-            "i64" => Ok(Self::I64),
-            "i128" => Ok(Self::I128),
-            "u8" => Ok(Self::U8),
-            "u16" => Ok(Self::U16),
-            "u32" => Ok(Self::U32),
-            "u64" => Ok(Self::U64),
-            "u128" => Ok(Self::U128),
             "f32" => Ok(Self::F32),
             "f64" => Ok(Self::F64),
             "isize" => Ok(Self::Isize),
             "usize" => Ok(Self::Usize),
+            ty_str if ty_str.starts_with(['i', 'u']) =>
+            {
+                let width: NonZero<u32> = ty_str[1..].parse().map_err(|_| ())?;
+                if width.get() > 128
+                {
+                    return Err(());
+                }
+                Ok(Self::Int {
+                    signed: ty_str.starts_with('i'),
+                    width,
+                })
+            },
             _ => Err(()),
         }
     }
@@ -80,22 +57,21 @@ impl Display for Ty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self
         {
-            Self::I8 => f.write_str("i8"),
-            Self::I16 => f.write_str("i16"),
-            Self::I32 => f.write_str("i32"),
-            Self::I64 => f.write_str("i64"),
-            Self::I128 => f.write_str("i128"),
-            Self::U8 => f.write_str("u8"),
-            Self::U16 => f.write_str("u16"),
-            Self::U32 => f.write_str("u32"),
-            Self::U64 => f.write_str("u64"),
-            Self::U128 => f.write_str("u128"),
+            Self::Int {
+                signed: true,
+                width,
+            } => f.write_fmt(format_args!("i{width}")),
+            Self::Int {
+                signed: false,
+                width,
+            } => f.write_fmt(format_args!("u{width}")),
             Self::F32 => f.write_str("f32"),
             Self::F64 => f.write_str("f64"),
             Self::Unit => f.write_str("()"),
             Self::Unknown => f.write_str("?"),
             Self::Isize => f.write_str("isize"),
             Self::Usize => f.write_str("usize"),
+            Self::IntLit => f.write_str("{int}"),
         }
     }
 }
@@ -108,13 +84,14 @@ pub enum Expr<'src> {
         ty:   Ty,
         expr: Box<Spanned<Self>>,
     },
-    // I32(i32),
-    I64(i64),
-    // I128(i128),
+    IntLit {
+        ty:    Ty,
+        value: u128,
+    },
     F64(f64),
     // F128(f128)
 
-    // Ex: `u32 42` would turn into `Cast(U32, I32(42))`
+    // Ex: `u32 42` would turn into `Cast(U32, IntLit { ty: U32, value: 42 })`
     Cast(Ty, Box<Spanned<Self>>),
     Ident {
         name: &'src str,
@@ -127,7 +104,7 @@ impl<'src> Expr<'src> {
         match self
         {
             Self::Declaration { .. } => "declaration",
-            Self::I64(_) => "i64 litteral",
+            Self::IntLit { .. } => "int literal",
             Self::F64(_) => "f64 litteral",
             Self::Cast(_, _) => "cast expression",
             Self::Ident { .. } => "identifier",
@@ -147,11 +124,26 @@ impl<'src> Expr<'src> {
         {
             Self::Ident { name, .. } => out.push(name),
             Self::Cast(_, inner) => inner.0.collect_deps(out),
-            Self::I64(_) | Self::F64(_) =>
+            Self::IntLit { .. } | Self::F64(_) =>
             {},
             Self::Declaration { .. } => unreachable!("nested declaration in dep collection"),
         }
     }
+
+    // pub fn is_const(self) -> Option<ConstValue> {
+    //     match self
+    //     {
+    //         Self::Declaration {
+    //             kind,
+    //             name,
+    //             ty,
+    //             expr,
+    //         } => todo!(),
+    //         Self::I64(_) | Self::F64(_) => Some(self),
+    //         Self::Cast(ty, spanned) => todo!(),
+    //         Self::Ident { name, ty } => todo!(),
+    //     }
+    // }
 }
 
 impl Display for Expr<'_> {
@@ -164,7 +156,7 @@ impl Display for Expr<'_> {
                 ty,
                 expr,
             } => f.write_fmt(format_args!("{kind} {name}: {ty} = ({})", expr.0)),
-            Expr::I64(lit) => f.write_fmt(format_args!("{lit}")),
+            Expr::IntLit { value, .. } => f.write_fmt(format_args!("{value}")),
             Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
             Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.0)),
             Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),

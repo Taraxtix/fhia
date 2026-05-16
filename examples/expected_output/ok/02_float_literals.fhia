@@ -6,8 +6,6 @@ let zero: f64 = (f0)
 let scientific: f64 = (f1000)
 let sci_neg_exp: f64 = (f0.001)
 let sci_upper: f64 = (f1000)
-let negative: f64 = (f-1.5)
-let neg_zero: f64 = (f-0)
 let main: i32 = (i32 (0))
 -------------------------------------------------
 let simple: f64 = (f3.14)
@@ -17,8 +15,6 @@ let zero: f64 = (f0)
 let scientific: f64 = (f1000)
 let sci_neg_exp: f64 = (f0.001)
 let sci_upper: f64 = (f1000)
-let negative: f64 = (f-1.5)
-let neg_zero: f64 = (f-0)
 let main: i32 = (i32 (0))
 -------------------------------------------------
 ; ModuleID = 'main'
@@ -31,14 +27,10 @@ source_filename = "main"
 @scientific = global double 0.000000e+00
 @sci_neg_exp = global double 0.000000e+00
 @sci_upper = global double 0.000000e+00
-@negative = global double 0.000000e+00
-@neg_zero = global double 0.000000e+00
 
 define i32 @main() {
 entry:
   store double 5.000000e-01, ptr @leading_dot, align 8
-  store double -0.000000e+00, ptr @neg_zero, align 8
-  store double -1.500000e+00, ptr @negative, align 8
   store double 1.000000e-03, ptr @sci_neg_exp, align 8
   store double 1.000000e+03, ptr @sci_upper, align 8
   store double 1.000000e+03, ptr @scientific, align 8

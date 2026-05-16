@@ -1,1 +1,1 @@
-let main: i64 = 42
+let main: f64 = 42.0

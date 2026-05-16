@@ -1,4 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    num::NonZero,
+};
 
 use crate::{
     Spanned,
@@ -73,11 +76,14 @@ impl<'a> TypedOutput<'a> {
                     {
                         match ty
                         {
-                            Ty::I32 => (),
+                            Ty::Int { .. } | Ty::Usize | Ty::Isize => (),
                             ty => diagnostics.push(
                                 Diagnostic::error(ErrorCode::IncorrectMainType).with_main_label(
                                     span.clone(),
-                                    format!("expected main type to be one of: [i32], but was {ty}"),
+                                    format!(
+                                        "expected main type to return an integer type, but \
+                                         returns {ty} instead"
+                                    ),
                                 ),
                             ),
                         }
@@ -105,15 +111,33 @@ impl<'a> TypedOutput<'a> {
     }
 }
 
+const fn int_lit_fits(value: u128, ty: Ty) -> bool {
+    match ty
+    {
+        Ty::Int {
+            signed: false,
+            width,
+        } => width.get() == 128 || value < (1u128 << width.get()),
+        Ty::Int {
+            signed: true,
+            width,
+        } => value < (1u128 << (width.get() - 1)),
+        Ty::Isize | Ty::Usize => true,
+        _ => false,
+    }
+}
+
 impl<'src> Spanned<Expr<'src>> {
     #[must_use]
     pub const fn ty(&self) -> Ty {
         match self
         {
-            Spanned(Expr::I64(_), _) => Ty::I64,
             Spanned(Expr::F64(_), _) => Ty::F64,
             Spanned(
-                Expr::Ident { ty, .. } | Expr::Declaration { ty, .. } | Expr::Cast(ty, _),
+                Expr::IntLit { ty, .. }
+                | Expr::Ident { ty, .. }
+                | Expr::Declaration { ty, .. }
+                | Expr::Cast(ty, _),
                 _,
             ) => *ty,
         }
@@ -123,58 +147,125 @@ impl<'src> Spanned<Expr<'src>> {
         let mut diagnostics = Vec::new();
         let expr = match self
         {
-            Spanned(Expr::I64(_) | Expr::F64(_), _) => self,
-            Spanned(Expr::Ident { name, ty }, span) => match env.lookup(name)
+            Spanned(Expr::IntLit { .. } | Expr::F64(_), _) => self,
+            Spanned(Expr::Ident { .. }, ..) => self.type_check_ident(env, &mut diagnostics),
+            Spanned(Expr::Cast(..), ..) => self.type_check_cast(env, &mut diagnostics),
+            Spanned(Expr::Declaration { .. }, ..) => self.type_check_decla(env, &mut diagnostics),
+        };
+        (expr, diagnostics)
+    }
+
+    fn type_check_ident(self, env: &Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {
+        let Spanned(Expr::Ident { name, ty }, span) = self
+        else
+        {
+            unreachable!()
+        };
+        match env.lookup(name)
+        {
+            None =>
             {
-                None =>
-                {
-                    diagnostics.push(
-                        Diagnostic::error(ErrorCode::UndefinedVariable)
-                            .with_main_label(span.clone(), format!("'{name}' not defined")),
-                    );
-                    Spanned(Expr::Ident { name, ty }, span)
-                },
-                Some(env_ty) =>
-                {
-                    if ty != Ty::Unknown && ty != env_ty
-                    {
-                        diagnostics.push(
-                            Diagnostic::error(ErrorCode::TypeAscriptionMismatch).with_main_label(
-                                span.clone(),
-                                format!("ascribed as '{ty}' here but '{name}' has type '{env_ty}'"),
-                            ),
-                        );
-                    }
-                    Spanned(Expr::Ident { name, ty: env_ty }, span)
-                },
+                diagnostics.push(
+                    Diagnostic::error(ErrorCode::UndefinedVariable)
+                        .with_main_label(span.clone(), format!("'{name}' not defined")),
+                );
+                Spanned(Expr::Ident { name, ty }, span)
             },
-            Spanned(Expr::Cast(ty, expr), span) =>
+            Some(env_ty) =>
             {
-                let (typed_expr, expr_diagnostics) = expr.type_check(env);
-                diagnostics.extend(expr_diagnostics);
-                if typed_expr.ty() == Ty::Unit
+                if ty != Ty::Unknown && ty != env_ty
                 {
                     diagnostics.push(
-                        Diagnostic::error(ErrorCode::InvalidCastOperand)
-                            .with_main_label(typed_expr.1.clone(), "cannot cast a `()` value"),
+                        Diagnostic::error(ErrorCode::TypeAscriptionMismatch).with_main_label(
+                            span.clone(),
+                            format!("ascribed as '{ty}' here but '{name}' has type '{env_ty}'"),
+                        ),
                     );
                 }
-                Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
+                Spanned(Expr::Ident { name, ty: env_ty }, span)
             },
+        }
+    }
+
+    fn type_check_cast(self, env: &mut Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {
+        let Spanned(Expr::Cast(ty, expr), span) = self
+        else
+        {
+            unreachable!()
+        };
+        let (typed_expr, expr_diagnostics) = expr.type_check(env);
+        diagnostics.extend(expr_diagnostics);
+        let typed_expr = match typed_expr
+        {
             Spanned(
-                Expr::Declaration {
-                    ty,
-                    expr,
-                    name,
-                    kind,
+                Expr::IntLit {
+                    value,
+                    ty: Ty::IntLit,
                 },
-                span,
-            ) =>
+                expr_span,
+            ) => Spanned(
+                Expr::IntLit {
+                    ty: Ty::Int {
+                        signed: false,
+                        width:  unsafe { NonZero::new_unchecked(128) },
+                    },
+                    value,
+                },
+                expr_span,
+            ),
+            other => other,
+        };
+        if typed_expr.ty() == Ty::Unit
+        {
+            diagnostics.push(
+                Diagnostic::error(ErrorCode::InvalidCastOperand)
+                    .with_main_label(typed_expr.1.clone(), "cannot cast a `()` value"),
+            );
+        }
+        Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
+    }
+
+    fn type_check_decla(self, env: &mut Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {
+        let Spanned(
+            Expr::Declaration {
+                ty,
+                expr,
+                name,
+                kind,
+            },
+            span,
+        ) = self
+        else
+        {
+            unreachable!()
+        };
+        env.push_scope();
+        let (typed_expr, expr_diagnostics) = expr.type_check(env);
+        env.pop_scope();
+        diagnostics.extend(expr_diagnostics);
+        let typed_expr = match typed_expr
+        {
+            Spanned(
+                Expr::IntLit {
+                    value,
+                    ty: Ty::IntLit,
+                },
+                expr_span,
+            ) if ty.is_llvm_int() =>
             {
-                env.push_scope();
-                let (typed_expr, expr_diagnostics) = expr.type_check(env);
-                env.pop_scope();
-                diagnostics.extend(expr_diagnostics);
+                if !int_lit_fits(value, ty)
+                {
+                    diagnostics.push(
+                        Diagnostic::error(ErrorCode::IntLiteralOutOfRange).with_main_label(
+                            expr_span.clone(),
+                            format!("{value} does not fit in '{ty}'"),
+                        ),
+                    );
+                }
+                Spanned(Expr::IntLit { ty, value }, expr_span)
+            },
+            typed_expr =>
+            {
                 if ty != typed_expr.ty()
                 {
                     let expr_ty = typed_expr.ty();
@@ -187,17 +278,17 @@ impl<'src> Spanned<Expr<'src>> {
                             .with_context_label(span.clone(), format!("expected '{ty}'")),
                     );
                 }
-                Spanned(
-                    Expr::Declaration {
-                        ty,
-                        expr: Box::new(typed_expr),
-                        name,
-                        kind,
-                    },
-                    span,
-                )
+                typed_expr
             },
         };
-        (expr, diagnostics)
+        Spanned(
+            Expr::Declaration {
+                ty,
+                expr: Box::new(typed_expr),
+                name,
+                kind,
+            },
+            span,
+        )
     }
 }

@@ -76,6 +76,7 @@
       "y": -267,
       "width": 284,
       "height": 63,
+      "color": "4",
       "text": "Allow main to be any integer type"
     },
     {
@@ -123,6 +124,7 @@
       "y": 140,
       "width": 263,
       "height": 63,
+      "color": "4",
       "text": "Remove [+-] from literal regex"
     },
     {
@@ -377,6 +379,25 @@
       "height": 80,
       "color": "4",
       "text": "`mut` & `const` in the lexer"
+    },
+    {
+      "type": "text",
+      "id": "e411b602-70cb-4f6f-be85-8ac7503958c2",
+      "x": -4260,
+      "y": 400,
+      "width": 260,
+      "height": 80,
+      "color": "4",
+      "text": "Comments on `//`"
+    },
+    {
+      "type": "text",
+      "id": "95d4714b-d30a-456f-b791-764eeb0837dc",
+      "x": -4560,
+      "y": 140,
+      "width": 260,
+      "height": 80,
+      "text": "Comments on `/**/`"
     }
   ],
   "edges": [
@@ -737,6 +758,26 @@
       "fromNode": "c00ce228-abd0-42d4-a496-9af14d37288d",
       "fromSide": "bottom",
       "toNode": "f3069fba6abc78ff",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "8213e83c-fed2-42d2-b77e-ab188392fe77",
+      "fromNode": "7ec82d10acd45a9c",
+      "fromSide": "bottom",
+      "toNode": "e411b602-70cb-4f6f-be85-8ac7503958c2",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "dotted",
+      "shape": "curved"
+    },
+    {
+      "id": "2ea4cc66-2b09-4526-b12c-5c07e59e7da9",
+      "fromNode": "95d4714b-d30a-456f-b791-764eeb0837dc",
+      "fromSide": "bottom",
+      "toNode": "e411b602-70cb-4f6f-be85-8ac7503958c2",
       "toSide": "top",
       "toEnd": "arrow",
       "style": "solid",

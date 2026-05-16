@@ -42,14 +42,23 @@ impl<'a> ParsedItem<'a> {
     fn token_lit_as_expr(self) -> Option<Self> {
         match self
         {
-            Self::Token(mut consumed, Spanned(Token::I64(i), span)) =>
+            Self::Token(mut consumed, Spanned(Token::ILit(n), span)) =>
             {
-                consumed.push_back(Spanned(Token::I64(i), span.clone()));
-                Some(Self::Expr(consumed, Spanned(Expr::I64(i), span)))
+                consumed.push_back(Spanned(Token::ILit(n), span.clone()));
+                Some(Self::Expr(
+                    consumed,
+                    Spanned(
+                        Expr::IntLit {
+                            ty:    Ty::IntLit,
+                            value: n,
+                        },
+                        span,
+                    ),
+                ))
             },
-            Self::Token(mut consumed, Spanned(Token::F64(f), span)) =>
+            Self::Token(mut consumed, Spanned(Token::FLit(f), span)) =>
             {
-                consumed.push_back(Spanned(Token::F64(f), span.clone()));
+                consumed.push_back(Spanned(Token::FLit(f), span.clone()));
                 Some(Self::Expr(consumed, Spanned(Expr::F64(f), span)))
             },
             _ => None,
@@ -307,10 +316,10 @@ macro_rules! assume {
 }
 
 fn parse_litteral<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    just!(input, Token::I64(_), "a litteral")
+    just!(input, Token::ILit(_), "a litteral")
         .or(|prev| {
             prev.push_back_input(input);
-            just!(input, Token::F64(_), "a litteral")
+            just!(input, Token::FLit(_), "a litteral")
         })
         .map(|item| {
             item.token_lit_as_expr()

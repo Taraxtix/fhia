@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::num::NonZero;
 
 use crate::Spanned;
 use crate::diagnostics::{Diagnostic, ErrorCode};
@@ -38,6 +39,13 @@ fn type_err(input: &str) -> Vec<Diagnostic> {
     typed_output.diagnostics
 }
 
+fn int_ty(signed: bool, width: u32) -> Ty {
+    Ty::Int {
+        signed,
+        width: unsafe { NonZero::new_unchecked(width) },
+    }
+}
+
 // =============================================================================
 // Success cases
 // =============================================================================
@@ -51,8 +59,11 @@ fn type_i64_declaration() {
         Spanned(Expr::Declaration { name, ty, expr, .. }, _) =>
         {
             assert_eq!(*name, "x");
-            assert_eq!(*ty, Ty::I64);
-            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+            assert_eq!(*ty, int_ty(true, 64));
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -96,7 +107,7 @@ fn type_cast_cross_numeric_types() {
     // all casts are currently accepted regardless of inner expression type
     type_ok("let main: i32 = i32 0  let x: f64 = f64 42"); // i64 → f64
     type_ok("let main: i32 = i32 0  let x: i32 = i32 1."); // f64 → i32
-    type_ok("let main: i32 = i32 0  let x: u8  = u8  -5"); // signed → unsigned
+    // TODO: Bring back this test once `UnaryMinus` is on // type_ok("let main: i32 = i32 0  let x: u8  = u8  -5"); // signed → unsigned
 }
 
 #[test]
@@ -111,7 +122,7 @@ fn type_ident_resolved_from_env() {
             Spanned(Expr::Ident { name, ty }, _) =>
             {
                 assert_eq!(*name, "x");
-                assert_eq!(*ty, Ty::I64);
+                assert_eq!(*ty, int_ty(true, 64));
             },
             _ => panic!("expected ident inside declaration"),
         },
@@ -131,7 +142,17 @@ fn type_ident_chain_resolved() {
         {
             assert!(matches!(
                 expr.as_ref(),
-                Spanned(Expr::Ident { ty: Ty::I64, .. }, _)
+                Spanned(
+                    Expr::Ident {
+                        ty:
+                            Ty::Int {
+                            signed: true,
+                            width,
+                        } ,
+                        ..
+                    },
+                    _,
+                ) if width == &NonZero::new(64).unwrap()
             ));
         },
         _ => panic!("expected declaration"),
@@ -158,10 +179,10 @@ fn type_forward_reference() {
                 Spanned(
                     Expr::Ident {
                         name: "y",
-                        ty:   Ty::I64,
+                        ty:   Ty::Int{signed:true, width},
                     },
                     _
-                )
+                )if width == &NonZero::new(64).unwrap()
             ));
         },
         _ => panic!("expected declaration"),
@@ -284,12 +305,53 @@ fn type_missing_main() {
 }
 
 #[test]
+fn type_main_any_int() {
+    // main accepts any integer type
+    type_ok("let main: i32  = i32  0");
+    type_ok("let main: u32  = u32  0");
+    type_ok("let main: i64  = i64  0");
+    type_ok("let main: u8   = u8   0");
+    type_ok("let main: i3   = i3   0");
+    type_ok("let main: isize = isize 0");
+}
+
+#[test]
 fn type_incorrect_main_type() {
-    // main must have type i32; any other type is rejected
-    let diags = type_err("let main: i64 = 42");
+    // only integer types are accepted for main
+    let diags = type_err("let main: f64 = 1.");
     assert!(
         diags
             .iter()
             .any(|d| d.code == Some(ErrorCode::IncorrectMainType as u32))
     );
+}
+
+#[test]
+fn type_int_lit_fits_arbitrary_width() {
+    type_ok("let main: i32 = i32 0  let x: u3  = 7");
+    type_ok("let main: i32 = i32 0  let x: i3  = 3");
+    type_ok("let main: i32 = i32 0  let x: u43 = 42");
+}
+
+#[test]
+fn type_int_lit_out_of_range() {
+    let diags = type_err("let main: i32 = i32 0  let x: u3 = 8");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::IntLiteralOutOfRange as u32))
+    );
+    let diags = type_err("let main: i32 = i32 0  let x: i3 = 4");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::IntLiteralOutOfRange as u32))
+    );
+}
+
+#[test]
+fn type_cast_allows_out_of_range_lit() {
+    // explicit cast bypasses the fit check — truncation is intentional
+    type_ok("let main: i32 = i32 0  let x: i8 = i8 1000");
+    type_ok("let main: i32 = i32 0  let x: u3 = u3 255");
 }

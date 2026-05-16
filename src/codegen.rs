@@ -241,8 +241,11 @@ where
         match expr
         {
             Expr::Declaration { .. } => unreachable!("declarations are handled by gen_decl"),
-            #[allow(clippy::cast_sign_loss)]
-            Expr::I64(value) => self.context.i64_type().const_int(value as u64, true).into(),
+            #[allow(clippy::cast_possible_truncation)]
+            Expr::IntLit { ty, value } => self
+                .int_type(ty)
+                .const_int_arbitrary_precision(&[value as u64, (value >> 64) as u64])
+                .into(),
             Expr::F64(value) => self.context.f64_type().const_float(value).into(),
             Expr::Cast(ty, expr) => self.gen_cast(ty, *expr),
             Expr::Ident { name, .. } =>
@@ -276,11 +279,11 @@ where
     fn ty_to_llvm(&self, ty: Ty) -> BasicTypeEnum<'ctx> {
         match ty
         {
-            Ty::I8 | Ty::U8 => self.context.i8_type().into(),
-            Ty::I16 | Ty::U16 => self.context.i16_type().into(),
-            Ty::I32 | Ty::U32 => self.context.i32_type().into(),
-            Ty::I64 | Ty::U64 => self.context.i64_type().into(),
-            Ty::I128 | Ty::U128 => self.context.i128_type().into(),
+            Ty::Int { width, .. } => self
+                .context
+                .custom_width_int_type(width)
+                .expect("failed to create Int type")
+                .into(),
             Ty::F32 => self.context.f32_type().into(),
             Ty::F64 => self.context.f64_type().into(),
             Ty::Isize | Ty::Usize => self
@@ -289,6 +292,7 @@ where
                 .into(),
             Ty::Unit => unreachable!("Don't call ty_to_llvm on `()`"),
             Ty::Unknown => unreachable!("`?` Should not exist anymore at this stage"),
+            Ty::IntLit => unreachable!("`{{int}}` should not exist anymore at this stage"),
         }
     }
 

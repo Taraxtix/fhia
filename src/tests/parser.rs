@@ -1,9 +1,18 @@
+use std::num::NonZero;
+
 use crate::Spanned;
 use crate::diagnostics::{Diagnostic, ErrorCode};
 use crate::parser::{
     self,
     expr::{DeclKind, Expr, Ty},
 };
+
+fn int_ty(signed: bool, width: u32) -> Ty {
+    Ty::Int {
+        signed,
+        width: NonZero::new(width).unwrap(),
+    }
+}
 
 fn parse_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
     let output = parser::parse(input);
@@ -46,14 +55,8 @@ fn parse_whitespace_flexibility() {
         assert!(
             matches!(
                 &exprs[0],
-                Spanned(
-                    Expr::Declaration {
-                        name: "x",
-                        ty: Ty::I64,
-                        ..
-                    },
-                    _
-                )
+                Spanned(Expr::Declaration { name: "x", ty, .. }, _)
+                    if *ty == int_ty(true, 64)
             ),
             "failed on: {input}"
         );
@@ -69,8 +72,11 @@ fn parse_declaration_i64() {
         Spanned(Expr::Declaration { name, ty, expr, .. }, _) =>
         {
             assert_eq!(*name, "x");
-            assert_eq!(*ty, Ty::I64);
-            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+            assert_eq!(*ty, int_ty(true, 64));
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -94,8 +100,11 @@ fn parse_declaration_let_mut() {
         {
             assert!(matches!(kind, DeclKind::Let { is_mut: true }));
             assert_eq!(*name, "x");
-            assert_eq!(*ty, Ty::I64);
-            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+            assert_eq!(*ty, int_ty(true, 64));
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -119,8 +128,11 @@ fn parse_declaration_const() {
         {
             assert!(matches!(kind, DeclKind::Const));
             assert_eq!(*name, "x");
-            assert_eq!(*ty, Ty::I64);
-            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+            assert_eq!(*ty, int_ty(true, 64));
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -173,8 +185,11 @@ fn parse_cast_expression() {
         {
             Spanned(Expr::Cast(ty, inner), _) =>
             {
-                assert_eq!(*ty, Ty::U32);
-                assert!(matches!(inner.as_ref(), Spanned(Expr::I64(42), _)));
+                assert_eq!(*ty, int_ty(false, 32));
+                assert!(matches!(
+                    inner.as_ref(),
+                    Spanned(Expr::IntLit { value: 42, .. }, _)
+                ));
             },
             _ => panic!("expected cast"),
         },
@@ -193,8 +208,10 @@ fn parse_nested_cast() {
             {
                 Spanned(Expr::Cast(outer_ty, inner), _) =>
                 {
-                    assert_eq!(*outer_ty, Ty::I64);
-                    assert!(matches!(inner.as_ref(), Spanned(Expr::Cast(Ty::U32, _), _)));
+                    assert_eq!(*outer_ty, int_ty(true, 64));
+                    assert!(
+                        matches!(inner.as_ref(), Spanned(Expr::Cast(ty, _), _) if *ty == int_ty(false, 32))
+                    );
                 },
                 _ => panic!("expected outer cast"),
             },
@@ -213,7 +230,10 @@ fn parse_parenthesized_expression() {
     {
         Spanned(Expr::Declaration { expr, .. }, _) =>
         {
-            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -227,7 +247,10 @@ fn parse_braced_expression() {
     {
         Spanned(Expr::Declaration { expr, .. }, _) =>
         {
-            assert!(matches!(expr.as_ref(), Spanned(Expr::I64(42), _)));
+            assert!(matches!(
+                expr.as_ref(),
+                Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -244,7 +267,7 @@ fn parse_nested_grouping() {
     {
         let exprs = parse_ok(input);
         assert!(
-            matches!(&exprs[0], Spanned(Expr::Declaration { expr, .. }, _) if matches!(expr.as_ref(), Spanned(Expr::I64(42), _))),
+            matches!(&exprs[0], Spanned(Expr::Declaration { expr, .. }, _) if matches!(expr.as_ref(), Spanned(Expr::IntLit { value: 42, .. }, _))),
             "failed on: {input}"
         );
     }
@@ -256,14 +279,7 @@ fn parse_multiple_declarations() {
     assert_eq!(exprs.len(), 2);
     assert!(matches!(
         &exprs[0],
-        Spanned(
-            Expr::Declaration {
-                name: "a",
-                ty: Ty::I64,
-                ..
-            },
-            _
-        )
+        Spanned(Expr::Declaration { name: "a", ty, .. }, _) if *ty == int_ty(true, 64)
     ));
     assert!(matches!(
         &exprs[1],
@@ -384,5 +400,26 @@ fn parse_incomplete_cast() {
         diags
             .iter()
             .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
+    );
+}
+
+#[test]
+fn parse_arbitrary_width_type() {
+    let exprs = parse_ok("let x: u3 = 7");
+    assert_eq!(exprs.len(), 1);
+    assert!(matches!(
+        &exprs[0],
+        Spanned(Expr::Declaration { ty, .. }, _) if *ty == int_ty(false, 3)
+    ));
+}
+
+#[test]
+fn parse_type_width_too_large() {
+    // u129 and wider are not valid types
+    let diags = parse_err("let x: u129 = 0");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == Some(ErrorCode::InvalidToken as u32))
     );
 }
