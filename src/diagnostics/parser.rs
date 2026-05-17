@@ -52,31 +52,9 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
 }
 
 impl Reportable for ParseOutput<'_> {
-    fn report(&self, source: &str, source_name: &str) {
-        let mut should_exit = false;
-        for diagnostic in &self.diagnostics
-        {
-            should_exit = diagnostic.severity == Severity::Error || should_exit;
-            render(diagnostic, source, source_name);
-        }
-        if should_exit
-        {
-            std::process::exit(1);
-        }
-    }
+    fn diagnostics(&self) -> &[Diagnostic] { self.diagnostics.as_slice() }
 }
 
 impl Reportable for TypedOutput<'_> {
-    fn report(&self, source: &str, source_name: &str) {
-        let mut should_exit = false;
-        for diagnostic in &self.diagnostics
-        {
-            should_exit = diagnostic.severity == Severity::Error || should_exit;
-            render(diagnostic, source, source_name);
-        }
-        if should_exit
-        {
-            std::process::exit(1);
-        }
-    }
+    fn diagnostics(&self) -> &[Diagnostic] { self.diagnostics.as_slice() }
 }

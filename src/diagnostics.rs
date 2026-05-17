@@ -1,7 +1,21 @@
+use crate::diagnostics::parser::render;
+
 pub mod parser;
 
 pub trait Reportable {
-    fn report(&self, source: &str, source_name: &str);
+    fn diagnostics(&self) -> &[Diagnostic];
+    fn report(&self, source: &str, source_name: &str) {
+        let mut should_exit = false;
+        for diagnostic in self.diagnostics()
+        {
+            should_exit = diagnostic.severity == Severity::Error || should_exit;
+            render(diagnostic, source, source_name);
+        }
+        if should_exit
+        {
+            std::process::exit(1);
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
