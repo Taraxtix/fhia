@@ -44,9 +44,9 @@ struct Codegen<'ctx, 'src> {
 }
 
 impl TypedOutput<'_> {
-    pub fn compile(self, args: &Args, source: &str) {
+    pub fn compile(self, args: &Args) {
         let context = Context::create();
-        Codegen::new(&context).compile(self.exprs, args, source);
+        Codegen::new(&context).compile(self.exprs, args);
     }
 }
 
@@ -88,58 +88,19 @@ where
         }
     }
 
-    pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args, source: &str) {
+    pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args) {
         let main_entry = self.alloc_top_level_decls(&exprs);
         self.builder.position_at_end(main_entry);
         // self.alloc_decls(&exprs);
 
-        let mut dep_map: HashMap<&'src str, Vec<&'src str>> = HashMap::new();
-        let mut decls: HashMap<&'src str, Spanned<Expr<'src>>> = HashMap::new();
-        // Pass 1: Populate the HashMaps
-        for expr in exprs
-        {
-            let (name, deps) = match &expr
-            {
-                Spanned(
-                    Expr::Declaration {
-                        name, expr: body, ..
-                    },
-                    _,
-                ) =>
-                {
-                    let name = *name;
-                    let mut deps = body.0.deps();
-                    deps.retain(|&d| self.vars.contains_key(d) && d != name);
-                    (name, deps)
-                },
-                _ => unreachable!(),
-            };
-            dep_map.insert(name, deps);
-            decls.insert(name, expr);
-        }
+        let (order, mut decl_map) =
+            topo_order(exprs).expect("Cycle should have been caught by typer");
 
-        // Pass 2: Compute topological order
-        let order = topo_order(&dep_map).unwrap_or_else(|cycle| {
-            let mut diag = crate::diagnostics::Diagnostic::error(
-                crate::diagnostics::ErrorCode::CyclicDeclaration,
-            );
-            for name in &cycle
-            {
-                if let Some(Spanned(_, span)) = decls.get(name)
-                {
-                    diag =
-                        diag.with_main_label(span.clone(), format!("'{name}' is part of a cycle"));
-                }
-            }
-            crate::diagnostics::parser::render(&diag, source, &args.input);
-            std::process::exit(1);
-        });
-
-        // Pass 3: Generate the declarations
+        // Generate the declarations in topological order
         let mut main_body = None;
         for name in order
         {
-            let Spanned(Expr::Declaration { expr: body, .. }, _) = decls.remove(name).unwrap()
+            let Spanned(Expr::Declaration { expr: body, .. }, _) = decl_map.remove(name).unwrap()
             else
             {
                 unreachable!()

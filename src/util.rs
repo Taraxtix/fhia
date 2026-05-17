@@ -1,21 +1,50 @@
 use std::collections::{HashMap, VecDeque};
 
-pub fn topo_order<'a>(
-    dep_map: &HashMap<&'a str, Vec<&'a str>>,
-) -> Result<Vec<&'a str>, Vec<&'a str>> {
-    let mut in_deg: HashMap<&'a str, usize> = dep_map.iter().map(|(&n, d)| (n, d.len())).collect();
+use crate::{Spanned, diagnostics::Diagnostic, parser::expr::Expr};
 
-    let mut rdeps: HashMap<&'a str, Vec<&'a str>> = HashMap::new();
-    for (&name, deps) in dep_map
+type DepMap<'src> = HashMap<&'src str, Vec<&'src str>>;
+type DeclMap<'src> = HashMap<&'src str, Spanned<Expr<'src>>>;
+
+fn maps(exprs: VecDeque<Spanned<Expr<'_>>>) -> (DepMap<'_>, DeclMap<'_>) {
+    let mut dep_map: DepMap = HashMap::new();
+    let mut decl_map: DeclMap = HashMap::new();
+    for Spanned(expr, span) in exprs
     {
-        for &dep in deps
+        if let Expr::Declaration {
+            name,
+            expr: ref rhs,
+            ..
+        } = expr
+        {
+            dep_map.insert(name, rhs.as_ref().0.deps());
+            decl_map.insert(name, Spanned(expr, span));
+        }
+    }
+    for deps in dep_map.values_mut()
+    {
+        deps.retain(|d| decl_map.contains_key(d));
+    }
+    (dep_map, decl_map)
+}
+
+pub fn topo_order(
+    exprs: VecDeque<Spanned<Expr<'_>>>,
+) -> Result<(Vec<&'_ str>, DeclMap<'_>), Diagnostic> {
+    let (dep_map, decl_map) = maps(exprs);
+
+    let mut in_deg: HashMap<&'_ str, usize> = dep_map.iter().map(|(&n, d)| (n, d.len())).collect();
+
+    let mut rdeps: DepMap = HashMap::new();
+    for (&name, deps) in &dep_map
+    {
+        for dep in deps
         {
             rdeps.entry(dep).or_default().push(name);
         }
     }
 
-    let mut queue: VecDeque<&'a str> = {
-        let mut v: Vec<&'a str> = in_deg
+    let mut queue: VecDeque<&'_ str> = {
+        let mut v: Vec<&'_ str> = in_deg
             .iter()
             .filter_map(|(&n, &d)| (d == 0).then_some(n))
             .collect();
@@ -27,7 +56,7 @@ pub fn topo_order<'a>(
     while let Some(name) = queue.pop_front()
     {
         order.push(name);
-        let mut newly_freed: Vec<&'a str> = rdeps
+        let mut newly_freed: Vec<&'_ str> = rdeps
             .get(name)
             .map_or([].as_slice(), Vec::as_slice)
             .iter()
@@ -43,14 +72,23 @@ pub fn topo_order<'a>(
 
     if order.len() == dep_map.len()
     {
-        Ok(order)
+        Ok((order, decl_map))
     }
     else
     {
-        let cycle = in_deg
+        let cycle: Vec<&str> = in_deg
             .into_iter()
             .filter_map(|(name, deg)| (deg > 0).then_some(name))
             .collect();
-        Err(cycle)
+        let mut diag =
+            crate::diagnostics::Diagnostic::error(crate::diagnostics::ErrorCode::CyclicDeclaration);
+        for name in &cycle
+        {
+            if let Some(Spanned(_, span)) = decl_map.get(name)
+            {
+                diag = diag.with_main_label(span.clone(), format!("'{name}' is part of a cycle"));
+            }
+        }
+        Err(diag)
     }
 }

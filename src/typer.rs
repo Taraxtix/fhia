@@ -5,18 +5,33 @@ use std::{
 
 use crate::{
     Spanned,
-    diagnostics::{Diagnostic, ErrorCode},
-    parser::expr::{Expr, Ty},
+    diagnostics::{Diagnostic, ErrorCode, Severity},
+    parser::expr::{ConstValue, DeclKind, Expr, Ty},
+    util::topo_order,
 };
 
+struct Scope<'src> {
+    types:  HashMap<&'src str, Ty>,
+    consts: HashMap<&'src str, ConstValue>,
+}
+
+impl Scope<'_> {
+    fn new() -> Self {
+        Self {
+            types:  HashMap::new(),
+            consts: HashMap::new(),
+        }
+    }
+}
+
 pub struct Env<'src> {
-    scopes: Vec<HashMap<&'src str, Ty>>,
+    scopes: Vec<Scope<'src>>,
 }
 
 impl<'src> Env<'src> {
     fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()],
+            scopes: vec![Scope::new()],
         }
     }
 
@@ -24,20 +39,31 @@ impl<'src> Env<'src> {
         self.scopes
             .iter()
             .rev()
-            .find_map(|scope| scope.get(name).copied())
+            .find_map(|scope| scope.types.get(name).copied())
+    }
+
+    fn _lookup_const(&self, name: &str) -> Option<&ConstValue> {
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.consts.get(name))
     }
 
     fn declare(&mut self, name: &'src str, ty: Ty) {
-        self.scopes.last_mut().unwrap().insert(name, ty);
+        self.scopes.last_mut().unwrap().types.insert(name, ty);
+    }
+
+    fn declare_const(&mut self, name: &'src str, val: ConstValue) {
+        self.scopes.last_mut().unwrap().consts.insert(name, val);
     }
 
     fn is_in_current_scope(&self, name: &str) -> bool {
         self.scopes
             .last()
-            .is_some_and(|scope| scope.contains_key(name))
+            .is_some_and(|scope| scope.types.contains_key(name))
     }
 
-    pub fn push_scope(&mut self) { self.scopes.push(HashMap::new()); }
+    pub fn push_scope(&mut self) { self.scopes.push(Scope::new()); }
 
     /// # Panics
     /// - Panics if you attempt to pop the root scope
@@ -107,6 +133,44 @@ impl<'a> TypedOutput<'a> {
                 expr
             })
             .collect::<VecDeque<_>>();
+
+        // If there is an error passed this stage, we should not go further
+        if diagnostics.iter().any(|d| d.severity == Severity::Error)
+        {
+            return Self { exprs, diagnostics };
+        }
+
+        // Pass 3: const-evaluate declarations in dependency order so that forward
+        // references like `const x = y; const y = 5;` resolve correctly.
+        match topo_order(exprs.clone())
+        {
+            Ok((order, decl_map)) =>
+            {
+                for name in order
+                {
+                    let Spanned(Expr::Declaration { kind, expr, .. }, _) = decl_map
+                        .get(name)
+                        .expect("topo_order should not provide non-existant name")
+                    else
+                    {
+                        continue;
+                    };
+                    let Spanned(rhs, _) = expr.as_ref();
+                    match rhs.const_value()
+                    {
+                        Some(val) => env.declare_const(name, val),
+                        None if matches!(kind, DeclKind::Const) =>
+                        {
+                            // TODO: emit NotConstExpr error
+                        },
+                        None =>
+                        {},
+                    }
+                }
+            },
+            Err(diag) => diagnostics.push(diag),
+        }
+
         Self { exprs, diagnostics }
     }
 }

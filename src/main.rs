@@ -81,5 +81,5 @@ fn main() {
             println!("{}", expr.0);
         }
     }
-    typed_output.compile(&args, &input);
+    typed_output.compile(&args);
 }

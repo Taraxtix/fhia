@@ -18,6 +18,10 @@ pub trait Reportable {
     }
 }
 
+impl Reportable for Vec<Diagnostic> {
+    fn diagnostics(&self) -> &[Diagnostic] { self.as_slice() }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(usize)]
 pub enum ErrorCode {

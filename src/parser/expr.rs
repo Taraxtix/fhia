@@ -130,20 +130,30 @@ impl<'src> Expr<'src> {
         }
     }
 
-    // pub fn is_const(self) -> Option<ConstValue> {
-    //     match self
-    //     {
-    //         Self::Declaration {
-    //             kind,
-    //             name,
-    //             ty,
-    //             expr,
-    //         } => todo!(),
-    //         Self::I64(_) | Self::F64(_) => Some(self),
-    //         Self::Cast(ty, spanned) => todo!(),
-    //         Self::Ident { name, ty } => todo!(),
-    //     }
-    // }
+    #[allow(clippy::match_same_arms)]
+    pub fn const_value(&self) -> Option<ConstValue> {
+        match self
+        {
+            Self::Declaration { .. } => None, // TODO: Populate const env if it is const
+            Self::IntLit { ty, value } => match ty
+            {
+                Ty::Isize | Ty::Int { signed: true, .. } =>
+                {
+                    Some(ConstValue::Int(i128::try_from(*value).expect(
+                        "Should not happend. This should be caught by earlier stage of the typer",
+                    )))
+                },
+                Ty::Usize | Ty::Int { signed: false, .. } => Some(ConstValue::Uint(*value)),
+                Ty::F32 | Ty::F64 | Ty::Unit | Ty::Unknown | Ty::IntLit =>
+                {
+                    unreachable!("Should not be able to pass the typer")
+                },
+            },
+            Self::F64(val) => Some(ConstValue::Float(*val)),
+            Self::Cast(_ty, _expr) => None, // TODO: Handle cast in const expr
+            Self::Ident { .. } => None,     // TODO: Have const env with const identifier
+        }
+    }
 }
 
 impl Display for Expr<'_> {
@@ -179,4 +189,10 @@ impl Display for DeclKind {
             Self::Let { is_mut: true } => f.write_str("let mut"),
         }
     }
+}
+
+pub enum ConstValue {
+    Uint(u128),
+    Int(i128),
+    Float(f64),
 }
