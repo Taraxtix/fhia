@@ -10,7 +10,7 @@ use logos::Logos;
 use crate::{
     ParsingError,
     Spanned,
-    diagnostics::{self, Diagnostic, ErrorCode},
+    diagnostics::{self, Diagnostic, ErrorCode, Reportable},
     lexer::Token,
     parser::expr::Ty,
     typer::TypedOutput,
@@ -542,9 +542,14 @@ pub struct ParseOutput<'a> {
     pub exprs:       Vec<Spanned<Expr<'a>>>,
     pub diagnostics: Vec<diagnostics::Diagnostic>,
 }
+
 impl<'a> ParseOutput<'a> {
     #[must_use]
     pub fn type_check(self) -> TypedOutput<'a> { TypedOutput::type_check(self.exprs) }
+}
+
+impl Reportable for ParseOutput<'_> {
+    fn diagnostics(&self) -> &[Diagnostic] { self.diagnostics.as_slice() }
 }
 
 /// # Panics

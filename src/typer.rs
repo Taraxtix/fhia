@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     Spanned,
-    diagnostics::{Diagnostic, ErrorCode, Severity},
+    diagnostics::{Diagnostic, ErrorCode, Reportable, Severity},
     parser::expr::{ConstValue, DeclKind, Expr, Ty},
     topo_order::topo_order,
 };
@@ -76,6 +76,10 @@ impl<'src> Env<'src> {
 pub struct TypedOutput<'a> {
     pub exprs:       VecDeque<Spanned<Expr<'a>>>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+impl Reportable for TypedOutput<'_> {
+    fn diagnostics(&self) -> &[Diagnostic] { self.diagnostics.as_slice() }
 }
 
 impl<'a> TypedOutput<'a> {
