@@ -8,8 +8,8 @@ mod lexer;
 mod parser;
 #[cfg(test)]
 mod tests;
+mod topo_order;
 mod typer;
-mod util;
 
 use clap::Parser as clapParser;
 use diagnostics::Reportable;

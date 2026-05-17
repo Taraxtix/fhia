@@ -7,7 +7,7 @@ use crate::{
     Spanned,
     diagnostics::{Diagnostic, ErrorCode, Severity},
     parser::expr::{ConstValue, DeclKind, Expr, Ty},
-    util::topo_order,
+    topo_order::topo_order,
 };
 
 struct Scope<'src> {

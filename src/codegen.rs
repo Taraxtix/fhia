@@ -30,8 +30,8 @@ use crate::{
     Args,
     Spanned,
     parser::expr::{Expr, Ty},
+    topo_order::topo_order,
     typer::TypedOutput,
-    util::topo_order,
 };
 
 struct Codegen<'ctx, 'src> {
