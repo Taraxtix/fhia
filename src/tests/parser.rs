@@ -1,18 +1,10 @@
-use std::num::NonZero;
-
 use crate::Spanned;
 use crate::diagnostics::{Diagnostic, ErrorCode};
 use crate::parser::{
     self,
     expr::{DeclKind, Expr, Ty},
 };
-
-fn int_ty(signed: bool, width: u32) -> Ty {
-    Ty::Int {
-        signed,
-        width: NonZero::new(width).unwrap(),
-    }
-}
+use crate::tests::int_ty;
 
 fn parse_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
     let output = parser::parse(input);

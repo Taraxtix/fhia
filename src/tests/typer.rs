@@ -7,6 +7,7 @@ use crate::parser::{
     self,
     expr::{Expr, Ty},
 };
+use crate::tests::int_ty;
 
 fn type_ok(input: &str) -> VecDeque<Spanned<Expr<'_>>> {
     let parse_output = parser::parse(input);
@@ -37,13 +38,6 @@ fn type_err(input: &str) -> Vec<Diagnostic> {
         "expected type diagnostics, got none"
     );
     typed_output.diagnostics
-}
-
-fn int_ty(signed: bool, width: u32) -> Ty {
-    Ty::Int {
-        signed,
-        width: unsafe { NonZero::new_unchecked(width) },
-    }
 }
 
 // =============================================================================

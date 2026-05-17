@@ -1,9 +1,8 @@
-use std::num::NonZero;
-
 use logos::Logos;
 
 use crate::lexer::Token;
 use crate::parser::expr::Ty;
+use crate::tests::int_ty;
 
 fn lex_one(input: &str) -> Result<Token<'_>, ()> {
     let mut lexer = Token::lexer(input);
@@ -11,13 +10,6 @@ fn lex_one(input: &str) -> Result<Token<'_>, ()> {
 }
 
 fn lex_all(input: &str) -> Result<Vec<Token<'_>>, ()> { Token::lexer(input).collect() }
-
-fn int_ty(signed: bool, width: u32) -> Ty {
-    Ty::Int {
-        signed,
-        width: unsafe { NonZero::new_unchecked(width) },
-    }
-}
 
 // =============================================================================
 // Keyword
