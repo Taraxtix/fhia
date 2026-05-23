@@ -56,19 +56,23 @@ impl<'a> ParsedItem<'a> {
         }
     }
 
-    fn consumed(self) -> VecDeque<Spanned<Token<'a>>> {
+    fn fold_rightmost<T, F>(self, f: F) -> T
+    where
+        F: FnOnce(Self) -> T,
+    {
         match self
         {
-            Self::Seq(item1, item2) =>
-            {
-                assert!(item1.consumed().is_empty());
-                item2.consumed()
-            },
-            Self::Expr(old_c, _)
-            | Self::Token(old_c, _)
-            | Self::Err(old_c, _)
-            | Self::Opt(old_c, _) => old_c,
+            Self::Seq(_, item2) => item2.fold_rightmost(f),
+            leaf => f(leaf),
         }
+    }
+
+    fn consumed(self) -> VecDeque<Spanned<Token<'a>>> {
+        self.fold_rightmost(|item| match item
+        {
+            Self::Expr(c, _) | Self::Token(c, _) | Self::Err(c, _) | Self::Opt(c, _) => c,
+            Self::Seq(..) => unreachable!(),
+        })
     }
 
     fn consumed_mut(&mut self) -> &mut VecDeque<Spanned<Token<'a>>> {
@@ -97,7 +101,7 @@ impl<'a> ParsedItem<'a> {
     }
 
     pub(super) fn push_back_input(self, input: &mut VecDeque<Spanned<Token<'a>>>) {
-        match self
+        self.fold_rightmost(|item| match item
         {
             Self::Expr(consumed, _)
             | Self::Token(consumed, _)
@@ -109,8 +113,8 @@ impl<'a> ParsedItem<'a> {
                     input.push_front(tok);
                 }
             },
-            Self::Seq(_, parsed_item1) => parsed_item1.push_back_input(input),
-        }
+            Self::Seq(..) => unreachable!(),
+        })
     }
 
     pub(super) fn ignore_then(
