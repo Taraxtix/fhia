@@ -1,7 +1,13 @@
+use std::ops::Range;
+
 use crate::{
     Spanned,
-    parser::expr::{DeclKind, Expr},
-    program::{Program, diagnostics::Reportable},
+    parser::expr::{DeclKind, Expr, Ty},
+    program::{
+        Program,
+        diagnostics::{Diagnostic, ErrorCode, Reportable},
+        env::Env,
+    },
     topo_order::topo_order,
     typer::Typer,
 };
@@ -24,33 +30,23 @@ impl<'src> Program<'src, Typer<'src>> {
 
         for name in order
         {
-            let Spanned(expr, _) = decl_map
+            let Spanned(expr @ Expr::Declaration { kind, .. }, span) = decl_map
                 .get(name)
-                .expect("topo_order should not provide non-existant name");
-
-            match expr.const_value(env)
+                .expect("topo_order should not provide non-existant name")
+            else
             {
-                Some(_) =>
-                {
-                    println!("Declaration of {name} is const (Should be inlined)");
-                },
-                None if matches!(
-                    expr,
-                    Expr::Declaration {
-                        kind: DeclKind::Const,
-                        ..
-                    }
-                ) =>
-                {
-                    println!("Declaration of {name} is not const (ERROR)");
-                    // TODO: emit NotConstExpr error
-                },
-                None =>
-                {
-                    println!("Declaration of {name} is not const (OK)");
-                },
+                unreachable!()
+            };
+
+            if expr
+                .const_value(span, env, *kind, &mut diagnostics)
+                .is_some()
+            {
+                println!("Declaration of {name} is const (Should be inlined)");
             }
         }
+
+        diagnostics.report(self.source, &self.args.input);
 
         Self {
             args:   self.args,
@@ -58,6 +54,135 @@ impl<'src> Program<'src, Typer<'src>> {
             state:  Typer {
                 exprs,
                 env: self.state.env,
+            },
+        }
+    }
+}
+
+impl<'src> Expr<'src> {
+    pub fn const_value<'a>(
+        &'a self,
+        span: &Range<usize>,
+        env: &'a mut Env<'src>,
+        kind: DeclKind,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Option<ConstValue> {
+        fn handle_error(
+            span: Range<usize>,
+            kind: DeclKind,
+            diagnostics: &mut Vec<Diagnostic>,
+        ) -> Option<ConstValue> {
+            if kind == DeclKind::Const
+            {
+                diagnostics.push(
+                    Diagnostic::error(ErrorCode::NotConstInConst)
+                        .with_context_label(span, "expression was expected to be const"),
+                );
+            }
+            None
+        }
+
+        match self
+        {
+            Self::Declaration { name, expr, .. } =>
+            {
+                let Spanned(expr, span) = expr.as_ref();
+                let value = expr.const_value(span, env, kind, diagnostics)?;
+                env.declare_const(name, value);
+                Some(value)
+            },
+            Self::IntLit { ty, value } => match ty
+            {
+                Ty::Isize | Ty::Int { signed: true, .. } =>
+                {
+                    Some(ConstValue::Int(i128::try_from(*value).expect(
+                        "Should not happend. This should be caught by earlier stage of the typer",
+                    )))
+                },
+                Ty::Usize | Ty::Int { signed: false, .. } => Some(ConstValue::Uint(*value)),
+                Ty::F32 | Ty::F64 | Ty::Unit | Ty::Unknown | Ty::IntLit =>
+                {
+                    unreachable!("Should not be able to pass the typer")
+                },
+            },
+            Self::F64(val) => Some(ConstValue::Float(*val)),
+            Self::Cast(ty, s_expr) =>
+            {
+                let Spanned(expr, span) = s_expr.as_ref();
+                Some(
+                    expr.const_value(span, env, kind, diagnostics)
+                        .or_else(|| handle_error(span.clone(), kind, diagnostics))?
+                        .cast_to(s_expr.ty(), *ty),
+                )
+            },
+            Self::Ident { name, .. } => env
+                .lookup_const(name)
+                .copied()
+                .or_else(|| handle_error(span.clone(), kind, diagnostics)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ConstValue {
+    Uint(u128),
+    Int(i128),
+    Float(f64),
+}
+
+impl ConstValue {
+    #[allow(clippy::similar_names)]
+    fn cast_to(self, from: Ty, to: Ty) -> Self {
+        match from
+        {
+            Ty::Usize | Ty::Isize =>
+            {
+                todo!("const Cast from [IU]size not implemented yet (Require to know ptr_size)")
+            },
+            Ty::Unit | Ty::Unknown | Ty::IntLit =>
+            {
+                unreachable!("Should not pass type_check")
+            },
+            _ =>
+            {},
+        }
+        // This is painful, but this is in fact the intended behavior
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_possible_wrap)]
+        #[allow(clippy::cast_sign_loss)]
+        #[allow(clippy::cast_precision_loss)]
+        let (as_i128, as_u128, as_f64) = match self
+        {
+            Self::Int(v) => (v, v as u128, v as f64),
+            Self::Uint(v) => (v as i128, v, v as f64),
+            Self::Float(v) => (v as i128, v as i128 as u128, v),
+        };
+        match to
+        {
+            Ty::Int {
+                signed: true,
+                width,
+            } =>
+            {
+                let shift = 128 - u32::from(width);
+                Self::Int((as_i128 << shift) >> shift)
+            },
+            Ty::Int {
+                signed: false,
+                width,
+            } =>
+            {
+                let shift = 128 - u32::from(width);
+                Self::Uint((as_u128 << shift) >> shift)
+            },
+            Ty::F32 | Ty::F64 => Self::Float(as_f64),
+            Ty::Usize | Ty::Isize =>
+            {
+                todo!("const Cast to [IU]size not implemented yet (Require to know ptr_size)")
+            },
+            Ty::Unit | Ty::Unknown | Ty::IntLit =>
+            {
+                unreachable!("Should not pass type_check")
             },
         }
     }

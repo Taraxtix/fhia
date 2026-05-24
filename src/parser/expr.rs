@@ -1,6 +1,6 @@
 use std::{fmt::Display, num::NonZero};
 
-use crate::{Spanned, program::env::Env};
+use crate::Spanned;
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {
@@ -129,36 +129,6 @@ impl<'src> Expr<'src> {
             Self::Declaration { .. } => unreachable!("nested declaration in dep collection"),
         }
     }
-
-    #[allow(clippy::match_same_arms)]
-    pub fn const_value<'a>(&'a self, env: &'a mut Env<'src>) -> Option<ConstValue> {
-        match self
-        {
-            Self::Declaration { name, expr, .. } =>
-            {
-                let value = expr.as_ref().0.const_value(env)?;
-                env.declare_const(name, value);
-                Some(value)
-            },
-            Self::IntLit { ty, value } => match ty
-            {
-                Ty::Isize | Ty::Int { signed: true, .. } =>
-                {
-                    Some(ConstValue::Int(i128::try_from(*value).expect(
-                        "Should not happend. This should be caught by earlier stage of the typer",
-                    )))
-                },
-                Ty::Usize | Ty::Int { signed: false, .. } => Some(ConstValue::Uint(*value)),
-                Ty::F32 | Ty::F64 | Ty::Unit | Ty::Unknown | Ty::IntLit =>
-                {
-                    unreachable!("Should not be able to pass the typer")
-                },
-            },
-            Self::F64(val) => Some(ConstValue::Float(*val)),
-            Self::Cast(_ty, _expr) => None, // TODO: Handle cast in const expr
-            Self::Ident { name, .. } => env.lookup_const(name).copied(),
-        }
-    }
 }
 
 impl Display for Expr<'_> {
@@ -179,7 +149,7 @@ impl Display for Expr<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeclKind {
     Const,
     Let { is_mut: bool },
@@ -194,11 +164,4 @@ impl Display for DeclKind {
             Self::Let { is_mut: true } => f.write_str("let mut"),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ConstValue {
-    Uint(u128),
-    Int(i128),
-    Float(f64),
 }

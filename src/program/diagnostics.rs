@@ -36,6 +36,7 @@ pub enum ErrorCode {
     MissingMain          = 10,
     IncorrectMainType    = 11,
     IntLiteralOutOfRange = 12,
+    NotConstInConst      = 13,
 }
 
 impl ErrorCode {
@@ -55,6 +56,7 @@ impl ErrorCode {
             Self::MissingMain => "Missing main declaration",
             Self::IncorrectMainType => "Incorrect main type",
             Self::IntLiteralOutOfRange => "Integer literal out of range",
+            Self::NotConstInConst => "Use of a non-const expression in const context",
         }
     }
 }

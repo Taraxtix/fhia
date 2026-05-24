@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::expr::{ConstValue, Ty};
+use crate::{const_eval::ConstValue, parser::expr::Ty};
 
 struct Scope<'src> {
     types:  HashMap<&'src str, Ty>,
