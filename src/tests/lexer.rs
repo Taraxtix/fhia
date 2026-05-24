@@ -211,6 +211,9 @@ fn lex_invalid_token() {
     assert_eq!(lex_one("#"), Err(()));
     assert_eq!(lex_one("$"), Err(()));
     assert_eq!(lex_one("?"), Err(()));
+    assert_eq!(lex_one("u129"), Err(()));
+    assert_eq!(lex_one("u200"), Err(()));
+    assert_eq!(lex_one("i129"), Err(()));
     // a single invalid char contaminates the whole lex_all result
     assert_eq!(lex_all("let @"), Err(()));
 }

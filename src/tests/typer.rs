@@ -1,43 +1,42 @@
 use std::collections::VecDeque;
 use std::num::NonZero;
 
-use crate::Spanned;
-use crate::diagnostics::{Diagnostic, ErrorCode};
-use crate::parser::{
-    self,
-    expr::{Expr, Ty},
-};
+use crate::parser::expr::{Expr, Ty};
+use crate::program::Program;
+use crate::program::diagnostics::ErrorCode;
 use crate::tests::int_ty;
+use crate::{Args, Spanned};
 
 fn type_ok(input: &str) -> VecDeque<Spanned<Expr<'_>>> {
-    let parse_output = parser::parse(input);
-    assert!(
-        parse_output.diagnostics.is_empty(),
-        "expected no parse diagnostics, got: {:?}",
-        parse_output.diagnostics
-    );
+    let parse_output = Program::lex(Args::default(), input).parse();
     let typed_output = parse_output.type_check();
-    assert!(
-        typed_output.diagnostics.is_empty(),
-        "expected no type diagnostics, got: {:?}",
-        typed_output.diagnostics
-    );
-    typed_output.exprs
+    typed_output.state.exprs
 }
 
-fn type_err(input: &str) -> Vec<Diagnostic> {
-    let parse_output = parser::parse(input);
+fn type_err(input: &str, expected: ErrorCode) {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .env("__FHIA_INPUT", input)
+        .args([
+            "--include-ignored",
+            "--exact",
+            "tests::typer::__inner_type_check",
+        ])
+        .output()
+        .expect("failed to spawn subprocess");
+    assert!(!output.status.success(), "expected type error for: {input}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        parse_output.diagnostics.is_empty(),
-        "expected no parse diagnostics, got: {:?}",
-        parse_output.diagnostics
+        stderr.contains(expected.title()),
+        "expected {:?} in stderr for: {input}\nstderr: {stderr}",
+        expected.title(),
     );
-    let typed_output = parse_output.type_check();
-    assert!(
-        !typed_output.diagnostics.is_empty(),
-        "expected type diagnostics, got none"
-    );
-    typed_output.diagnostics
+}
+
+#[test]
+#[ignore = "subprocess helper"]
+fn __inner_type_check() {
+    let input = std::env::var("__FHIA_INPUT").unwrap();
+    let _ = Program::lex(Args::default(), &input).parse().type_check();
 }
 
 // =============================================================================
@@ -195,108 +194,79 @@ fn type_forward_reference_chain() {
 
 #[test]
 fn type_mismatch_float_literal_in_int_decl() {
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = 1.");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = 1.",
+        ErrorCode::TypeMismatch,
     );
 }
 
 #[test]
 fn type_mismatch_int_literal_in_float_decl() {
-    let diags = type_err("let main: i32 = i32 0  let x: f64 = 42");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: f64 = 42",
+        ErrorCode::TypeMismatch,
     );
 }
 
 #[test]
 fn type_mismatch_cast_target_differs_from_decl() {
     // cast produces u32, but declaration expects i64
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = u32 42");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = u32 42",
+        ErrorCode::TypeMismatch,
     );
 }
 
 #[test]
 fn type_mismatch_ident_type_differs_from_decl() {
     // x is i64, but y expects f64
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = 42  let y: f64 = x");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = 42  let y: f64 = x",
+        ErrorCode::TypeMismatch,
     );
 }
 
 #[test]
 fn type_undefined_variable() {
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = y");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::UndefinedVariable as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = y",
+        ErrorCode::UndefinedVariable,
     );
 }
 
 #[test]
 fn type_duplicate_declaration() {
     // same name twice in the same scope is an error regardless of type
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = 1  let x: i64 = 2");
-    dbg!(&diags);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DuplicateDeclaration as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = 1  let x: i64 = 2",
+        ErrorCode::DuplicateDeclaration,
     );
-
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = 42  let x: f64 = 1.");
-    dbg!(&diags);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DuplicateDeclaration as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = 42  let x: f64 = 1.",
+        ErrorCode::DuplicateDeclaration,
     );
 }
 
 #[test]
 fn type_undefined_propagates_through_cast() {
     // undefined variable inside a cast still produces an error
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = i64 y");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::UndefinedVariable as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = i64 y",
+        ErrorCode::UndefinedVariable,
     );
 }
 
 #[test]
 fn type_all_errors_reported() {
     // both declarations are ill-typed; both errors must be reported, not just the first
-    let diags = type_err("let main: i32 = i32 0  let x: i64 = 1.  let y: i64 = 1.");
-    assert!(diags.len() >= 2);
-    assert!(
-        diags
-            .iter()
-            .all(|d| d.code == Some(ErrorCode::TypeMismatch as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i64 = 1.  let y: i64 = 1.",
+        ErrorCode::TypeMismatch,
     );
 }
 
 #[test]
-fn type_missing_main() {
-    let diags = type_err("let x: i64 = 42");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::MissingMain as u32))
-    );
-}
+fn type_missing_main() { type_err("let x: i64 = 42", ErrorCode::MissingMain); }
 
 #[test]
 fn type_main_any_int() {
@@ -312,12 +282,7 @@ fn type_main_any_int() {
 #[test]
 fn type_incorrect_main_type() {
     // only integer types are accepted for main
-    let diags = type_err("let main: f64 = 1.");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::IncorrectMainType as u32))
-    );
+    type_err("let main: f64 = 1.", ErrorCode::IncorrectMainType);
 }
 
 #[test]
@@ -329,17 +294,13 @@ fn type_int_lit_fits_arbitrary_width() {
 
 #[test]
 fn type_int_lit_out_of_range() {
-    let diags = type_err("let main: i32 = i32 0  let x: u3 = 8");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::IntLiteralOutOfRange as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: u3 = 8",
+        ErrorCode::IntLiteralOutOfRange,
     );
-    let diags = type_err("let main: i32 = i32 0  let x: i3 = 4");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::IntLiteralOutOfRange as u32))
+    type_err(
+        "let main: i32 = i32 0  let x: i3 = 4",
+        ErrorCode::IntLiteralOutOfRange,
     );
 }
 

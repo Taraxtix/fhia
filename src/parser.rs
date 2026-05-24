@@ -6,16 +6,19 @@ use std::collections::VecDeque;
 
 use combinator::ParsedItem;
 use expr::{DeclKind, Expr};
-use lexparse::{Parser, ParserItem};
-use logos::Logos;
+use lexparse::{Parser as _, ParserItem};
 
 use crate::{
     ParsingError,
     Spanned,
-    diagnostics::{self, Diagnostic, ErrorCode, Reportable},
     lexer::Token,
     parser::expr::Ty,
-    typer::TypedOutput,
+    program::{
+        Lexer,
+        Parsed,
+        Program,
+        diagnostics::{Diagnostic, ErrorCode, Reportable},
+    },
 };
 
 type ParserOutput<'a, T> = Result<T, Vec<ParsingError>>;
@@ -242,62 +245,36 @@ fn parse_program<'a>(
     if errors.is_empty() { Ok(exprs) } else { Err(errors) }
 }
 
-#[derive(Debug)]
-pub struct ParseOutput<'a> {
-    pub exprs:       Vec<Spanned<Expr<'a>>>,
-    pub diagnostics: Vec<diagnostics::Diagnostic>,
-}
+pub type Parser<'src> = Vec<Spanned<Expr<'src>>>;
 
-impl<'a> ParseOutput<'a> {
-    #[must_use]
-    pub fn type_check(self) -> TypedOutput<'a> { TypedOutput::type_check(self.exprs) }
-}
+impl<'src> Program<'src, Lexer<'src>> {
+    pub fn parse(self) -> Program<'src, Parsed<'src>> {
+        let mut diagnostics = Vec::new();
 
-impl Reportable for ParseOutput<'_> {
-    fn diagnostics(&self) -> &[Diagnostic] { self.diagnostics.as_slice() }
-}
-
-/// # Panics
-/// - Panics if there is an error while opening or writing to the parser.svg file
-pub fn parse(source: &str) -> ParseOutput<'_> {
-    let mut diagnostics = Vec::new();
-    let mut tokens = Vec::new();
-    for (tok, span) in Token::lexer(source).spanned().map(|(tok, span)| match tok
-    {
-        Ok(tok) => (tok, span),
-        Err(()) => (Token::Error, span),
-    })
-    {
-        if tok == Token::Error
+        let exprs = match parse_program(&mut VecDeque::from(self.state))
         {
-            diagnostics.push(
-                diagnostics::Diagnostic::error(ErrorCode::InvalidToken)
-                    .with_main_label(span, "Invalid token"),
-            );
-        }
-        else
-        {
-            tokens.push(Spanned(tok, span));
-        }
-    }
-
-    if !diagnostics.is_empty()
-    {
-        return ParseOutput {
-            exprs: Vec::new(),
-            diagnostics,
+            Ok(exprs) => exprs,
+            Err(diags) =>
+            {
+                diagnostics.extend(diags);
+                Vec::new()
+            },
         };
-    }
 
-    match parse_program(&mut VecDeque::from(tokens))
-    {
-        Ok(exprs) => ParseOutput {
-            exprs,
-            diagnostics: Vec::new(),
-        },
-        Err(diagnostics) => ParseOutput {
-            exprs: Vec::new(),
-            diagnostics,
-        },
+        if self.args.parser
+        {
+            println!("-------------------------------------------------");
+            for expr in &exprs
+            {
+                println!("{}", expr.0);
+            }
+        }
+
+        diagnostics.report(self.source, &self.args.input);
+        Program {
+            args:   self.args,
+            source: self.source,
+            state:  exprs,
+        }
     }
 }

@@ -3,21 +3,21 @@
 use std::{fs::read_to_string, ops::Range};
 
 mod codegen;
-mod diagnostics;
+mod const_eval;
 mod lexer;
 mod parser;
+mod program;
 #[cfg(test)]
 mod tests;
 mod topo_order;
 mod typer;
 
 use clap::Parser as clapParser;
-use diagnostics::Reportable;
 
-use crate::diagnostics::Diagnostic;
+use crate::program::{Program, diagnostics::Diagnostic};
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(clapParser)]
+#[derive(clapParser, Default)]
 struct Args {
     /// Input file to compile
     // TODO: Replace with when at a usable state #[arg(required = true)]
@@ -61,25 +61,9 @@ fn main() {
         std::process::exit(1);
     });
 
-    let parser_output = parser::parse(&input);
-    parser_output.report(&input, &args.input);
-    if args.parser
-    {
-        println!("-------------------------------------------------");
-        for expr in &parser_output.exprs
-        {
-            println!("{}", expr.0);
-        }
-    }
-    let typed_output = parser_output.type_check();
-    typed_output.report(&input, &args.input);
-    if args.typer
-    {
-        println!("-------------------------------------------------");
-        for expr in &typed_output.exprs
-        {
-            println!("{}", expr.0);
-        }
-    }
-    typed_output.compile(&args);
+    Program::lex(args, &input)
+        .parse()
+        .type_check()
+        .const_eval()
+        .compile();
 }

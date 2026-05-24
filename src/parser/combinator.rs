@@ -4,9 +4,9 @@ use lexparse::{Parser, ParserItem};
 
 use crate::{
     Spanned,
-    diagnostics::Diagnostic,
     lexer::Token,
     parser::expr::{Expr, Ty},
+    program::diagnostics::Diagnostic,
 };
 
 #[derive(Debug, Clone)]
@@ -114,7 +114,7 @@ impl<'a> ParsedItem<'a> {
                 }
             },
             Self::Seq(..) => unreachable!(),
-        })
+        });
     }
 
     pub(super) fn ignore_then(

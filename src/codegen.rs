@@ -30,8 +30,9 @@ use crate::{
     Args,
     Spanned,
     parser::expr::{Expr, Ty},
+    program::Program,
     topo_order::topo_order,
-    typer::TypedOutput,
+    typer::Typer,
 };
 
 struct Codegen<'ctx, 'src> {
@@ -43,10 +44,10 @@ struct Codegen<'ctx, 'src> {
     vars:        HashMap<&'src str, (PointerValue<'ctx>, AnyTypeEnum<'ctx>)>,
 }
 
-impl TypedOutput<'_> {
-    pub fn compile(self, args: &Args) {
+impl<'src> Program<'src, Typer<'src>> {
+    pub fn compile(self) {
         let context = Context::create();
-        Codegen::new(&context).compile(self.exprs, args);
+        Codegen::new(&context).compile(self.state.exprs, &self.args);
     }
 }
 

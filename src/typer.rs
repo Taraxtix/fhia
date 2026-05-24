@@ -1,95 +1,54 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    num::NonZero,
-};
+use std::{collections::VecDeque, num::NonZero};
 
 use crate::{
     Spanned,
-    diagnostics::{Diagnostic, ErrorCode, Reportable, Severity},
-    parser::expr::{ConstValue, DeclKind, Expr, Ty},
-    topo_order::topo_order,
+    parser::{
+        Parser,
+        expr::{Expr, Ty},
+    },
+    program::{
+        Program,
+        diagnostics::{Diagnostic, ErrorCode, Reportable},
+        env::Env,
+    },
 };
 
-struct Scope<'src> {
-    types:  HashMap<&'src str, Ty>,
-    consts: HashMap<&'src str, ConstValue>,
+pub struct Typer<'src> {
+    pub exprs: VecDeque<Spanned<Expr<'src>>>,
+    pub env:   Env<'src>,
 }
 
-impl Scope<'_> {
-    fn new() -> Self {
-        Self {
-            types:  HashMap::new(),
-            consts: HashMap::new(),
+impl<'src> Program<'src, Parser<'src>> {
+    pub fn type_check(self) -> Program<'src, Typer<'src>> {
+        let typer = Program {
+            args:   self.args,
+            source: self.source,
+            state:  Typer {
+                exprs: VecDeque::from(self.state),
+                env:   Env::new(),
+            },
         }
-    }
-}
-
-pub struct Env<'src> {
-    scopes: Vec<Scope<'src>>,
-}
-
-impl<'src> Env<'src> {
-    fn new() -> Self {
-        Self {
-            scopes: vec![Scope::new()],
+        .prepopulate_decls()
+        .type_check();
+        if typer.args.typer
+        {
+            println!("-------------------------------------------------");
+            for expr in &typer.state.exprs
+            {
+                println!("{}", expr.0);
+            }
         }
-    }
-
-    fn lookup(&self, name: &str) -> Option<Ty> {
-        self.scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.types.get(name).copied())
-    }
-
-    fn _lookup_const(&self, name: &str) -> Option<&ConstValue> {
-        self.scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.consts.get(name))
-    }
-
-    fn declare(&mut self, name: &'src str, ty: Ty) {
-        self.scopes.last_mut().unwrap().types.insert(name, ty);
-    }
-
-    fn declare_const(&mut self, name: &'src str, val: ConstValue) {
-        self.scopes.last_mut().unwrap().consts.insert(name, val);
-    }
-
-    fn is_in_current_scope(&self, name: &str) -> bool {
-        self.scopes
-            .last()
-            .is_some_and(|scope| scope.types.contains_key(name))
-    }
-
-    pub fn push_scope(&mut self) { self.scopes.push(Scope::new()); }
-
-    /// # Panics
-    /// - Panics if you attempt to pop the root scope
-    pub fn pop_scope(&mut self) {
-        assert!(self.scopes.len() > 1, "attempted to pop the root scope");
-        self.scopes.pop();
+        typer
     }
 }
 
-pub struct TypedOutput<'a> {
-    pub exprs:       VecDeque<Spanned<Expr<'a>>>,
-    pub diagnostics: Vec<Diagnostic>,
-}
+impl<'src> Program<'src, Typer<'src>> {
+    fn prepopulate_decls(mut self) -> Self {
+        let mut diagnostics = Vec::new();
 
-impl Reportable for TypedOutput<'_> {
-    fn diagnostics(&self) -> &[Diagnostic] { self.diagnostics.as_slice() }
-}
-
-impl<'a> TypedOutput<'a> {
-    #[must_use]
-    pub fn type_check(exprs: Vec<Spanned<Expr<'a>>>) -> Self {
-        let mut diagnostics: Vec<Diagnostic> = Vec::new();
-        let mut env = Env::new();
-
-        // Pass 1: pre-populate all declarations so every RHS sees the full scope
-        for expr in &exprs
+        let exprs = &self.state.exprs;
+        let env = &mut self.state.env;
+        for expr in exprs
         {
             if let Spanned(Expr::Declaration { name, ty, .. }, span) = expr
             {
@@ -123,59 +82,38 @@ impl<'a> TypedOutput<'a> {
             }
         }
 
-        env.lookup("main").or_else(|| {
+        if env.lookup("main").is_none()
+        {
             diagnostics.push(Diagnostic::error(ErrorCode::MissingMain));
-            None
-        });
+        }
 
-        // Pass 2: type-check each RHS with the fully-populated scope
+        diagnostics.report(self.source, &self.args.input);
+        self
+    }
+
+    fn type_check(mut self) -> Self {
+        let mut diagnostics = Vec::new();
+
+        let exprs = self.state.exprs;
+        let env = &mut self.state.env;
         let exprs = exprs
             .into_iter()
             .map(|s_expr| {
-                let (expr, diags) = s_expr.type_check(&mut env);
+                let (expr, diags) = s_expr.type_check(env);
                 diagnostics.extend(diags);
                 expr
             })
             .collect::<VecDeque<_>>();
 
-        // If there is an error passed this stage, we should not go further
-        if diagnostics.iter().any(|d| d.severity == Severity::Error)
-        {
-            return Self { exprs, diagnostics };
-        }
-
-        // Pass 3: const-evaluate declarations in dependency order so that forward
-        // references like `const x = y; const y = 5;` resolve correctly.
-        match topo_order(exprs.clone())
-        {
-            Ok((order, decl_map)) =>
-            {
-                for name in order
-                {
-                    let Spanned(Expr::Declaration { kind, expr, .. }, _) = decl_map
-                        .get(name)
-                        .expect("topo_order should not provide non-existant name")
-                    else
-                    {
-                        continue;
-                    };
-                    let Spanned(rhs, _) = expr.as_ref();
-                    match rhs.const_value()
-                    {
-                        Some(val) => env.declare_const(name, val),
-                        None if matches!(kind, DeclKind::Const) =>
-                        {
-                            // TODO: emit NotConstExpr error
-                        },
-                        None =>
-                        {},
-                    }
-                }
+        diagnostics.report(self.source, &self.args.input);
+        Self {
+            args:   self.args,
+            source: self.source,
+            state:  Typer {
+                exprs,
+                env: self.state.env,
             },
-            Err(diag) => diagnostics.push(diag),
         }
-
-        Self { exprs, diagnostics }
     }
 }
 

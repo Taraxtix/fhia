@@ -1,10 +1,19 @@
 use std::fmt::Display;
 
-use logos::{Lexer, Logos};
+use logos::{Lexer as LogosLexer, Logos};
 
-use crate::parser::expr::Ty;
+use crate::{
+    Args,
+    Spanned,
+    parser::expr::Ty,
+    program::{
+        Lexer,
+        Program,
+        diagnostics::{Diagnostic, ErrorCode, Reportable},
+    },
+};
 
-fn to_u128<'a>(lex: &Lexer<'a, Token<'a>>) -> u128 {
+fn to_u128<'a>(lex: &LogosLexer<'a, Token<'a>>) -> u128 {
     let s = lex.slice();
     if s.len() >= 3
     {
@@ -22,11 +31,11 @@ fn to_u128<'a>(lex: &Lexer<'a, Token<'a>>) -> u128 {
     }
 }
 
-fn to_f64<'a>(lex: &Lexer<'a, Token<'a>>) -> f64 {
+fn to_f64<'a>(lex: &LogosLexer<'a, Token<'a>>) -> f64 {
     lex.slice().parse().expect("Invalid float regex")
 }
 
-fn to_ty<'a>(lex: &Lexer<'a, Token<'a>>) -> Option<Ty> { lex.slice().try_into().ok() }
+fn to_ty<'a>(lex: &LogosLexer<'a, Token<'a>>) -> Option<Ty> { lex.slice().try_into().ok() }
 
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip(r"(\s+)|//[^\n]*", allow_greedy = true))]
@@ -83,6 +92,38 @@ impl Display for Token<'_> {
             Self::Colon => f.write_str(":"),
             Self::Const => f.write_str("const"),
             Self::Mut => f.write_str("mut"),
+        }
+    }
+}
+
+impl<'src> Program<'src, Lexer<'src>> {
+    pub fn lex(args: Args, source: &'src str) -> Self {
+        let mut diagnostics = Vec::new();
+        let mut tokens = Vec::new();
+        for (tok, span) in Token::lexer(source).spanned().map(|(tok, span)| match tok
+        {
+            Ok(tok) => (tok, span),
+            Err(()) => (Token::Error, span),
+        })
+        {
+            if tok == Token::Error
+            {
+                diagnostics.push(
+                    Diagnostic::error(ErrorCode::InvalidToken)
+                        .with_main_label(span, "Invalid token"),
+                );
+            }
+            else
+            {
+                tokens.push(Spanned(tok, span));
+            }
+        }
+
+        diagnostics.report(source, &args.input);
+        Self {
+            args,
+            source,
+            state: tokens,
         }
     }
 }

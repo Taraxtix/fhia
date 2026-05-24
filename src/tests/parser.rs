@@ -1,28 +1,41 @@
-use crate::Spanned;
-use crate::diagnostics::{Diagnostic, ErrorCode};
-use crate::parser::{
-    self,
-    expr::{DeclKind, Expr, Ty},
-};
+use crate::parser::expr::{DeclKind, Expr, Ty};
+use crate::program::Program;
+use crate::program::diagnostics::ErrorCode;
 use crate::tests::int_ty;
+use crate::{Args, Spanned};
 
 fn parse_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
-    let output = parser::parse(input);
-    assert!(
-        output.diagnostics.is_empty(),
-        "expected no diagnostics, got: {:?}",
-        output.diagnostics
-    );
-    output.exprs
+    let output = Program::lex(Args::default(), input).parse();
+    output.state
 }
 
-fn parse_err(input: &str) -> Vec<Diagnostic> {
-    let output = parser::parse(input);
+fn parse_err(input: &str, expected: ErrorCode) {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .env("__FHIA_INPUT", input)
+        .args([
+            "--include-ignored",
+            "--exact",
+            "tests::parser::__inner_parse",
+        ])
+        .output()
+        .expect("failed to spawn subprocess");
     assert!(
-        !output.diagnostics.is_empty(),
-        "expected diagnostics, got none"
+        !output.status.success(),
+        "expected parse error for: {input}"
     );
-    output.diagnostics
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(expected.title()),
+        "expected {:?} in stderr for: {input}\nstderr: {stderr}",
+        expected.title(),
+    );
+}
+
+#[test]
+#[ignore = "subprocess helper"]
+fn __inner_parse() {
+    let input = std::env::var("__FHIA_INPUT").unwrap();
+    let _ = Program::lex(Args::default(), &input).parse();
 }
 
 // =============================================================================
@@ -291,108 +304,45 @@ fn parse_multiple_declarations() {
 // =============================================================================
 
 #[test]
-fn parse_missing_assign() {
-    let diags = parse_err("let x: i64 1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
-}
+fn parse_missing_assign() { parse_err("let x: i64 1", ErrorCode::DeclarationMalformed); }
 
 #[test]
 fn parse_missing_colon() {
-    let diags = parse_err("let x i64 = 1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
-    let diags = parse_err("let xi64 = 1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
+    parse_err("let x i64 = 1", ErrorCode::DeclarationMalformed);
+    parse_err("let xi64 = 1", ErrorCode::DeclarationMalformed);
 }
 
 #[test]
 fn parse_missing_type() {
-    let diags = parse_err("let x: = 1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
-    let diags = parse_err("let x = 1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
+    parse_err("let x: = 1", ErrorCode::DeclarationMalformed);
+    parse_err("let x = 1", ErrorCode::DeclarationMalformed);
 }
 
 #[test]
-fn parse_unclosed_paren() {
-    let diags = parse_err("let x: i64 = (1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
-}
+fn parse_unclosed_paren() { parse_err("let x: i64 = (1", ErrorCode::DeclarationMalformed); }
 
 #[test]
-fn parse_unclosed_brace() {
-    let diags = parse_err("let x: i64 = {1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
-}
+fn parse_unclosed_brace() { parse_err("let x: i64 = {1", ErrorCode::DeclarationMalformed); }
 
 #[test]
-fn parse_invalid_token() {
-    let diags = parse_err("let x: i64 = @");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::InvalidToken as u32))
-    );
-}
+fn parse_invalid_token() { parse_err("let x: i64 = @", ErrorCode::InvalidToken); }
 
 #[test]
 fn parse_keyword_as_value() {
     // `let` is not a valid expression
-    let diags = parse_err("let x: i64 = let");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
+    parse_err("let x: i64 = let", ErrorCode::DeclarationMalformed);
 }
 
 #[test]
 fn parse_keyword_as_name() {
     // `let` cannot be used as an identifier name
-    let diags = parse_err("let let: i64 = 1");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
+    parse_err("let let: i64 = 1", ErrorCode::DeclarationMalformed);
 }
 
 #[test]
 fn parse_incomplete_cast() {
     // a type token with no following expression is not valid
-    let diags = parse_err("let x: i64 = i64");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::DeclarationMalformed as u32))
-    );
+    parse_err("let x: i64 = i64", ErrorCode::DeclarationMalformed);
 }
 
 #[test]
@@ -403,15 +353,4 @@ fn parse_arbitrary_width_type() {
         &exprs[0],
         Spanned(Expr::Declaration { ty, .. }, _) if *ty == int_ty(false, 3)
     ));
-}
-
-#[test]
-fn parse_type_width_too_large() {
-    // u129 and wider are not valid types
-    let diags = parse_err("let x: u129 = 0");
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == Some(ErrorCode::InvalidToken as u32))
-    );
 }

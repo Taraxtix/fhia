@@ -1,6 +1,10 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{Spanned, diagnostics::Diagnostic, parser::expr::Expr};
+use crate::{
+    Spanned,
+    parser::expr::Expr,
+    program::diagnostics::{Diagnostic, ErrorCode},
+};
 
 type DepMap<'src> = HashMap<&'src str, Vec<&'src str>>;
 type DeclMap<'src> = HashMap<&'src str, Spanned<Expr<'src>>>;
@@ -29,7 +33,7 @@ fn maps(exprs: VecDeque<Spanned<Expr<'_>>>) -> (DepMap<'_>, DeclMap<'_>) {
 
 pub fn topo_order(
     exprs: VecDeque<Spanned<Expr<'_>>>,
-) -> Result<(Vec<&'_ str>, DeclMap<'_>), Diagnostic> {
+) -> Result<(Vec<&str>, DeclMap<'_>), Diagnostic> {
     let (dep_map, decl_map) = maps(exprs);
 
     let mut in_deg: HashMap<&'_ str, usize> = dep_map.iter().map(|(&n, d)| (n, d.len())).collect();
@@ -80,8 +84,7 @@ pub fn topo_order(
             .into_iter()
             .filter_map(|(name, deg)| (deg > 0).then_some(name))
             .collect();
-        let mut diag =
-            crate::diagnostics::Diagnostic::error(crate::diagnostics::ErrorCode::CyclicDeclaration);
+        let mut diag = Diagnostic::error(ErrorCode::CyclicDeclaration);
         for name in &cycle
         {
             if let Some(Spanned(_, span)) = decl_map.get(name)

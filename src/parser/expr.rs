@@ -1,6 +1,6 @@
 use std::{fmt::Display, num::NonZero};
 
-use crate::Spanned;
+use crate::{Spanned, program::env::Env};
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {
@@ -131,10 +131,15 @@ impl<'src> Expr<'src> {
     }
 
     #[allow(clippy::match_same_arms)]
-    pub fn const_value(&self) -> Option<ConstValue> {
+    pub fn const_value<'a>(&'a self, env: &'a mut Env<'src>) -> Option<ConstValue> {
         match self
         {
-            Self::Declaration { .. } => None, // TODO: Populate const env if it is const
+            Self::Declaration { name, expr, .. } =>
+            {
+                let value = expr.as_ref().0.const_value(env)?;
+                env.declare_const(name, value);
+                Some(value)
+            },
             Self::IntLit { ty, value } => match ty
             {
                 Ty::Isize | Ty::Int { signed: true, .. } =>
@@ -151,7 +156,7 @@ impl<'src> Expr<'src> {
             },
             Self::F64(val) => Some(ConstValue::Float(*val)),
             Self::Cast(_ty, _expr) => None, // TODO: Handle cast in const expr
-            Self::Ident { .. } => None,     // TODO: Have const env with const identifier
+            Self::Ident { name, .. } => env.lookup_const(name).copied(),
         }
     }
 }
@@ -191,6 +196,7 @@ impl Display for DeclKind {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum ConstValue {
     Uint(u128),
     Int(i128),
