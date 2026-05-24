@@ -2,6 +2,7 @@ use std::num::NonZero;
 
 use crate::parser::expr::Ty;
 
+mod const_eval;
 mod lexer;
 mod parser;
 mod typer;

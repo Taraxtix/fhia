@@ -123,7 +123,7 @@ impl<'src> Expr<'src> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConstValue {
     Uint(u128),
     Int(i128),
@@ -132,7 +132,7 @@ pub enum ConstValue {
 
 impl ConstValue {
     #[allow(clippy::similar_names)]
-    fn cast_to(self, from: Ty, to: Ty) -> Self {
+    pub(crate) fn cast_to(self, from: Ty, to: Ty) -> Self {
         match from
         {
             Ty::Usize | Ty::Isize =>

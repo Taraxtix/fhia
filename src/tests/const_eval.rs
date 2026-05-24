@@ -1,0 +1,371 @@
+use crate::tests::int_ty;
+use crate::{
+    Args,
+    const_eval::ConstValue,
+    parser::expr::Ty,
+    program::{Program, diagnostics::ErrorCode},
+};
+
+fn eval_const(input: &str, name: &str) -> Option<ConstValue> {
+    let program = Program::lex(Args::default(), input)
+        .parse()
+        .type_check()
+        .const_eval();
+    program.state.env.lookup_const(name).copied()
+}
+
+fn const_err(input: &str, expected: ErrorCode) {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .env("__FHIA_INPUT", input)
+        .args([
+            "--include-ignored",
+            "--exact",
+            "tests::const_eval::__inner_const_eval",
+        ])
+        .output()
+        .expect("failed to spawn subprocess");
+    assert!(
+        !output.status.success(),
+        "expected const eval error for: {input}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(expected.title()),
+        "expected {:?} in stderr for: {input}\nstderr: {stderr}",
+        expected.title(),
+    );
+}
+
+#[test]
+#[ignore = "subprocess helper"]
+fn __inner_const_eval() {
+    let input = std::env::var("__FHIA_INPUT").unwrap();
+    let _ = Program::lex(Args::default(), &input)
+        .parse()
+        .type_check()
+        .const_eval();
+}
+
+// =============================================================================
+// cast_to unit tests — Int source
+// =============================================================================
+
+#[test]
+fn cast_int_to_signed_no_wrap() {
+    assert!(matches!(
+        ConstValue::Int(42).cast_to(int_ty(true, 64), int_ty(true, 8)),
+        ConstValue::Int(42)
+    ));
+}
+
+#[test]
+fn cast_int_to_signed_narrowing_wraps_negative() {
+    // 200 = 0xC8, bit 7 set → sign-extends to -56
+    assert!(matches!(
+        ConstValue::Int(200).cast_to(int_ty(true, 64), int_ty(true, 8)),
+        ConstValue::Int(-56)
+    ));
+}
+
+#[test]
+fn cast_int_to_signed_negative_no_wrap() {
+    assert!(matches!(
+        ConstValue::Int(-1).cast_to(int_ty(true, 64), int_ty(true, 8)),
+        ConstValue::Int(-1)
+    ));
+}
+
+#[test]
+fn cast_int_to_signed_negative_wraps_positive() {
+    // lower 8 bits of -200 = 0x38 = 56, bit 7 clear
+    assert!(matches!(
+        ConstValue::Int(-200).cast_to(int_ty(true, 64), int_ty(true, 8)),
+        ConstValue::Int(56)
+    ));
+}
+
+#[test]
+fn cast_int_to_signed_widening() {
+    assert!(matches!(
+        ConstValue::Int(-1).cast_to(int_ty(true, 8), int_ty(true, 16)),
+        ConstValue::Int(-1)
+    ));
+}
+
+#[test]
+fn cast_int_to_signed_same_width() {
+    assert!(matches!(
+        ConstValue::Int(42).cast_to(int_ty(true, 64), int_ty(true, 64)),
+        ConstValue::Int(42)
+    ));
+}
+
+#[test]
+fn cast_int_to_unsigned_negative_wraps() {
+    // -1 → u8: bit pattern 0xFF = 255
+    assert!(matches!(
+        ConstValue::Int(-1).cast_to(int_ty(true, 64), int_ty(false, 8)),
+        ConstValue::Uint(255)
+    ));
+}
+
+#[test]
+fn cast_int_to_unsigned_overflow() {
+    // 300 = 0x12C, lower 8 bits = 0x2C = 44
+    assert!(matches!(
+        ConstValue::Int(300).cast_to(int_ty(true, 64), int_ty(false, 8)),
+        ConstValue::Uint(44)
+    ));
+}
+
+#[test]
+fn cast_int_to_unsigned_no_wrap() {
+    assert!(matches!(
+        ConstValue::Int(42).cast_to(int_ty(true, 64), int_ty(false, 8)),
+        ConstValue::Uint(42)
+    ));
+}
+
+#[test]
+fn cast_int_to_unsigned_full_width() {
+    // -1i128 as u128 = u128::MAX
+    assert!(matches!(
+        ConstValue::Int(-1).cast_to(int_ty(true, 128), int_ty(false, 128)),
+        ConstValue::Uint(u128::MAX)
+    ));
+}
+
+#[test]
+fn cast_int_to_float() {
+    assert!(matches!(
+        ConstValue::Int(42).cast_to(int_ty(true, 64), Ty::F64),
+        ConstValue::Float(v) if v == 42.0
+    ));
+    assert!(matches!(
+        ConstValue::Int(-1).cast_to(int_ty(true, 64), Ty::F64),
+        ConstValue::Float(v) if v == -1.0
+    ));
+}
+
+// =============================================================================
+// cast_to unit tests — Uint source
+// =============================================================================
+
+#[test]
+fn cast_uint_to_signed_wraps_negative() {
+    // 255 = 0xFF, bit 7 set → -1 as i8
+    assert!(matches!(
+        ConstValue::Uint(255).cast_to(int_ty(false, 64), int_ty(true, 8)),
+        ConstValue::Int(-1)
+    ));
+    // 200 = 0xC8, bit 7 set → -56 as i8
+    assert!(matches!(
+        ConstValue::Uint(200).cast_to(int_ty(false, 64), int_ty(true, 8)),
+        ConstValue::Int(-56)
+    ));
+}
+
+#[test]
+fn cast_uint_to_signed_no_wrap() {
+    // 127 = 0x7F, bit 7 clear → 127
+    assert!(matches!(
+        ConstValue::Uint(127).cast_to(int_ty(false, 64), int_ty(true, 8)),
+        ConstValue::Int(127)
+    ));
+}
+
+#[test]
+fn cast_uint_to_signed_full_width() {
+    // u128::MAX as i128 = -1
+    assert!(matches!(
+        ConstValue::Uint(u128::MAX).cast_to(int_ty(false, 128), int_ty(true, 128)),
+        ConstValue::Int(-1)
+    ));
+}
+
+#[test]
+fn cast_uint_to_unsigned_overflow() {
+    // 300 = 0x12C, lower 8 bits = 0x2C = 44
+    assert!(matches!(
+        ConstValue::Uint(300).cast_to(int_ty(false, 64), int_ty(false, 8)),
+        ConstValue::Uint(44)
+    ));
+}
+
+#[test]
+fn cast_uint_to_unsigned_no_wrap() {
+    assert!(matches!(
+        ConstValue::Uint(42).cast_to(int_ty(false, 64), int_ty(false, 8)),
+        ConstValue::Uint(42)
+    ));
+}
+
+#[test]
+fn cast_uint_to_unsigned_full_width_identity() {
+    assert!(matches!(
+        ConstValue::Uint(u128::MAX).cast_to(int_ty(false, 128), int_ty(false, 128)),
+        ConstValue::Uint(u128::MAX)
+    ));
+}
+
+#[test]
+fn cast_uint_to_float() {
+    assert!(matches!(
+        ConstValue::Uint(42).cast_to(int_ty(false, 64), Ty::F64),
+        ConstValue::Float(v) if v == 42.0
+    ));
+    assert!(matches!(
+        ConstValue::Uint(u128::MAX).cast_to(int_ty(false, 128), Ty::F64),
+        ConstValue::Float(v) if v == u128::MAX as f64
+    ));
+}
+
+// =============================================================================
+// cast_to unit tests — Float source
+// =============================================================================
+
+#[test]
+fn cast_float_to_signed_truncates_toward_zero() {
+    assert!(matches!(
+        ConstValue::Float(42.9).cast_to(Ty::F64, int_ty(true, 8)),
+        ConstValue::Int(42)
+    ));
+    assert!(matches!(
+        ConstValue::Float(-42.9).cast_to(Ty::F64, int_ty(true, 8)),
+        ConstValue::Int(-42)
+    ));
+}
+
+#[test]
+fn cast_float_to_signed_wraps() {
+    // 200.0 → i128 = 200, 200 = 0xC8 bit 7 set → -56
+    assert!(matches!(
+        ConstValue::Float(200.0).cast_to(Ty::F64, int_ty(true, 8)),
+        ConstValue::Int(-56)
+    ));
+    // -200.0 → i128 = -200, lower 8 bits = 0x38 = 56, bit 7 clear
+    assert!(matches!(
+        ConstValue::Float(-200.0).cast_to(Ty::F64, int_ty(true, 8)),
+        ConstValue::Int(56)
+    ));
+}
+
+#[test]
+fn cast_float_to_unsigned_positive() {
+    // truncates toward zero
+    assert!(matches!(
+        ConstValue::Float(42.9).cast_to(Ty::F64, int_ty(false, 8)),
+        ConstValue::Uint(42)
+    ));
+}
+
+#[test]
+fn cast_float_to_unsigned_negative_via_signed_intermediate() {
+    // -1.0 → i128 = -1 → u128::MAX → lower 8 bits = 255
+    assert!(matches!(
+        ConstValue::Float(-1.0).cast_to(Ty::F64, int_ty(false, 8)),
+        ConstValue::Uint(255)
+    ));
+}
+
+#[test]
+fn cast_float_to_unsigned_overflow() {
+    // 300.0 → i128 = 300 → lower 8 bits = 44
+    assert!(matches!(
+        ConstValue::Float(300.0).cast_to(Ty::F64, int_ty(false, 8)),
+        ConstValue::Uint(44)
+    ));
+}
+
+#[test]
+fn cast_float_to_float_identity() {
+    assert!(matches!(
+        ConstValue::Float(3.14).cast_to(Ty::F64, Ty::F64),
+        ConstValue::Float(v) if v == 3.14
+    ));
+    assert!(matches!(
+        ConstValue::Float(3.14).cast_to(Ty::F32, Ty::F32),
+        ConstValue::Float(v) if v == 3.14
+    ));
+}
+
+// =============================================================================
+// Pipeline success cases
+// =============================================================================
+
+#[test]
+fn const_eval_int_literal() {
+    assert_eq!(
+        eval_const("let main: i32 = i32 0  const x: i64 = 42", "x"),
+        Some(ConstValue::Int(42))
+    );
+}
+
+#[test]
+fn const_eval_let_also_evaluable() {
+    // `let` declarations are const-evaluated too, not only `const`
+    assert_eq!(
+        eval_const("let main: i32 = i32 0  let x: i64 = 42", "x"),
+        Some(ConstValue::Int(42))
+    );
+}
+
+#[test]
+fn const_eval_unsigned_literal() {
+    assert_eq!(
+        eval_const("let main: i32 = i32 0  const x: u64 = 42", "x"),
+        Some(ConstValue::Uint(42))
+    );
+}
+
+#[test]
+fn const_eval_float_literal() {
+    assert_eq!(
+        eval_const("let main: i32 = i32 0  const x: f64 = 1.", "x"),
+        Some(ConstValue::Float(1.0))
+    );
+}
+
+#[test]
+fn const_eval_cast_wraps() {
+    // i8 200 truncates to -56 at const-eval time
+    assert_eq!(
+        eval_const("let main: i32 = i32 0  const x: i8 = i8 200", "x"),
+        Some(ConstValue::Int(-56))
+    );
+}
+
+#[test]
+fn const_eval_ident_reference() {
+    assert_eq!(
+        eval_const(
+            "let main: i32 = i32 0  const y: i64 = 42  const x: i64 = y",
+            "x"
+        ),
+        Some(ConstValue::Int(42))
+    );
+}
+
+#[test]
+fn const_eval_forward_reference() {
+    // x is declared before y but depends on it — topo sort handles this
+    assert_eq!(
+        eval_const(
+            "let main: i32 = i32 0  const x: i64 = y  const y: i64 = 42",
+            "x"
+        ),
+        Some(ConstValue::Int(42))
+    );
+}
+
+// =============================================================================
+// Pipeline failure cases
+// =============================================================================
+
+#[test]
+fn const_eval_cyclic_declaration() {
+    const_err(
+        "let main: i32 = i32 0  let x: i64 = y  let y: i64 = x",
+        ErrorCode::CyclicDeclaration,
+    );
+}
