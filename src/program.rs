@@ -1,3 +1,5 @@
+use inkwell::targets::TargetMachine;
+
 use crate::Args;
 
 pub mod diagnostics;
@@ -6,9 +8,10 @@ pub mod env;
 use crate::{Spanned, parser::expr::Expr};
 
 pub struct Program<'src, State> {
-    pub args:   Args,
-    pub source: &'src str,
-    pub state:  State,
+    pub args:           Args,
+    pub target_machine: TargetMachine,
+    pub source:         &'src str,
+    pub state:          State,
 }
 
 pub type Lexer<'src> = Vec<Spanned<crate::lexer::Token<'src>>>;

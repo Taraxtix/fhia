@@ -1,11 +1,11 @@
 use crate::parser::expr::{DeclKind, Expr, Ty};
 use crate::program::Program;
 use crate::program::diagnostics::ErrorCode;
-use crate::tests::int_ty;
+use crate::tests::{get_default_target_machine, int_ty};
 use crate::{Args, Spanned};
 
 fn parse_ok(input: &str) -> Vec<Spanned<Expr<'_>>> {
-    let output = Program::lex(Args::default(), input).parse();
+    let output = Program::lex(Args::default(), get_default_target_machine(), input).parse();
     output.state
 }
 
@@ -35,7 +35,7 @@ fn parse_err(input: &str, expected: ErrorCode) {
 #[ignore = "subprocess helper"]
 fn __inner_parse() {
     let input = std::env::var("__FHIA_INPUT").unwrap();
-    let _ = Program::lex(Args::default(), &input).parse();
+    let _ = Program::lex(Args::default(), get_default_target_machine(), &input).parse();
 }
 
 // =============================================================================

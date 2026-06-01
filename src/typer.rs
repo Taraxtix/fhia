@@ -21,9 +21,10 @@ pub struct Typer<'src> {
 impl<'src> Program<'src, Parser<'src>> {
     pub fn type_check(self) -> Program<'src, Typer<'src>> {
         let typer = Program {
-            args:   self.args,
-            source: self.source,
-            state:  Typer {
+            args:           self.args,
+            target_machine: self.target_machine,
+            source:         self.source,
+            state:          Typer {
                 exprs: VecDeque::from(self.state),
                 env:   Env::new(),
             },
@@ -107,9 +108,10 @@ impl<'src> Program<'src, Typer<'src>> {
 
         diagnostics.report(self.source, &self.args.input);
         Self {
-            args:   self.args,
-            source: self.source,
-            state:  Typer {
+            args:           self.args,
+            target_machine: self.target_machine,
+            source:         self.source,
+            state:          Typer {
                 exprs,
                 env: self.state.env,
             },

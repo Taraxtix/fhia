@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use inkwell::targets::TargetMachine;
 use logos::{Lexer as LogosLexer, Logos};
 
 use crate::{
@@ -97,7 +98,7 @@ impl Display for Token<'_> {
 }
 
 impl<'src> Program<'src, Lexer<'src>> {
-    pub fn lex(args: Args, source: &'src str) -> Self {
+    pub fn lex(args: Args, target_machine: TargetMachine, source: &'src str) -> Self {
         let mut diagnostics = Vec::new();
         let mut tokens = Vec::new();
         for (tok, span) in Token::lexer(source).spanned().map(|(tok, span)| match tok
@@ -122,6 +123,7 @@ impl<'src> Program<'src, Lexer<'src>> {
         diagnostics.report(source, &args.input);
         Self {
             args,
+            target_machine,
             source,
             state: tokens,
         }

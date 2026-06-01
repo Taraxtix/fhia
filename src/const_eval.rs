@@ -1,4 +1,4 @@
-use std::range::Range;
+use std::{num::NonZero, range::Range};
 
 use crate::{
     Spanned,
@@ -38,8 +38,14 @@ impl<'src> Program<'src, Typer<'src>> {
                 unreachable!()
             };
 
+            let ptr_size = (self
+                .target_machine
+                .get_target_data()
+                .get_pointer_byte_size(None)
+                * 8) as usize;
+
             if expr
-                .const_value(span, env, *kind, &mut diagnostics)
+                .const_value(span, env, *kind, &mut diagnostics, ptr_size)
                 .is_some()
             {
                 println!("Declaration of {name} is const (Should be inlined)");
@@ -49,9 +55,10 @@ impl<'src> Program<'src, Typer<'src>> {
         diagnostics.report(self.source, &self.args.input);
 
         Self {
-            args:   self.args,
-            source: self.source,
-            state:  Typer {
+            args:           self.args,
+            source:         self.source,
+            target_machine: self.target_machine,
+            state:          Typer {
                 exprs,
                 env: self.state.env,
             },
@@ -60,12 +67,14 @@ impl<'src> Program<'src, Typer<'src>> {
 }
 
 impl<'src> Expr<'src> {
+    #[expect(clippy::only_used_in_recursion, reason = "Used for [iu]size")]
     pub fn const_value<'a>(
         &'a self,
         span: &Range<usize>,
         env: &'a mut Env<'src>,
         kind: DeclKind,
         diagnostics: &mut Vec<Diagnostic>,
+        ptr_size: usize,
     ) -> Option<ConstValue> {
         fn handle_error(
             span: Range<usize>,
@@ -87,7 +96,7 @@ impl<'src> Expr<'src> {
             Self::Declaration { name, expr, .. } =>
             {
                 let Spanned(expr, span) = expr.as_ref();
-                let value = expr.const_value(span, env, kind, diagnostics)?;
+                let value = expr.const_value(span, env, kind, diagnostics, ptr_size)?;
                 env.declare_const(name, value);
                 Some(value)
             },
@@ -110,9 +119,9 @@ impl<'src> Expr<'src> {
             {
                 let Spanned(expr, span) = s_expr.as_ref();
                 Some(
-                    expr.const_value(span, env, kind, diagnostics)
+                    expr.const_value(span, env, kind, diagnostics, ptr_size)
                         .or_else(|| handle_error(*span, kind, diagnostics))?
-                        .cast_to(s_expr.ty(), *ty),
+                        .cast_to(s_expr.ty(), *ty, 64),
                 )
             },
             Self::Ident { name, .. } => env
@@ -131,14 +140,22 @@ pub enum ConstValue {
 }
 
 impl ConstValue {
-    #[allow(clippy::similar_names)]
-    pub(crate) fn cast_to(self, from: Ty, to: Ty) -> Self {
+    #[expect(
+        clippy::similar_names,
+        reason = "Yes i128 is similar to u128. What else would you name them?"
+    )]
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss,
+        reason = "This is intentional. We want to allow all possible casts, even if they may \
+                  cause truncation, wrapping, sign loss, or precision loss. The behavior of these \
+                  casts should be the same as in Rust."
+    )]
+    pub(crate) fn cast_to(self, from: Ty, to: Ty, ptr_size: usize) -> Self {
         match from
         {
-            Ty::Usize | Ty::Isize =>
-            {
-                todo!("const Cast from [IU]size not implemented yet (Require to know ptr_size)")
-            },
             Ty::Unit | Ty::Unknown | Ty::IntLit =>
             {
                 unreachable!("Should not pass type_check")
@@ -146,11 +163,6 @@ impl ConstValue {
             _ =>
             {},
         }
-        // This is painful, but this is in fact the intended behavior
-        #[allow(clippy::cast_possible_truncation)]
-        #[allow(clippy::cast_possible_wrap)]
-        #[allow(clippy::cast_sign_loss)]
-        #[allow(clippy::cast_precision_loss)]
         let (as_i128, as_u128, as_f64) = match self
         {
             Self::Int(v) => (v, v as u128, v as f64),
@@ -176,10 +188,22 @@ impl ConstValue {
                 Self::Uint((as_u128 << shift) >> shift)
             },
             Ty::F32 | Ty::F64 => Self::Float(as_f64),
-            Ty::Usize | Ty::Isize =>
-            {
-                todo!("const Cast to [IU]size not implemented yet (Require to know ptr_size)")
-            },
+            Ty::Usize => self.cast_to(
+                from,
+                Ty::Int {
+                    signed: false,
+                    width:  unsafe { NonZero::new(ptr_size as u32).unwrap_unchecked() },
+                },
+                ptr_size,
+            ),
+            Ty::Isize => self.cast_to(
+                from,
+                Ty::Int {
+                    signed: true,
+                    width:  unsafe { NonZero::new(ptr_size as u32).unwrap_unchecked() },
+                },
+                ptr_size,
+            ),
             Ty::Unit | Ty::Unknown | Ty::IntLit =>
             {
                 unreachable!("Should not pass type_check")

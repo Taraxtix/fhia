@@ -272,9 +272,10 @@ impl<'src> Program<'src, Lexer<'src>> {
 
         diagnostics.report(self.source, &self.args.input);
         Program {
-            args:   self.args,
-            source: self.source,
-            state:  exprs,
+            args:           self.args,
+            target_machine: self.target_machine,
+            source:         self.source,
+            state:          exprs,
         }
     }
 }

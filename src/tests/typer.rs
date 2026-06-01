@@ -4,11 +4,11 @@ use std::num::NonZero;
 use crate::parser::expr::{Expr, Ty};
 use crate::program::Program;
 use crate::program::diagnostics::ErrorCode;
-use crate::tests::int_ty;
+use crate::tests::{get_default_target_machine, int_ty};
 use crate::{Args, Spanned};
 
 fn type_ok(input: &str) -> VecDeque<Spanned<Expr<'_>>> {
-    let parse_output = Program::lex(Args::default(), input).parse();
+    let parse_output = Program::lex(Args::default(), get_default_target_machine(), input).parse();
     let typed_output = parse_output.type_check();
     typed_output.state.exprs
 }
@@ -36,7 +36,9 @@ fn type_err(input: &str, expected: ErrorCode) {
 #[ignore = "subprocess helper"]
 fn __inner_type_check() {
     let input = std::env::var("__FHIA_INPUT").unwrap();
-    let _ = Program::lex(Args::default(), &input).parse().type_check();
+    let _ = Program::lex(Args::default(), get_default_target_machine(), &input)
+        .parse()
+        .type_check();
 }
 
 // =============================================================================

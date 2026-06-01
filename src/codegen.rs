@@ -8,20 +8,11 @@ use std::{
 };
 
 use inkwell::{
-    OptimizationLevel,
     basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     module::Module,
-    targets::{
-        CodeModel,
-        FileType,
-        InitializationConfig,
-        RelocMode,
-        Target,
-        TargetData,
-        TargetMachine,
-    },
+    targets::{FileType, TargetData, TargetMachine},
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType},
     values::{BasicValue, BasicValueEnum, PointerValue},
 };
@@ -47,7 +38,7 @@ struct Codegen<'ctx, 'src> {
 impl<'src> Program<'src, Typer<'src>> {
     pub fn compile(self) {
         let context = Context::create();
-        Codegen::new(&context).compile(self.state.exprs, &self.args);
+        Codegen::new(&context, self.target_machine).compile(self.state.exprs, &self.args);
     }
 }
 
@@ -55,28 +46,9 @@ impl<'ctx, 'src> Codegen<'ctx, 'src>
 where
     'src: 'ctx,
 {
-    pub fn new(context: &'ctx Context) -> Self {
-        Target::initialize_all(&InitializationConfig::default());
-
+    pub fn new(context: &'ctx Context, machine: TargetMachine) -> Self {
         let module = context.create_module("main"); //TODO: Have a module system
         let builder = context.create_builder();
-
-        let triple = TargetMachine::get_default_triple();
-        let target = Target::from_triple(&triple).expect("Host target not found");
-        let cpu = TargetMachine::get_host_cpu_name();
-        let features = TargetMachine::get_host_cpu_features();
-        let machine = target
-            .create_target_machine(
-                &triple,
-                cpu.to_str().expect("Failed to transform LLVMString to str"),
-                features
-                    .to_str()
-                    .expect("Failed to transform LLVMString to str"),
-                OptimizationLevel::Default,
-                RelocMode::Default,
-                CodeModel::Default,
-            )
-            .expect("Failed to create target machine");
         let target_data = machine.get_target_data();
 
         Codegen {
