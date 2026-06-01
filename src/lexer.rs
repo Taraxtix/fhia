@@ -110,12 +110,12 @@ impl<'src> Program<'src, Lexer<'src>> {
             {
                 diagnostics.push(
                     Diagnostic::error(ErrorCode::InvalidToken)
-                        .with_main_label(span, "Invalid token"),
+                        .with_main_label(span.into(), "Invalid token"),
                 );
             }
             else
             {
-                tokens.push(Spanned(tok, span));
+                tokens.push(Spanned(tok, span.into()));
             }
         }
 

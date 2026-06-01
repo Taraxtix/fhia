@@ -136,6 +136,10 @@ fn cast_int_to_unsigned_full_width() {
 }
 
 #[test]
+#[expect(
+    clippy::float_cmp,
+    reason = "Exact comparison is intentional for testing const eval behavior"
+)]
 fn cast_int_to_float() {
     assert!(matches!(
         ConstValue::Int(42).cast_to(int_ty(true, 64), Ty::F64),
@@ -209,6 +213,15 @@ fn cast_uint_to_unsigned_full_width_identity() {
 }
 
 #[test]
+#[expect(
+    clippy::float_cmp,
+    reason = "Exact comparison is intentional for testing const eval behavior"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "Testing const eval behavior when casting large integers to float, which necessarily \
+              involves precision loss"
+)]
 fn cast_uint_to_float() {
     assert!(matches!(
         ConstValue::Uint(42).cast_to(int_ty(false, 64), Ty::F64),
@@ -278,6 +291,14 @@ fn cast_float_to_unsigned_overflow() {
 }
 
 #[test]
+#[expect(
+    clippy::float_cmp,
+    reason = "Exact comparison is intentional for testing const eval behavior"
+)]
+#[expect(
+    clippy::approx_constant,
+    reason = "Those are not intended to be precise but to be recognizable"
+)]
 fn cast_float_to_float_identity() {
     assert!(matches!(
         ConstValue::Float(3.14).cast_to(Ty::F64, Ty::F64),

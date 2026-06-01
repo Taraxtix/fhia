@@ -1,4 +1,6 @@
-use ariadne::{Color, Label as ALabel, Report, ReportKind, Source};
+use std::range::Range;
+
+use ariadne::{Color, Label as ALabel, Report, ReportBuilder, ReportKind, Source};
 
 pub trait Reportable {
     fn diagnostics(&self) -> &[Diagnostic];
@@ -77,7 +79,7 @@ pub enum LabelKind {
 
 #[derive(Clone, Debug)]
 pub struct Label {
-    pub span:    std::ops::Range<usize>,
+    pub span:    Range<usize>,
     pub message: String,
     pub kind:    LabelKind,
 }
@@ -101,11 +103,7 @@ impl Diagnostic {
     }
 
     #[must_use]
-    pub fn with_main_label(
-        mut self,
-        span: std::ops::Range<usize>,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn with_main_label(mut self, span: Range<usize>, message: impl Into<String>) -> Self {
         self.labels.push(Label {
             span,
             message: message.into(),
@@ -115,11 +113,7 @@ impl Diagnostic {
     }
 
     #[must_use]
-    pub fn with_context_label(
-        mut self,
-        span: std::ops::Range<usize>,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn with_context_label(mut self, span: Range<usize>, message: impl Into<String>) -> Self {
         self.labels.push(Label {
             span,
             message: message.into(),
@@ -136,17 +130,16 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
     let origin_span = diagnostic
         .labels
         .first()
-        .map(|l| l.span.clone())
-        .unwrap_or(0..0);
+        .map_or_else(|| Range::from(0..0), |l| l.span);
 
-    let mut report = Report::build(
+    let mut report: ReportBuilder<(_, std::ops::Range<usize>)> = Report::build(
         match diagnostic.severity
         {
             Severity::Error => ReportKind::Error,
             // Severity::Warning => ReportKind::Warning,
             // Severity::Note => ReportKind::Advice,
         },
-        (source_name, origin_span),
+        (source_name, origin_span.into()),
     )
     .with_config(ariadne::Config::new().with_index_type(ariadne::IndexType::Byte))
     .with_message(&diagnostic.message);
@@ -159,7 +152,7 @@ pub fn render(diagnostic: &Diagnostic, source: &str, source_name: &str) {
     for (order, label) in diagnostic.labels.iter().enumerate()
     {
         report = report.with_label(
-            ALabel::new((source_name, label.span.clone()))
+            ALabel::new((source_name, label.span.into()))
                 .with_message(label.message.clone())
                 .with_color(match label.kind
                 {

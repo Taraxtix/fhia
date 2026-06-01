@@ -35,7 +35,7 @@ impl<'a> ParsedItem<'a> {
         {
             Self::Token(mut consumed, Spanned(Token::ILit(n), span)) =>
             {
-                consumed.push_back(Spanned(Token::ILit(n), span.clone()));
+                consumed.push_back(Spanned(Token::ILit(n), span));
                 Some(Self::Expr(
                     consumed,
                     Spanned(
@@ -49,7 +49,7 @@ impl<'a> ParsedItem<'a> {
             },
             Self::Token(mut consumed, Spanned(Token::FLit(f), span)) =>
             {
-                consumed.push_back(Spanned(Token::FLit(f), span.clone()));
+                consumed.push_back(Spanned(Token::FLit(f), span));
                 Some(Self::Expr(consumed, Spanned(Expr::F64(f), span)))
             },
             _ => None,
@@ -248,7 +248,7 @@ macro_rules! just {
             },
             Some(Spanned(tok, span)) =>
             {
-                $input.push_front(Spanned(tok.clone(), span.clone()));
+                $input.push_front(Spanned(tok.clone(), span));
                 ParsedItem::Err(
                     VecDeque::from(vec![]),
                     Diagnostic::error($code).with_main_label(
@@ -259,7 +259,10 @@ macro_rules! just {
             },
             None => ParsedItem::Err(
                 VecDeque::from(vec![]),
-                Diagnostic::error($code).with_main_label(0..0, "Unexpected end of input"),
+                Diagnostic::error($code).with_main_label(
+                    std::range::Range::<usize>::from(0..0),
+                    "Unexpected end of input",
+                ),
             ),
         }
     };

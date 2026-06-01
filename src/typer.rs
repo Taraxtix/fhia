@@ -56,7 +56,7 @@ impl<'src> Program<'src, Typer<'src>> {
                 {
                     diagnostics.push(
                         Diagnostic::error(ErrorCode::DuplicateDeclaration)
-                            .with_main_label(span.clone(), format!("'{name}' redeclared here")),
+                            .with_main_label(*span, format!("'{name}' redeclared here")),
                     );
                 }
                 else
@@ -68,7 +68,7 @@ impl<'src> Program<'src, Typer<'src>> {
                             Ty::Int { .. } | Ty::Usize | Ty::Isize => (),
                             ty => diagnostics.push(
                                 Diagnostic::error(ErrorCode::IncorrectMainType).with_main_label(
-                                    span.clone(),
+                                    *span,
                                     format!(
                                         "expected main type to return an integer type, but \
                                          returns {ty} instead"
@@ -173,7 +173,7 @@ impl<'src> Spanned<Expr<'src>> {
             {
                 diagnostics.push(
                     Diagnostic::error(ErrorCode::UndefinedVariable)
-                        .with_main_label(span.clone(), format!("'{name}' not defined")),
+                        .with_main_label(span, format!("'{name}' not defined")),
                 );
                 Spanned(Expr::Ident { name, ty }, span)
             },
@@ -183,7 +183,7 @@ impl<'src> Spanned<Expr<'src>> {
                 {
                     diagnostics.push(
                         Diagnostic::error(ErrorCode::TypeAscriptionMismatch).with_main_label(
-                            span.clone(),
+                            span,
                             format!("ascribed as '{ty}' here but '{name}' has type '{env_ty}'"),
                         ),
                     );
@@ -225,7 +225,7 @@ impl<'src> Spanned<Expr<'src>> {
         {
             diagnostics.push(
                 Diagnostic::error(ErrorCode::InvalidCastOperand)
-                    .with_main_label(typed_expr.1.clone(), "cannot cast a `()` value"),
+                    .with_main_label(typed_expr.1, "cannot cast a `()` value"),
             );
         }
         Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
@@ -262,10 +262,8 @@ impl<'src> Spanned<Expr<'src>> {
                 if !int_lit_fits(value, ty)
                 {
                     diagnostics.push(
-                        Diagnostic::error(ErrorCode::IntLiteralOutOfRange).with_main_label(
-                            expr_span.clone(),
-                            format!("{value} does not fit in '{ty}'"),
-                        ),
+                        Diagnostic::error(ErrorCode::IntLiteralOutOfRange)
+                            .with_main_label(expr_span, format!("{value} does not fit in '{ty}'")),
                     );
                 }
                 Spanned(Expr::IntLit { ty, value }, expr_span)
@@ -277,11 +275,8 @@ impl<'src> Spanned<Expr<'src>> {
                     let expr_ty = typed_expr.ty();
                     diagnostics.push(
                         Diagnostic::error(ErrorCode::TypeMismatch)
-                            .with_main_label(
-                                typed_expr.1.clone(),
-                                format!("found '{expr_ty}' here"),
-                            )
-                            .with_context_label(span.clone(), format!("expected '{ty}'")),
+                            .with_main_label(typed_expr.1, format!("found '{expr_ty}' here"))
+                            .with_context_label(span, format!("expected '{ty}'")),
                     );
                 }
                 typed_expr

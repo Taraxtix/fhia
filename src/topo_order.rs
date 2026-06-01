@@ -89,7 +89,7 @@ pub fn topo_order(
         {
             if let Some(Spanned(_, span)) = decl_map.get(name)
             {
-                diag = diag.with_main_label(span.clone(), format!("'{name}' is part of a cycle"));
+                diag = diag.with_main_label(*span, format!("'{name}' is part of a cycle"));
             }
         }
         Err(diag)

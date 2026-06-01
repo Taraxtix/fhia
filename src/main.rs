@@ -1,6 +1,6 @@
 #![feature(stmt_expr_attributes)]
 
-use std::{fs::read_to_string, ops::Range};
+use std::{fs::read_to_string, range::Range};
 
 mod codegen;
 mod const_eval;
@@ -49,7 +49,7 @@ struct Args {
     no_std: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Spanned<T>(pub T, pub Range<usize>);
 pub type ParsingError = Diagnostic;
 

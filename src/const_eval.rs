@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::range::Range;
 
 use crate::{
     Spanned,
@@ -111,14 +111,14 @@ impl<'src> Expr<'src> {
                 let Spanned(expr, span) = s_expr.as_ref();
                 Some(
                     expr.const_value(span, env, kind, diagnostics)
-                        .or_else(|| handle_error(span.clone(), kind, diagnostics))?
+                        .or_else(|| handle_error(*span, kind, diagnostics))?
                         .cast_to(s_expr.ty(), *ty),
                 )
             },
             Self::Ident { name, .. } => env
                 .lookup_const(name)
                 .copied()
-                .or_else(|| handle_error(span.clone(), kind, diagnostics)),
+                .or_else(|| handle_error(*span, kind, diagnostics)),
         }
     }
 }

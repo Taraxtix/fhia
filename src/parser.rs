@@ -2,7 +2,7 @@ pub mod expr;
 #[macro_use]
 pub mod combinator;
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, range::Range};
 
 use combinator::ParsedItem;
 use expr::{DeclKind, Expr};
@@ -59,7 +59,7 @@ fn parse_cast<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
                 ParsedItem::Token(mut consumed, Spanned(Token::Ty(ty), ty_span)),
                 ParsedItem::Expr(expr_consumed, Spanned(expr, expr_span)),
                 ] = item);
-            let range = ty_span.start..expr_span.end;
+            let range = Range::from(ty_span.start..expr_span.end);
             consumed.extend(expr_consumed);
             ParsedItem::Expr(
                 consumed,
@@ -137,7 +137,7 @@ fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
                 (Token::Const, _) => DeclKind::Const,
                 _ => unreachable!(),
             };
-            let span = decl_kind_span.start..expr_span.end;
+            let span = Range::from(decl_kind_span.start..expr_span.end);
             consumed.extend(opt_consumed);
             consumed.extend(ident_consumed);
             consumed.extend(ty_consumed);
