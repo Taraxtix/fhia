@@ -39,7 +39,7 @@ fn to_f64<'a>(lex: &LogosLexer<'a, Token<'a>>) -> f64 {
 fn to_ty<'a>(lex: &LogosLexer<'a, Token<'a>>) -> Option<Ty> { lex.slice().try_into().ok() }
 
 #[derive(Logos, Clone, PartialEq, Debug)]
-#[logos(skip(r"(\s+)|//[^\n]*", allow_greedy = true))]
+#[logos(skip(r"(\s+)|//[^\n]*|/\*(.|\n)*\*/", allow_greedy = true))]
 pub enum Token<'src> {
     #[token(r"let")]
     Let,

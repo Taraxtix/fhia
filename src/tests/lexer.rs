@@ -206,6 +206,36 @@ fn lex_comment() {
 }
 
 #[test]
+fn lex_block_comment() {
+    // simple block comment is skipped
+    assert_eq!(lex_all("/* this is a comment */"), Ok(vec![]));
+    // empty block comment
+    assert_eq!(lex_all("/**/"), Ok(vec![]));
+    // block comment between tokens
+    assert_eq!(
+        lex_all("let /* comment */ x"),
+        Ok(vec![Token::Let, Token::Ident("x")])
+    );
+    // multi-line block comment
+    assert_eq!(
+        lex_all("let /* line one\nline two */ x"),
+        Ok(vec![Token::Let, Token::Ident("x")])
+    );
+    // block comment containing a line comment marker
+    assert_eq!(
+        lex_all("let /* // not a line comment */ x"),
+        Ok(vec![Token::Let, Token::Ident("x")])
+    );
+    // line comment containing `/*` — must NOT start a block comment
+    assert_eq!(
+        lex_all("// /* this is still a line comment\n42"),
+        Ok(vec![Token::ILit(42)])
+    );
+    // only a block comment
+    assert_eq!(lex_all("/* only a comment */"), Ok(vec![]));
+}
+
+#[test]
 fn lex_invalid_token() {
     assert_eq!(lex_one("@"), Err(()));
     assert_eq!(lex_one("#"), Err(()));
