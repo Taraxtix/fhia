@@ -1,5 +1,7 @@
 use std::{num::NonZero, range::Range};
 
+use inkwell::values::BasicValueEnum;
+
 use crate::{
     Spanned,
     parser::expr::{DeclKind, Expr, Ty},
@@ -19,7 +21,7 @@ impl<'src> Program<'src, Typer<'src>> {
         let exprs = self.state.exprs;
         let env = &mut self.state.env;
 
-        let Ok((order, decl_map)) = topo_order(exprs.clone()).inspect_err(|diag| {
+        let Ok((order, decl_map)) = topo_order(&exprs).inspect_err(|diag| {
             diagnostics.push(diag.clone());
             diagnostics.report(self.source, &self.args.input);
         })
@@ -44,12 +46,7 @@ impl<'src> Program<'src, Typer<'src>> {
                 .get_pointer_byte_size(None)
                 * 8) as usize;
 
-            if expr
-                .const_value(span, env, *kind, &mut diagnostics, ptr_size)
-                .is_some()
-            {
-                println!("Declaration of {name} is const (Should be inlined)");
-            }
+            expr.const_value(span, env, *kind, &mut diagnostics, ptr_size);
         }
 
         diagnostics.report(self.source, &self.args.input);
@@ -208,6 +205,34 @@ impl ConstValue {
             {
                 unreachable!("Should not pass type_check")
             },
+        }
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "We are cutting the 128bits in half discarding sign to form llvm's integers."
+    )]
+    pub fn to_basic_value(self, llvm_ty: inkwell::types::BasicTypeEnum<'_>) -> BasicValueEnum<'_> {
+        match (self, llvm_ty)
+        {
+            (Self::Int(v), inkwell::types::BasicTypeEnum::IntType(int_ty)) =>
+            {
+                BasicValueEnum::IntValue(
+                    int_ty.const_int_arbitrary_precision(&[v as u64, (v >> 64) as u64]),
+                )
+            },
+            (Self::Uint(v), inkwell::types::BasicTypeEnum::IntType(int_ty)) =>
+            {
+                BasicValueEnum::IntValue(
+                    int_ty.const_int_arbitrary_precision(&[v as u64, (v >> 64) as u64]),
+                )
+            },
+            (Self::Float(v), inkwell::types::BasicTypeEnum::FloatType(float_ty)) =>
+            {
+                BasicValueEnum::FloatValue(float_ty.const_float(v))
+            },
+            _ => unreachable!("Type mismatch when converting const value to basic value"),
         }
     }
 }

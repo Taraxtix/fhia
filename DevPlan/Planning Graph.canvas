@@ -2,28 +2,8 @@
   "nodes": [
     {
       "type": "text",
-      "id": "a57e6a56c92b1cc9",
-      "x": -1420,
-      "y": 401.2931583871898,
-      "width": 229,
-      "height": 63,
-      "color": "4",
-      "text": "Check for main presence"
-    },
-    {
-      "type": "text",
-      "id": "efcd7478e81079ec",
-      "x": -1404,
-      "y": 188.2931583871898,
-      "width": 197,
-      "height": 63,
-      "color": "4",
-      "text": "Check for main type"
-    },
-    {
-      "type": "text",
       "id": "55f98acd62d731c5",
-      "x": -1600,
+      "x": -1540,
       "y": -1040,
       "width": 153,
       "height": 63,
@@ -33,11 +13,11 @@
     {
       "type": "text",
       "id": "1bb8e9823c95ffa4",
-      "x": -2020,
+      "x": -1880,
       "y": -720,
       "width": 419,
       "height": 63,
-      "color": "2",
+      "color": "4",
       "text": "Generate Top-level declaration as `const` or globals"
     },
     {
@@ -53,31 +33,11 @@
     {
       "type": "text",
       "id": "4ba8655c71d78669",
-      "x": -1480,
-      "y": -480,
+      "x": -1440,
+      "y": -20,
       "width": 356,
       "height": 63,
       "text": "Allow main to be `&'static [&'static str]`"
-    },
-    {
-      "type": "text",
-      "id": "63de5efaa002cd16",
-      "x": -1411.5,
-      "y": -24.706841612810194,
-      "width": 212,
-      "height": 63,
-      "color": "4",
-      "text": "Allow main to be `i32`"
-    },
-    {
-      "type": "text",
-      "id": "efee8e7ff85c482b",
-      "x": -1444,
-      "y": -267,
-      "width": 284,
-      "height": 63,
-      "color": "4",
-      "text": "Allow main to be any integer type"
     },
     {
       "type": "text",
@@ -96,7 +56,7 @@
       "y": -282.2931583871898,
       "width": 210,
       "height": 63,
-      "color": "3",
+      "color": "4",
       "text": "is_const_expr checker"
     },
     {
@@ -106,6 +66,7 @@
       "y": -495.2931583871898,
       "width": 230,
       "height": 63,
+      "color": "4",
       "text": "const globals in codegen"
     },
     {
@@ -157,8 +118,8 @@
     {
       "type": "text",
       "id": "00bebd2f13c757b9",
-      "x": -2701.6841289831277,
-      "y": -495.2931583871898,
+      "x": -2780,
+      "y": -500,
       "width": 246,
       "height": 63,
       "text": "break/continue expressions"
@@ -220,7 +181,7 @@
     {
       "type": "text",
       "id": "1e6100c320c55762",
-      "x": -3040,
+      "x": -2980,
       "y": -500,
       "width": 117,
       "height": 63,
@@ -229,8 +190,8 @@
     {
       "type": "text",
       "id": "f69b6394a86d56bc",
-      "x": -1017.8158710168718,
-      "y": -262.2931583871898,
+      "x": -1020,
+      "y": -260,
       "width": 200,
       "height": 63,
       "text": "Function type in AST"
@@ -238,8 +199,8 @@
     {
       "type": "text",
       "id": "2842579968e658ee",
-      "x": -1014.2984087004104,
-      "y": -480,
+      "x": -1020,
+      "y": -500,
       "width": 198,
       "height": 63,
       "text": "Function declaration"
@@ -256,7 +217,7 @@
     {
       "type": "text",
       "id": "7e1a2e0bdd085413",
-      "x": -1014.2984087004104,
+      "x": -1020,
       "y": -720,
       "width": 183,
       "height": 63,
@@ -274,8 +235,8 @@
     {
       "type": "text",
       "id": "5b027939db385f77",
-      "x": -511.33333333333303,
-      "y": -262.2931583871898,
+      "x": -400,
+      "y": 780,
       "width": 171,
       "height": 63,
       "text": "Reference types"
@@ -310,8 +271,8 @@
     {
       "type": "text",
       "id": "67dcccc74484504d",
-      "x": -497.33333333333303,
-      "y": -475.2931583871898,
+      "x": -380,
+      "y": 580,
       "width": 143,
       "height": 63,
       "text": "Struct types"
@@ -319,8 +280,8 @@
     {
       "type": "text",
       "id": "f117f74436185d1f",
-      "x": -290.96507536707713,
-      "y": -720,
+      "x": -260,
+      "y": 380,
       "width": 141,
       "height": 63,
       "text": "Enum types"
@@ -398,25 +359,67 @@
       "width": 260,
       "height": 80,
       "text": "Comments on `/**/`"
+    },
+    {
+      "type": "text",
+      "id": "a57e6a56c92b1cc9",
+      "x": -1376,
+      "y": 808.2931583871898,
+      "width": 229,
+      "height": 63,
+      "color": "4",
+      "text": "Check for main presence"
+    },
+    {
+      "type": "text",
+      "id": "efcd7478e81079ec",
+      "x": -1360,
+      "y": 595.2931583871898,
+      "width": 197,
+      "height": 63,
+      "color": "4",
+      "text": "Check for main type"
+    },
+    {
+      "type": "text",
+      "id": "63de5efaa002cd16",
+      "x": -1367.5,
+      "y": 382.2931583871898,
+      "width": 212,
+      "height": 63,
+      "color": "4",
+      "text": "Allow main to be `i32`"
+    },
+    {
+      "type": "text",
+      "id": "efee8e7ff85c482b",
+      "x": -1400,
+      "y": 140,
+      "width": 284,
+      "height": 63,
+      "color": "4",
+      "text": "Allow main to be any integer type"
+    },
+    {
+      "type": "text",
+      "id": "2f4c1adc-8c67-44a2-92b0-b71744fd5080",
+      "x": -500,
+      "y": 140,
+      "width": 160,
+      "height": 60,
+      "text": "Slice types"
+    },
+    {
+      "type": "text",
+      "id": "bb1479c7-4d40-44fc-8fb9-60f6bc616911",
+      "x": -500,
+      "y": 380,
+      "width": 160,
+      "height": 60,
+      "text": "Fat pointers"
     }
   ],
   "edges": [
-    {
-      "id": "74ef5bbccf2c73f2",
-      "fromNode": "4ba8655c71d78669",
-      "fromSide": "bottom",
-      "toNode": "efee8e7ff85c482b",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "9c40f44aeb6cdbee",
-      "fromNode": "efee8e7ff85c482b",
-      "fromSide": "bottom",
-      "toNode": "63de5efaa002cd16",
-      "toSide": "top",
-      "toEnd": "arrow"
-    },
     {
       "id": "f00000000000000e",
       "fromNode": "34886652a1d35d2f",
@@ -634,36 +637,6 @@
       "shape": "curved"
     },
     {
-      "id": "b983c3e1-2b13-4777-9a38-86603555aae6",
-      "fromNode": "f521e1c8856d5a7a",
-      "fromSide": "bottom",
-      "toNode": "4ba8655c71d78669",
-      "toSide": "top",
-      "toEnd": "arrow",
-      "style": "solid",
-      "shape": "curved"
-    },
-    {
-      "id": "bc3c19e6-8227-4ee5-8d09-3b06b9875537",
-      "fromNode": "63de5efaa002cd16",
-      "fromSide": "bottom",
-      "toNode": "efcd7478e81079ec",
-      "toSide": "top",
-      "toEnd": "arrow",
-      "style": "solid",
-      "shape": "curved"
-    },
-    {
-      "id": "33ccbf6d-b983-4c77-af59-32bad8bf999e",
-      "fromNode": "efcd7478e81079ec",
-      "fromSide": "bottom",
-      "toNode": "a57e6a56c92b1cc9",
-      "toSide": "top",
-      "toEnd": "arrow",
-      "style": "solid",
-      "shape": "curved"
-    },
-    {
       "id": "65d06c50-439d-43df-8623-cabd36ed9a3f",
       "fromNode": "2330323296bc5fff",
       "fromSide": "bottom",
@@ -734,16 +707,6 @@
       "shape": "curved"
     },
     {
-      "id": "ee9572c0-0b55-4c20-9f49-4cb451840318",
-      "fromNode": "c0658681a4a95efd",
-      "fromSide": "bottom",
-      "toNode": "67dcccc74484504d",
-      "toSide": "top",
-      "toEnd": "arrow",
-      "style": "solid",
-      "shape": "curved"
-    },
-    {
       "id": "68919304-67a8-4e41-b575-4912ca4b9340",
       "fromNode": "2d2b2dac595a5d4f",
       "fromSide": "bottom",
@@ -778,6 +741,92 @@
       "fromNode": "95d4714b-d30a-456f-b791-764eeb0837dc",
       "fromSide": "bottom",
       "toNode": "e411b602-70cb-4f6f-be85-8ac7503958c2",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "74ef5bbccf2c73f2",
+      "fromNode": "4ba8655c71d78669",
+      "fromSide": "bottom",
+      "toNode": "efee8e7ff85c482b",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "9c40f44aeb6cdbee",
+      "fromNode": "efee8e7ff85c482b",
+      "fromSide": "bottom",
+      "toNode": "63de5efaa002cd16",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "bc3c19e6-8227-4ee5-8d09-3b06b9875537",
+      "fromNode": "63de5efaa002cd16",
+      "fromSide": "bottom",
+      "toNode": "efcd7478e81079ec",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "33ccbf6d-b983-4c77-af59-32bad8bf999e",
+      "fromNode": "efcd7478e81079ec",
+      "fromSide": "bottom",
+      "toNode": "a57e6a56c92b1cc9",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "11f753ce-220c-4f52-90e1-f9443c1da1bf",
+      "fromNode": "f521e1c8856d5a7a",
+      "fromSide": "bottom",
+      "toNode": "4ba8655c71d78669",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "93cd724b-e5f9-4093-9c7f-dadbd3839e42",
+      "fromNode": "bb1479c7-4d40-44fc-8fb9-60f6bc616911",
+      "fromSide": "bottom",
+      "toNode": "67dcccc74484504d",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "17ffc3ad-43dc-43d5-bc55-c58eac6fbe05",
+      "fromNode": "2f4c1adc-8c67-44a2-92b0-b71744fd5080",
+      "fromSide": "bottom",
+      "toNode": "bb1479c7-4d40-44fc-8fb9-60f6bc616911",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "5d5576f4-1a64-46ef-9ed1-b2986a1ebce1",
+      "fromNode": "c0658681a4a95efd",
+      "fromSide": "bottom",
+      "toNode": "2f4c1adc-8c67-44a2-92b0-b71744fd5080",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "style": "solid",
+      "shape": "curved"
+    },
+    {
+      "id": "1c8a97f3-fdf8-4237-8b22-8943e7c17ced",
+      "fromNode": "4ba8655c71d78669",
+      "fromSide": "bottom",
+      "toNode": "2f4c1adc-8c67-44a2-92b0-b71744fd5080",
       "toSide": "top",
       "toEnd": "arrow",
       "style": "solid",

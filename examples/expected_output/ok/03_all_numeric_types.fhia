@@ -34,37 +34,23 @@ let main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
-@a = global i8 0
-@b = global i16 0
-@c = global i32 0
-@d = global i64 0
-@e = global i128 0
-@f = global i8 0
-@g = global i16 0
-@h = global i32 0
-@i = global i64 0
-@j = global i128 0
-@k = global i64 0
-@l = global i64 0
-@m = global float 0.000000e+00
-@n = global double 0.000000e+00
+@a = constant i8 42
+@b = constant i16 42
+@c = constant i32 42
+@d = constant i64 42
+@e = constant i128 42
+@f = constant i8 42
+@g = constant i16 42
+@h = constant i32 42
+@i = constant i64 42
+@j = constant i128 42
+@k = constant i64 42
+@l = constant i64 42
+@m = constant float 1.000000e+00
+@n = constant double 1.000000e+00
 
 define i32 @main() {
 entry:
-  store i8 42, ptr @a, align 1
-  store i16 42, ptr @b, align 2
-  store i32 42, ptr @c, align 4
-  store i64 42, ptr @d, align 8
-  store i128 42, ptr @e, align 16
-  store i8 42, ptr @f, align 1
-  store i16 42, ptr @g, align 2
-  store i32 42, ptr @h, align 4
-  store i64 42, ptr @i, align 8
-  store i128 42, ptr @j, align 16
-  store i64 42, ptr @k, align 8
-  store i64 42, ptr @l, align 8
-  store float 1.000000e+00, ptr @m, align 4
-  store double 1.000000e+00, ptr @n, align 8
   ret i32 0
 }
 Return code: 0

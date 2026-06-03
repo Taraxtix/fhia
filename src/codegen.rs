@@ -12,13 +12,12 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    targets::{FileType, TargetData, TargetMachine},
+    targets::{FileType, TargetData},
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType},
     values::{BasicValue, BasicValueEnum, PointerValue},
 };
 
 use crate::{
-    Args,
     Spanned,
     parser::expr::{Expr, Ty},
     program::Program,
@@ -30,15 +29,15 @@ struct Codegen<'ctx, 'src> {
     context:     &'ctx Context,
     module:      Module<'ctx>,
     builder:     Builder<'ctx>,
-    machine:     TargetMachine,
     target_data: TargetData,
     vars:        HashMap<&'src str, (PointerValue<'ctx>, AnyTypeEnum<'ctx>)>,
+    program:     Program<'src, Typer<'src>>,
 }
 
 impl<'src> Program<'src, Typer<'src>> {
     pub fn compile(self) {
         let context = Context::create();
-        Codegen::new(&context, self.target_machine).compile(self.state.exprs, &self.args);
+        Codegen::new(&context, self).compile();
     }
 }
 
@@ -46,26 +45,27 @@ impl<'ctx, 'src> Codegen<'ctx, 'src>
 where
     'src: 'ctx,
 {
-    pub fn new(context: &'ctx Context, machine: TargetMachine) -> Self {
+    pub fn new(context: &'ctx Context, program: Program<'src, Typer<'src>>) -> Self {
         let module = context.create_module("main"); //TODO: Have a module system
         let builder = context.create_builder();
-        let target_data = machine.get_target_data();
+        let target_data = program.target_machine.get_target_data();
 
         Codegen {
             context,
             module,
             builder,
-            machine,
             target_data,
             vars: HashMap::new(),
+            program,
         }
     }
 
-    pub fn compile(mut self, exprs: VecDeque<Spanned<Expr<'src>>>, args: &Args) {
-        let main_entry = self.alloc_top_level_decls(&exprs);
+    pub fn compile(mut self) {
+        let main_entry = self.alloc_top_level_decls();
         self.builder.position_at_end(main_entry);
         // self.alloc_decls(&exprs);
 
+        let exprs = &self.program.state.exprs;
         let (order, mut decl_map) =
             topo_order(exprs).expect("Cycle should have been caught by typer");
 
@@ -95,6 +95,7 @@ where
 
         self.module.verify().expect("Module was not correct");
 
+        let args = &self.program.args;
         if args.llvm_ir
         {
             println!(
@@ -110,13 +111,16 @@ where
     }
 
     fn emit_object(&self, path: &Path) {
-        self.machine
+        self.program
+            .target_machine
             .write_to_file(&self.module, FileType::Object, path)
             .expect("Failed to emit object file");
     }
 
-    fn alloc_top_level_decls(&mut self, exprs: &VecDeque<Spanned<Expr<'src>>>) -> BasicBlock<'ctx> {
+    fn alloc_top_level_decls(&mut self) -> BasicBlock<'ctx> {
+        let exprs = &self.program.state.exprs;
         let mut main_entry: MaybeUninit<BasicBlock> = MaybeUninit::uninit();
+
         for Spanned(expr, _) in exprs
         {
             if let Expr::Declaration { name, ty, .. } = expr
@@ -133,8 +137,25 @@ where
                 else
                 {
                     let llvm_ty = self.ty_to_llvm(*ty);
+
                     let global = self.module.add_global(llvm_ty, None, name);
-                    global.set_initializer(&llvm_ty.const_zero());
+                    let initializer = self.program.state.env.lookup_const(name).map_or_else(
+                        || match llvm_ty
+                        {
+                            BasicTypeEnum::IntType(ty) => ty.get_poison().into(),
+                            BasicTypeEnum::FloatType(ty) => ty.get_poison().into(),
+                            BasicTypeEnum::ArrayType(ty) => ty.get_poison().into(),
+                            BasicTypeEnum::PointerType(ty) => ty.get_poison().into(),
+                            BasicTypeEnum::StructType(ty) => ty.get_poison().into(),
+                            BasicTypeEnum::VectorType(ty) => ty.get_poison().into(),
+                            BasicTypeEnum::ScalableVectorType(ty) => ty.get_poison().into(),
+                        },
+                        |const_value| {
+                            global.set_constant(true);
+                            const_value.to_basic_value(llvm_ty)
+                        },
+                    );
+                    global.set_initializer(&initializer);
                     (global, llvm_ty.as_any_type_enum())
                 };
 
@@ -160,6 +181,11 @@ where
     }
 
     fn gen_decl(&mut self, name: &'src str, body: Spanned<Expr<'src>>) {
+        if self.program.state.env.lookup_const(name).is_some()
+        {
+            // Const declarations are inlined, no codegen needed
+            return;
+        }
         let (alloca, ty) = self.vars[name];
         let value = self.gen_expr(body);
         let align = self.target_data.get_abi_alignment(&ty);

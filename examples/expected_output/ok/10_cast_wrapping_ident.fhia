@@ -10,14 +10,11 @@ let main: i32 = (i32 (cast: i64))
 ; ModuleID = 'main'
 source_filename = "main"
 
-@raw = global i64 0
-@cast = global i64 0
+@raw = constant i64 42
+@cast = constant i64 42
 
 define i32 @main() {
 entry:
-  store i64 42, ptr @raw, align 8
-  %raw = load i64, ptr @raw, align 8
-  store i64 %raw, ptr @cast, align 8
   %cast = load i64, ptr @cast, align 8
   %trunc = trunc i64 %cast to i32
   ret i32 %trunc

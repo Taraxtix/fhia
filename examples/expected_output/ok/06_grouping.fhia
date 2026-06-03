@@ -16,19 +16,14 @@ let main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
-@paren = global i64 0
-@brace = global i64 0
-@nested = global i64 0
-@cast_paren = global i64 0
-@cast_brace = global i64 0
+@paren = constant i64 42
+@brace = constant i64 42
+@nested = constant i64 42
+@cast_paren = constant i64 42
+@cast_brace = constant i64 42
 
 define i32 @main() {
 entry:
-  store i64 42, ptr @brace, align 8
-  store i64 42, ptr @cast_brace, align 8
-  store i64 42, ptr @cast_paren, align 8
-  store i64 42, ptr @nested, align 8
-  store i64 42, ptr @paren, align 8
   ret i32 0
 }
 Return code: 0

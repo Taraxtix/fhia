@@ -20,23 +20,16 @@ let main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
-@simple = global double 0.000000e+00
-@trailing_dot = global double 0.000000e+00
-@leading_dot = global double 0.000000e+00
-@zero = global double 0.000000e+00
-@scientific = global double 0.000000e+00
-@sci_neg_exp = global double 0.000000e+00
-@sci_upper = global double 0.000000e+00
+@simple = constant double 3.140000e+00
+@trailing_dot = constant double 1.000000e+00
+@leading_dot = constant double 5.000000e-01
+@zero = constant double 0.000000e+00
+@scientific = constant double 1.000000e+03
+@sci_neg_exp = constant double 1.000000e-03
+@sci_upper = constant double 1.000000e+03
 
 define i32 @main() {
 entry:
-  store double 5.000000e-01, ptr @leading_dot, align 8
-  store double 1.000000e-03, ptr @sci_neg_exp, align 8
-  store double 1.000000e+03, ptr @sci_upper, align 8
-  store double 1.000000e+03, ptr @scientific, align 8
-  store double 3.140000e+00, ptr @simple, align 8
-  store double 1.000000e+00, ptr @trailing_dot, align 8
-  store double 0.000000e+00, ptr @zero, align 8
   ret i32 0
 }
 Return code: 0

@@ -9,19 +9,17 @@ use crate::{
 type DepMap<'src> = HashMap<&'src str, Vec<&'src str>>;
 type DeclMap<'src> = HashMap<&'src str, Spanned<Expr<'src>>>;
 
-fn maps(exprs: VecDeque<Spanned<Expr<'_>>>) -> (DepMap<'_>, DeclMap<'_>) {
+fn maps<'a>(exprs: &'_ VecDeque<Spanned<Expr<'a>>>) -> (DepMap<'a>, DeclMap<'a>) {
     let mut dep_map: DepMap = HashMap::new();
     let mut decl_map: DeclMap = HashMap::new();
     for Spanned(expr, span) in exprs
     {
         if let Expr::Declaration {
-            name,
-            expr: ref rhs,
-            ..
+            name, expr: rhs, ..
         } = expr
         {
             dep_map.insert(name, rhs.as_ref().0.deps());
-            decl_map.insert(name, Spanned(expr, span));
+            decl_map.insert(name, Spanned(expr.clone(), *span));
         }
     }
     for deps in dep_map.values_mut()
@@ -31,9 +29,9 @@ fn maps(exprs: VecDeque<Spanned<Expr<'_>>>) -> (DepMap<'_>, DeclMap<'_>) {
     (dep_map, decl_map)
 }
 
-pub fn topo_order(
-    exprs: VecDeque<Spanned<Expr<'_>>>,
-) -> Result<(Vec<&str>, DeclMap<'_>), Diagnostic> {
+pub fn topo_order<'a>(
+    exprs: &'_ VecDeque<Spanned<Expr<'a>>>,
+) -> Result<(Vec<&'a str>, DeclMap<'a>), Diagnostic> {
     let (dep_map, decl_map) = maps(exprs);
 
     let mut in_deg: HashMap<&'_ str, usize> = dep_map.iter().map(|(&n, d)| (n, d.len())).collect();

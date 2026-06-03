@@ -20,23 +20,16 @@ let main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
-@dec = global i64 0
-@zero = global i64 0
-@leading_zero = global i64 0
-@binary = global i64 0
-@octal = global i64 0
-@hex_upper = global i64 0
-@hex_lower = global i64 0
+@dec = constant i64 42
+@zero = constant i64 0
+@leading_zero = constant i64 7
+@binary = constant i64 10
+@octal = constant i64 15
+@hex_upper = constant i64 255
+@hex_lower = constant i64 255
 
 define i32 @main() {
 entry:
-  store i64 10, ptr @binary, align 8
-  store i64 42, ptr @dec, align 8
-  store i64 255, ptr @hex_lower, align 8
-  store i64 255, ptr @hex_upper, align 8
-  store i64 7, ptr @leading_zero, align 8
-  store i64 15, ptr @octal, align 8
-  store i64 0, ptr @zero, align 8
   ret i32 0
 }
 Return code: 0

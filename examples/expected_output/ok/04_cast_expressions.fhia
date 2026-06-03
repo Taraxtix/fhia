@@ -14,17 +14,13 @@ let main: i32 = (float_to_int: i32)
 ; ModuleID = 'main'
 source_filename = "main"
 
-@int_narrowed = global i32 0
-@int_to_float = global double 0.000000e+00
-@float_to_int = global i32 0
-@cross_int_sizes = global i8 0
+@int_narrowed = constant i32 42
+@int_to_float = constant double 4.200000e+01
+@float_to_int = constant i32 1
+@cross_int_sizes = constant i8 -24
 
 define i32 @main() {
 entry:
-  store i8 -24, ptr @cross_int_sizes, align 1
-  store i32 1, ptr @float_to_int, align 4
-  store i32 42, ptr @int_narrowed, align 4
-  store double 4.200000e+01, ptr @int_to_float, align 8
   %float_to_int = load i32, ptr @float_to_int, align 4
   ret i32 %float_to_int
 }

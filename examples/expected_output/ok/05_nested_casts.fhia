@@ -14,17 +14,13 @@ let main: i32 = (i32 (0))
 ; ModuleID = 'main'
 source_filename = "main"
 
-@implicit = global i64 0
-@with_parens = global i64 0
-@float_chain = global double 0.000000e+00
-@three_levels = global i8 0
+@implicit = constant i64 42
+@with_parens = constant i64 42
+@float_chain = constant double 4.200000e+01
+@three_levels = constant i8 -24
 
 define i32 @main() {
 entry:
-  store double 4.200000e+01, ptr @float_chain, align 8
-  store i64 42, ptr @implicit, align 8
-  store i8 -24, ptr @three_levels, align 1
-  store i64 42, ptr @with_parens, align 8
   ret i32 0
 }
 Return code: 0

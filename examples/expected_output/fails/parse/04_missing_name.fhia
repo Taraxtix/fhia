@@ -1,33 +1,34 @@
+-------------------------------------------------
 [31m[03] Error:[0m Declaration malformed
-   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Prog/fhia/examples/fails/parse/04_missing_name.fhia:1:5 [38;5;246m][0m
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Projects/fhia/examples/fails/parse/04_missing_name.fhia:1:5 [38;5;246m][0m
    [38;5;246m│[0m
  [38;5;246m1 │[0m [38;5;249ml[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249m [0m[31m:[0m[38;5;249m [0m[38;5;249mi[0m[38;5;249m6[0m[38;5;249m4[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m4[0m[38;5;249m2[0m
  [38;5;240m  │[0m     [31m┬[0m  
  [38;5;240m  │[0m     [31m╰[0m[31m─[0m[31m─[0m Expected an identifier but found : instead
 [38;5;246m───╯[0m
 [31m[01] Error:[0m Unexpected token
-   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Prog/fhia/examples/fails/parse/04_missing_name.fhia:1:5 [38;5;246m][0m
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Projects/fhia/examples/fails/parse/04_missing_name.fhia:1:5 [38;5;246m][0m
    [38;5;246m│[0m
  [38;5;246m1 │[0m [38;5;249ml[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249m [0m[31m:[0m[38;5;249m [0m[38;5;249mi[0m[38;5;249m6[0m[38;5;249m4[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m4[0m[38;5;249m2[0m
  [38;5;240m  │[0m     [31m┬[0m  
  [38;5;240m  │[0m     [31m╰[0m[31m─[0m[31m─[0m This token cannot start a top-level declaration
 [38;5;246m───╯[0m
 [31m[01] Error:[0m Unexpected token
-   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Prog/fhia/examples/fails/parse/04_missing_name.fhia:1:11 [38;5;246m][0m
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Projects/fhia/examples/fails/parse/04_missing_name.fhia:1:11 [38;5;246m][0m
    [38;5;246m│[0m
  [38;5;246m1 │[0m [38;5;249ml[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m:[0m[38;5;249m [0m[38;5;249mi[0m[38;5;249m6[0m[38;5;249m4[0m[38;5;249m [0m[31m=[0m[38;5;249m [0m[38;5;249m4[0m[38;5;249m2[0m
  [38;5;240m  │[0m           [31m┬[0m  
  [38;5;240m  │[0m           [31m╰[0m[31m─[0m[31m─[0m Expected `{` but found = instead
 [38;5;246m───╯[0m
 [31m[01] Error:[0m Unexpected token
-   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Prog/fhia/examples/fails/parse/04_missing_name.fhia:1:11 [38;5;246m][0m
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Projects/fhia/examples/fails/parse/04_missing_name.fhia:1:11 [38;5;246m][0m
    [38;5;246m│[0m
  [38;5;246m1 │[0m [38;5;249ml[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m:[0m[38;5;249m [0m[38;5;249mi[0m[38;5;249m6[0m[38;5;249m4[0m[38;5;249m [0m[31m=[0m[38;5;249m [0m[38;5;249m4[0m[38;5;249m2[0m
  [38;5;240m  │[0m           [31m┬[0m  
  [38;5;240m  │[0m           [31m╰[0m[31m─[0m[31m─[0m This token cannot start a top-level declaration
 [38;5;246m───╯[0m
 [31m[02] Error:[0m Top level expressions must be declarations
-   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Prog/fhia/examples/fails/parse/04_missing_name.fhia:1:13 [38;5;246m][0m
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Projects/fhia/examples/fails/parse/04_missing_name.fhia:1:13 [38;5;246m][0m
    [38;5;246m│[0m
  [38;5;246m1 │[0m [38;5;249ml[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m:[0m[38;5;249m [0m[38;5;249mi[0m[38;5;249m6[0m[38;5;249m4[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[31m4[0m[31m2[0m
  [38;5;240m  │[0m             [31m─[0m[31m┬[0m  
