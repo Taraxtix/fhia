@@ -1,15 +1,9 @@
 pub mod expr;
-#[macro_use]
-pub mod combinator;
+use std::{iter::Peekable, range::Range};
 
-use std::{collections::VecDeque, range::Range};
-
-use combinator::ParsedItem;
 use expr::{DeclKind, Expr};
-use lexparse::{Parser as _, ParserItem};
 
 use crate::{
-    ParsingError,
     Spanned,
     lexer::Token,
     parser::expr::Ty,
@@ -21,245 +15,197 @@ use crate::{
     },
 };
 
-type ParserOutput<'a, T> = Result<T, Vec<ParsingError>>;
-
-fn parse_litteral<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    just!(input, Token::ILit(_), "a litteral")
-        .or(|prev| {
-            prev.push_back_input(input);
-            just!(input, Token::FLit(_), "a litteral")
-        })
-        .map(|item| {
-            item.token_lit_as_expr()
-                .expect("just! should ensure that the token is a litteral")
-        })
-}
-
-fn parse_ident<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    just!(input, Token::Ident(_), "an identifier").map(|tok| {
-        assume!(let ParsedItem::Token(consumed, Spanned(Token::Ident(name), span)) = tok);
-        ParsedItem::Expr(
-            consumed,
-            Spanned(
-                Expr::Ident {
-                    name,
-                    ty: Ty::Unknown,
-                },
-                span,
-            ),
-        )
-    })
-}
-
-fn parse_cast<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    just!(input, Token::Ty(_), "a type")
-        .then(|| parse_expr(input))
-        .map(|item| {
-            assume!(let Seq[
-                ParsedItem::Token(mut consumed, Spanned(Token::Ty(ty), ty_span)),
-                ParsedItem::Expr(expr_consumed, Spanned(expr, expr_span)),
-                ] = item);
-            let range = Range::from(ty_span.start..expr_span.end);
-            consumed.extend(expr_consumed);
-            ParsedItem::Expr(
-                consumed,
-                Spanned(Expr::Cast(ty, Box::new(Spanned(expr, expr_span))), range),
-            )
-        })
-}
-
-fn parse_opt_mut<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    if matches!(input.front(), Some(Spanned(Token::Mut, _)))
-    {
-        let tok = input.pop_front().unwrap();
-        ParsedItem::Opt(
-            VecDeque::from([tok.clone()]),
-            Some(Box::new(ParsedItem::Token(VecDeque::new(), tok))),
-        )
-    }
-    else
-    {
-        ParsedItem::Opt(VecDeque::new(), None)
-    }
-}
-
-fn parse_decla<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    let result = just!(input, Token::Let, "`let`", ErrorCode::DeclarationMalformed)
-        .then(|| parse_opt_mut(input))
-        .or(ParsedItem::or(
-            |input| {
-                just!(
-                    input,
-                    Token::Const,
-                    "`const`",
-                    ErrorCode::DeclarationMalformed
-                )
-                .then(|| ParsedItem::Opt(VecDeque::new(), None))
-            },
-            input,
-        ))
-        .then(|| parse_ident(input))
-        .then_ignore(
-            ParsedItem::then_ignore(
-                |input| just!(input, Token::Colon, "`:`", ErrorCode::DeclarationMalformed),
-                input,
-            ),
-            ParsedItem::then_ignore_on_error(),
-        )
-        .then(|| {
-            just!(
-                input,
-                Token::Ty(_),
-                "a type",
-                ErrorCode::DeclarationMalformed
-            )
-        })
-        .then_ignore(
-            ParsedItem::then_ignore(
-                |input| just!(input, Token::Assign, "`=`", ErrorCode::DeclarationMalformed),
-                input,
-            ),
-            ParsedItem::then_ignore_on_error(),
-        )
-        .then(|| parse_expr(input))
-        .map(|item| {
-            assume!(let Seq[
-                ParsedItem::Token(mut consumed, Spanned(decl_kind, decl_kind_span)),
-                ParsedItem::Opt(opt_consumed, opt_mut),
-                ParsedItem::Expr(ident_consumed, Spanned(Expr::Ident { name, .. }, _)),
-                ParsedItem::Token(ty_consumed, Spanned(Token::Ty(ty), _)),
-                ParsedItem::Expr(expr_consumed, Spanned(expr, expr_span)),
-            ] = item);
-            let kind = match (&decl_kind, opt_mut.is_some())
-            {
-                (Token::Let, true) => DeclKind::Let { is_mut: true },
-                (Token::Let, false) => DeclKind::Let { is_mut: false },
-                (Token::Const, _) => DeclKind::Const,
-                _ => unreachable!(),
-            };
-            let span = Range::from(decl_kind_span.start..expr_span.end);
-            consumed.extend(opt_consumed);
-            consumed.extend(ident_consumed);
-            consumed.extend(ty_consumed);
-            consumed.extend(expr_consumed);
-            ParsedItem::Expr(
-                consumed,
-                Spanned(
-                    Expr::Declaration {
-                        kind,
-                        name,
-                        ty,
-                        expr: Box::new(Spanned(expr, expr_span)),
-                    },
-                    span,
-                ),
-            )
-        });
-    match result.into_output()
-    {
-        Ok(expr) => ParsedItem::Expr(VecDeque::new(), expr),
-        Err((consumed, mut diag)) =>
+macro_rules! expect {
+    {let $pattern:pat = $input:expr, $span:expr} => {
+        let tok = match $input
         {
-            let code = ErrorCode::DeclarationMalformed;
-            diag.message = code.title().to_string();
-            diag.code = Some(code as u32);
-            ParsedItem::Err(consumed, diag)
+            #[allow(unused_variables)]
+            Some(tok @ $pattern) => tok,
+            Some(Spanned(tok, span)) =>
+            {
+                return Err(Diagnostic::error(ErrorCode::UnexpectedToken)
+                    .with_main_label(span, format!("Unexpected token `{tok}`")))
+            },
+            None =>
+            {
+                return Err(Diagnostic::error(ErrorCode::UnexpectedEof)
+                    .with_main_label(Range::from($span.end..$span.end), "Unexpected end of input"))
+            },
+        };
+        let $pattern = tok
+        else
+        {
+            unsafe { core::hint::unreachable_unchecked() }
+        };
+    };
+    {let $pattern:pat = $input:expr, $span:expr, $custom_err:expr, $custom_expected_msg:expr} => {
+        let tok = match $input
+        {
+            #[allow(unused_variables)]
+            Some(tok @ $pattern) => tok,
+            Some(Spanned(tok, span)) =>
+            {
+                return Err(Diagnostic::error($custom_err)
+                    .with_main_label(span, format!("{} but found `{tok}`", $custom_expected_msg)))
+            },
+            None =>
+            {
+                return Err(Diagnostic::error($custom_err)
+                    .with_main_label(Range::from($span.end..$span.end), format!("Unexpected end of input. {}", $custom_expected_msg)))
+            },
+        };
+        let $pattern = tok
+        else
+        {
+            unsafe { core::hint::unreachable_unchecked() }
+        };
+    };
+}
+
+fn parse_decla<'src>(
+    mut kind: DeclKind,
+    span: Range<usize>,
+    input: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
+) -> Result<Spanned<Expr<'src>>, Diagnostic> {
+    if matches!(input.peek(), Some(Spanned(Token::Mut, _)))
+    {
+        input.next();
+        kind = DeclKind::Let { is_mut: true };
+    }
+    expect!(let Spanned(Token::Ident(name), _) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected an identifier");
+    expect!(let Spanned(Token::Colon, _) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected `:`");
+    expect!(let Spanned(Token::Ty(ty), _) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected a type");
+    expect!(let Spanned(Token::Assign, assign_span) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected `=`");
+    let expr = parse_expr(input, Range::from(span.start..assign_span.end))?;
+    let expr_span = expr.1;
+    Ok(Spanned(
+        Expr::Declaration {
+            kind,
+            name,
+            ty,
+            expr: Box::new(expr),
         },
-    }
+        Range::from(span.start..expr_span.end),
+    ))
 }
 
-fn parse_expr<'a>(input: &mut VecDeque<Spanned<Token<'a>>>) -> ParsedItem<'a> {
-    // Commit to a declaration as soon as `let`, `mut` or `const` is seen — no backtracking to
-    // other alternatives if the declaration is malformed.
-    if matches!(input.front(), Some(Spanned(Token::Let | Token::Const, _)))
+fn parse_surrounded_expr<'src>(
+    end: &Token<'src>,
+    tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
+    span: Range<usize>,
+) -> Result<Spanned<Expr<'src>>, Diagnostic> {
+    let Spanned(expr, span) = parse_expr(tokens, span)?;
+    let end_span = match end
     {
-        return parse_decla(input);
-    }
-    parse_litteral(input)
-        .or(ParsedItem::or(parse_ident, input))
-        .or(ParsedItem::or(parse_cast, input))
-        .or(ParsedItem::or(
-            |input| {
-                just!(input, Token::LParen, "`(`")
-                    .ignore_then(ParsedItem::ignore_then(|input| parse_expr(input), input))
-                    .then_ignore(
-                        ParsedItem::then_ignore(|input| just!(input, Token::RParen, "`)`"), input),
-                        ParsedItem::then_ignore_on_error(),
-                    )
-            },
-            input,
-        ))
-        .or(ParsedItem::or(
-            |input| {
-                just!(input, Token::LBrace, "`{`")
-                    .ignore_then(ParsedItem::ignore_then(|input| parse_expr(input), input))
-                    .then_ignore(
-                        ParsedItem::then_ignore(|input| just!(input, Token::RBrace, "`}`"), input),
-                        ParsedItem::then_ignore_on_error(),
-                    )
-            },
-            input,
-        ))
-}
-
-fn parse_program<'a>(
-    input: &mut VecDeque<Spanned<Token<'a>>>,
-) -> ParserOutput<'a, Vec<Spanned<Expr<'a>>>> {
-    let mut exprs = Vec::new();
-    let mut errors = Vec::new();
-    while !input.is_empty()
-    {
-        match parse_expr(input).into_output()
+        Token::RParen =>
         {
-            Ok(expr @ Spanned(Expr::Declaration { .. }, _)) => exprs.push(expr),
-            Ok(Spanned(expr, span)) => errors.push(
-                Diagnostic::error(ErrorCode::TopLevelNotDeclaration).with_main_label(
-                    span,
-                    format!(
-                        "Expected a declaration but found a {} instead",
-                        expr.kind_name()
-                    ),
-                ),
-            ),
-            Err((consumed, err)) =>
-            {
-                if consumed.is_empty()
-                {
-                    // parse_expr made no progress
-                    // Pop the first Token to guarantee termination
-                    let Spanned(_, span) = input.pop_front().expect("checked non-empty above");
-                    errors.push(
-                        Diagnostic::error(ErrorCode::UnexpectedToken).with_main_label(
-                            span,
-                            "This token cannot start a top-level declaration",
-                        ),
-                    );
-                }
-                else
-                {
-                    errors.push(err);
-                }
+            expect!(let Spanned(Token::RParen, end_span) = tokens.next(), span, ErrorCode::UnclosedDelimiter, "Expected `)`");
+            end_span
+        },
+        Token::RBrace =>
+        {
+            expect!(let Spanned(Token::RBrace, end_span) = tokens.next(), span, ErrorCode::UnclosedDelimiter, "Expected `}`");
+            end_span
+        },
+        _ => unreachable!("Ensured by caller"),
+    };
+    Ok(Spanned(expr, Range::from(span.start..end_span.end)))
+}
+
+fn parse_expr<'src>(
+    tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
+    span: Range<usize>,
+) -> Result<Spanned<Expr<'src>>, Diagnostic> {
+    let Spanned(first_tok, span) = tokens.next().ok_or_else(|| {
+        Diagnostic::error(ErrorCode::UnexpectedEof).with_main_label(
+            span,
+            "Expected an expression but reached the end of the input",
+        )
+    })?;
+
+    let first = match first_tok
+    {
+        Token::Let => parse_decla(DeclKind::Let { is_mut: false }, span, tokens)?,
+        Token::Const => parse_decla(DeclKind::Const, span, tokens)?,
+        Token::Ident(name) => Spanned(
+            Expr::Ident {
+                name,
+                ty: Ty::Unknown,
             },
-        }
+            span,
+        ),
+        Token::ILit(lit) => Spanned(
+            Expr::IntLit {
+                ty:    Ty::IntLit,
+                value: lit,
+            },
+            span,
+        ),
+        Token::FLit(lit) => Spanned(Expr::F64(lit), span),
+        Token::LParen => parse_surrounded_expr(&Token::RParen, tokens, span)?,
+        Token::LBrace => parse_surrounded_expr(&Token::RBrace, tokens, span)?,
+        Token::Ty(ty) =>
+        {
+            let Spanned(expr, expr_span) = parse_expr(tokens, span)?;
+            Spanned(
+                Expr::Cast(ty, Box::new(Spanned(expr, expr_span))),
+                Range::from(span.start..expr_span.end),
+            )
+        },
+        Token::Minus => todo!("Negation"),
+        tok @ (Token::Mut
+        | Token::Assign
+        | Token::RParen
+        | Token::RBrace
+        | Token::Colon
+        | Token::Error) => Err(Diagnostic::error(ErrorCode::DeclarationMalformed)
+            .with_main_label(span, format!("Expected an expression but found {tok}")))?,
+    };
+    // Later there will be more parsing.
+    Ok(first)
+}
+
+fn parse_top_level<'src>(
+    tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
+) -> Result<Spanned<Expr<'src>>, Diagnostic> {
+    const fn starts_top_level_decl(tok: &Spanned<Token<'_>>) -> bool {
+        matches!(tok, Spanned(Token::Let | Token::Const, _))
     }
-    if errors.is_empty() { Ok(exprs) } else { Err(errors) }
+
+    match tokens.next().expect("Ensured by caller")
+    {
+        Spanned(Token::Let, span) => parse_decla(DeclKind::Let { is_mut: false }, span, tokens),
+        Spanned(Token::Const, span) => parse_decla(DeclKind::Const, span, tokens),
+        Spanned(tok, span) => Err(Diagnostic::error(ErrorCode::DeclarationMalformed)
+            .with_main_label(span, format!("Unexpected token `{tok}` at top level"))),
+    }
+    .inspect_err(|_| {
+        tokens
+            .by_ref()
+            .take_while(|tok| !starts_top_level_decl(tok))
+            .for_each(drop);
+    })
 }
 
 pub type Parser<'src> = Vec<Spanned<Expr<'src>>>;
 
 impl<'src> Program<'src, Lexer<'src>> {
     pub fn parse(self) -> Program<'src, Parsed<'src>> {
+        let mut peekable = self.state.into_iter().peekable();
         let mut diagnostics = Vec::new();
+        let mut exprs = Vec::new();
 
-        let exprs = match parse_program(&mut VecDeque::from(self.state))
+        core::iter::from_fn(|| {
+            peekable
+                .peek()
+                .is_some()
+                .then(|| parse_top_level(&mut peekable))
+        })
+        .for_each(|res| match res
         {
-            Ok(exprs) => exprs,
-            Err(diags) =>
-            {
-                diagnostics.extend(diags);
-                Vec::new()
-            },
-        };
+            Ok(expr) => exprs.push(expr),
+            Err(diag) => diagnostics.push(diag),
+        });
 
         if self.args.parser
         {

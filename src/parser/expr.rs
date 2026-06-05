@@ -1,12 +1,9 @@
 mod operators;
-pub use operators::UnaryOpKind;
-
 use std::{fmt::Display, num::NonZero};
 
-use crate::{
-    Spanned,
-    parser::expr::operators::OpKind as _,
-};
+pub use operators::UnaryOpKind;
+
+use crate::{Spanned, parser::expr::operators::OpKind as _};
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {

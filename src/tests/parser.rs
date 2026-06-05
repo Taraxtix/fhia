@@ -319,10 +319,10 @@ fn parse_missing_type() {
 }
 
 #[test]
-fn parse_unclosed_paren() { parse_err("let x: i64 = (1", ErrorCode::DeclarationMalformed); }
+fn parse_unclosed_paren() { parse_err("let x: i64 = (1", ErrorCode::UnclosedDelimiter); }
 
 #[test]
-fn parse_unclosed_brace() { parse_err("let x: i64 = {1", ErrorCode::DeclarationMalformed); }
+fn parse_unclosed_brace() { parse_err("let x: i64 = {1", ErrorCode::UnclosedDelimiter); }
 
 #[test]
 fn parse_invalid_token() { parse_err("let x: i64 = @", ErrorCode::InvalidToken); }
@@ -342,7 +342,7 @@ fn parse_keyword_as_name() {
 #[test]
 fn parse_incomplete_cast() {
     // a type token with no following expression is not valid
-    parse_err("let x: i64 = i64", ErrorCode::DeclarationMalformed);
+    parse_err("let x: i64 = i64", ErrorCode::UnexpectedEof);
 }
 
 #[test]

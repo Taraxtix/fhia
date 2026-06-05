@@ -39,6 +39,9 @@ pub enum ErrorCode {
     IncorrectMainType    = 11,
     IntLiteralOutOfRange = 12,
     NotConstInConst      = 13,
+    UnexpectedEof        = 14,
+    MismatchClosingDelimiter = 15,
+    UnclosedDelimiter    = 16,
 }
 
 impl ErrorCode {
@@ -59,6 +62,9 @@ impl ErrorCode {
             Self::IncorrectMainType => "Incorrect main type",
             Self::IntLiteralOutOfRange => "Integer literal out of range",
             Self::NotConstInConst => "Use of a non-const expression in const context",
+            Self::UnexpectedEof => "Unexpected end of file",
+            Self::MismatchClosingDelimiter => "Mismatched closing delimiter",
+            Self::UnclosedDelimiter => "Unclosed delimiter",
         }
     }
 }
