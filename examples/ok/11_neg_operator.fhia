@@ -1,0 +1,4 @@
+let neg_int:    i64 = -5
+let neg_float:  f64 = -2.5
+let double_neg: i64 = --7
+let main:       i32 = i32 double_neg

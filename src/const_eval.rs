@@ -125,6 +125,7 @@ impl<'src> Expr<'src> {
                 .lookup_const(name)
                 .copied()
                 .or_else(|| handle_error(*span, kind, diagnostics)),
+            Self::Unary { kind, .. } => todo!("Const eval unary operator '{kind}'"),
         }
     }
 }

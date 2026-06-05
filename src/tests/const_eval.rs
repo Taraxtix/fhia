@@ -328,6 +328,92 @@ fn cast_float_to_float_identity() {
 }
 
 // =============================================================================
+// Negation (unary minus)
+// =============================================================================
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_signed_int() {
+    assert_eq!(
+        eval_const("const x: i64 = -42", "x"),
+        Some(ConstValue::Int(-42))
+    );
+}
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_signed_int_zero() {
+    assert_eq!(
+        eval_const("const x: i64 = -0", "x"),
+        Some(ConstValue::Int(0))
+    );
+}
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_signed_int_min_boundary() {
+    // -127 fits comfortably in i8
+    assert_eq!(
+        eval_const("const x: i8 = -127", "x"),
+        Some(ConstValue::Int(-127))
+    );
+}
+
+#[test]
+#[expect(
+    clippy::float_cmp,
+    reason = "Exact comparison is intentional for testing const eval behavior"
+)]
+#[ignore = "Pause this feature"]
+fn neg_float() {
+    // 2.5 is exactly representable in IEEE 754 and not close to any named constant
+    assert!(matches!(
+        eval_const("const x: f64 = -2.5", "x"),
+        Some(ConstValue::Float(v)) if v == -2.5
+    ));
+}
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_float_zero() {
+    // -0.0 is a distinct IEEE 754 value; matches! uses PartialEq which treats it equal to 0.0
+    assert!(matches!(
+        eval_const("const x: f64 = -0.", "x"),
+        Some(ConstValue::Float(_))
+    ));
+}
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_double_neg() {
+    // --10 == 10
+    assert_eq!(
+        eval_const("const x: i64 = --10", "x"),
+        Some(ConstValue::Int(10))
+    );
+}
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_of_ident() {
+    // negation of a previously defined constant
+    assert_eq!(
+        eval_const("const a: i64 = 5  const x: i64 = -a", "x"),
+        Some(ConstValue::Int(-5))
+    );
+}
+
+#[test]
+#[ignore = "Pause this feature"]
+fn neg_forward_ref() {
+    // neg of a forward reference — const_eval resolves deps via topo-sort
+    assert_eq!(
+        eval_const("const x: i64 = -a  const a: i64 = 7", "x"),
+        Some(ConstValue::Int(-7))
+    );
+}
+
+// =============================================================================
 // Pipeline success cases
 // =============================================================================
 

@@ -1,6 +1,12 @@
+mod operators;
+pub use operators::UnaryOpKind;
+
 use std::{fmt::Display, num::NonZero};
 
-use crate::Spanned;
+use crate::{
+    Spanned,
+    parser::expr::operators::OpKind as _,
+};
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy, Hash)]
 pub enum Ty {
@@ -97,6 +103,10 @@ pub enum Expr<'src> {
         name: &'src str,
         ty:   Ty,
     },
+    Unary {
+        kind:    UnaryOpKind,
+        operand: Box<Spanned<Self>>,
+    },
 }
 
 impl<'src> Expr<'src> {
@@ -108,6 +118,7 @@ impl<'src> Expr<'src> {
             Self::F64(_) => "f64 litteral",
             Self::Cast(_, _) => "cast expression",
             Self::Ident { .. } => "identifier",
+            Self::Unary { kind, .. } => kind.kind_name(),
         }
     }
 
@@ -127,6 +138,7 @@ impl<'src> Expr<'src> {
             Self::IntLit { .. } | Self::F64(_) =>
             {},
             Self::Declaration { .. } => unreachable!("nested declaration in dep collection"),
+            Self::Unary { operand, .. } => operand.0.collect_deps(out),
         }
     }
 }
@@ -145,6 +157,10 @@ impl Display for Expr<'_> {
             Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
             Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.0)),
             Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
+            Expr::Unary { kind, operand } =>
+            {
+                f.write_fmt(format_args!("{}", kind.display(&operand.0)))
+            },
         }
     }
 }

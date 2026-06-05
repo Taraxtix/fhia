@@ -59,6 +59,8 @@ pub enum Token<'src> {
     RBrace,
     #[token(":")]
     Colon,
+    #[token("-")]
+    Minus,
 
     #[regex(r"(f(32|64))|([iu](([1-9][0-9]*)|size))", to_ty, priority = 200)]
     Ty(Ty),
@@ -93,6 +95,7 @@ impl Display for Token<'_> {
             Self::Colon => f.write_str(":"),
             Self::Const => f.write_str("const"),
             Self::Mut => f.write_str("mut"),
+            Self::Minus => f.write_str("-"),
         }
     }
 }

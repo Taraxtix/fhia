@@ -1,4 +1,5 @@
 #![feature(stmt_expr_attributes)]
+#![feature(const_trait_impl)]
 
 use std::{fs::read_to_string, range::Range};
 

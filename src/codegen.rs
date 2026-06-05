@@ -233,6 +233,7 @@ where
                 }
                 load
             },
+            Expr::Unary { kind, .. } => todo!("Codegen unary operator '{kind}'"),
         }
     }
 

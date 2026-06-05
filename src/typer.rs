@@ -148,6 +148,7 @@ impl<'src> Spanned<Expr<'src>> {
                 | Expr::Cast(ty, _),
                 _,
             ) => *ty,
+            Spanned(Expr::Unary { operand, .. }, _) => operand.ty(),
         }
     }
 
@@ -159,6 +160,10 @@ impl<'src> Spanned<Expr<'src>> {
             Spanned(Expr::Ident { .. }, ..) => self.type_check_ident(env, &mut diagnostics),
             Spanned(Expr::Cast(..), ..) => self.type_check_cast(env, &mut diagnostics),
             Spanned(Expr::Declaration { .. }, ..) => self.type_check_decla(env, &mut diagnostics),
+            Spanned(Expr::Unary { kind, .. }, _) =>
+            {
+                todo!("Type check unary operator '{kind}'")
+            },
         };
         (expr, diagnostics)
     }
