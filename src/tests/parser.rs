@@ -360,7 +360,6 @@ fn parse_arbitrary_width_type() {
 // =============================================================================
 
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_neg_int_lit() {
     let exprs = parse_ok("let x: i64 = -42");
     assert_eq!(exprs.len(), 1);
@@ -389,7 +388,6 @@ fn parse_neg_int_lit() {
 
 #[allow(clippy::approx_constant)]
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_neg_float_lit() {
     let exprs = parse_ok("let x: f64 = -3.14");
     assert_eq!(exprs.len(), 1);
@@ -417,7 +415,6 @@ fn parse_neg_float_lit() {
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_neg_ident() {
     let exprs = parse_ok("let x: i64 = -y");
     assert_eq!(exprs.len(), 1);
@@ -445,7 +442,6 @@ fn parse_neg_ident() {
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_double_neg() {
     // --42  ≡  -(-(42))
     let exprs = parse_ok("let x: i64 = --42");
@@ -480,7 +476,6 @@ fn parse_double_neg() {
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_neg_grouped() {
     // -(42)  — parens are stripped, still a Neg wrapping an IntLit
     let exprs = parse_ok("let x: i64 = -(42)");
@@ -509,7 +504,6 @@ fn parse_neg_grouped() {
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_neg_in_cast() {
     // `i64 -42` — the cast's operand is the whole negation expression
     let exprs = parse_ok("let x: i64 = i64 -42");
@@ -539,7 +533,6 @@ fn parse_neg_in_cast() {
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn parse_neg_of_cast() {
     // `-i64 42` — the negation wraps the whole cast expression
     let exprs = parse_ok("let x: i64 = -i64 42");

@@ -1,4 +1,9 @@
+-------------------------------------------------
+let neg_int: i64 = (-(5))
+let neg_float: f64 = (-(f2.5))
+let double_neg: i64 = (-(-(7)))
+let main: i32 = (i32 (double_neg: ?))
 
-thread 'main' (598706) panicked at src/parser.rs:170:25:
-not yet implemented: Negation
+thread 'main' (568588) panicked at src/typer.rs:165:17:
+not yet implemented: Type check unary operator '-'
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

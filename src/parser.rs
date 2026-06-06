@@ -112,6 +112,30 @@ fn parse_surrounded_expr<'src>(
     Ok(Spanned(expr, Range::from(span.start..end_span.end)))
 }
 
+fn parse_op<'src>(
+    prev_expr: Option<Spanned<Expr<'src>>>,
+    op: &Token,
+    tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
+    span: Range<usize>,
+) -> Result<Spanned<Expr<'src>>, Diagnostic> {
+    Ok(match op
+    {
+        Token::Minus if prev_expr.is_none() =>
+        {
+            let Spanned(operand, operand_span) = parse_expr(tokens, span)?;
+            Spanned(
+                Expr::Unary {
+                    kind:    expr::UnaryOpKind::Neg,
+                    operand: Box::new(Spanned(operand, operand_span)),
+                },
+                Range::from(span.start..operand_span.end),
+            )
+        },
+        Token::Minus => todo!("Binary minus"),
+        _ => unreachable!("Ensured by caller"),
+    })
+}
+
 fn parse_expr<'src>(
     tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
     span: Range<usize>,
@@ -123,7 +147,7 @@ fn parse_expr<'src>(
         )
     })?;
 
-    let first = match first_tok
+    Ok(match first_tok
     {
         Token::Let => parse_decla(DeclKind::Let { is_mut: false }, span, tokens)?,
         Token::Const => parse_decla(DeclKind::Const, span, tokens)?,
@@ -152,7 +176,7 @@ fn parse_expr<'src>(
                 Range::from(span.start..expr_span.end),
             )
         },
-        Token::Minus => todo!("Negation"),
+        Token::Minus => parse_op(None, &Token::Minus, tokens, span)?,
         tok @ (Token::Mut
         | Token::Assign
         | Token::RParen
@@ -160,9 +184,7 @@ fn parse_expr<'src>(
         | Token::Colon
         | Token::Error) => Err(Diagnostic::error(ErrorCode::DeclarationMalformed)
             .with_main_label(span, format!("Expected an expression but found {tok}")))?,
-    };
-    // Later there will be more parsing.
-    Ok(first)
+    })
 }
 
 fn parse_top_level<'src>(
