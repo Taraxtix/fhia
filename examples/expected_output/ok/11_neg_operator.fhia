@@ -3,7 +3,23 @@ let neg_int: i64 = (-(5))
 let neg_float: f64 = (-(f2.5))
 let double_neg: i64 = (-(-(7)))
 let main: i32 = (i32 (double_neg: ?))
+-------------------------------------------------
+let neg_int: i64 = (-5)
+let neg_float: f64 = (-(f2.5))
+let double_neg: i64 = (7)
+let main: i32 = (i32 (double_neg: i64))
+-------------------------------------------------
+; ModuleID = 'main'
+source_filename = "main"
 
-thread 'main' (568588) panicked at src/typer.rs:165:17:
-not yet implemented: Type check unary operator '-'
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+@neg_int = constant i64 -5
+@neg_float = constant double -2.500000e+00
+@double_neg = constant i64 7
+
+define i32 @main() {
+entry:
+  %double_neg = load i64, ptr @double_neg, align 8
+  %trunc = trunc i64 %double_neg to i32
+  ret i32 %trunc
+}
+Return code: 7

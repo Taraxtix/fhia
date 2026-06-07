@@ -4,7 +4,11 @@ use crate::{
     Spanned,
     parser::{
         Parser,
-        expr::{Expr, Ty},
+        expr::{
+            Expr,
+            Ty::{self, IntLit},
+            UnaryOpKind,
+        },
     },
     program::{
         Program,
@@ -119,13 +123,17 @@ impl<'src> Program<'src, Typer<'src>> {
     }
 }
 
-const fn int_lit_fits(value: u128, ty: Ty) -> bool {
+const fn int_lit_fits(value: u128, ty: Ty, negated: bool) -> bool {
     match ty
     {
         Ty::Int {
             signed: false,
             width,
         } => width.get() == 128 || value < (1u128 << width.get()),
+        Ty::Int {
+            signed: true,
+            width,
+        } if negated => (value.wrapping_neg()) < (1u128 << (width.get() - 1)),
         Ty::Int {
             signed: true,
             width,
@@ -160,12 +168,50 @@ impl<'src> Spanned<Expr<'src>> {
             Spanned(Expr::Ident { .. }, ..) => self.type_check_ident(env, &mut diagnostics),
             Spanned(Expr::Cast(..), ..) => self.type_check_cast(env, &mut diagnostics),
             Spanned(Expr::Declaration { .. }, ..) => self.type_check_decla(env, &mut diagnostics),
-            Spanned(Expr::Unary { kind, .. }, _) =>
-            {
-                todo!("Type check unary operator '{kind}'")
-            },
+            Spanned(Expr::Unary { .. }, _) => self.type_unary_op(env, &mut diagnostics),
         };
         (expr, diagnostics)
+    }
+
+    fn type_unary_op(self, env: &mut Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {
+        let Spanned(Expr::Unary { kind, operand }, span) = self
+        else
+        {
+            unreachable!()
+        };
+        let (typed_operand, operand_diagnostics) = operand.type_check(env);
+        diagnostics.extend(operand_diagnostics);
+        match kind
+        {
+            UnaryOpKind::Neg if typed_operand.ty() == Ty::IntLit =>
+            {
+                let Spanned(Expr::IntLit { value, negated, .. }, span) = typed_operand
+                else
+                {
+                    unreachable!("`Ty::IntLit` should only be found on `Expr::IntLit`")
+                };
+                return Spanned(
+                    Expr::IntLit {
+                        ty:      IntLit,
+                        value:   value.wrapping_neg(),
+                        negated: !negated,
+                    },
+                    span,
+                );
+            },
+            UnaryOpKind::Neg if typed_operand.ty().is_signed() => (),
+            UnaryOpKind::Neg => diagnostics.push(
+                Diagnostic::error(ErrorCode::TypeMismatch)
+                    .with_main_label(span, format!("cannot negate '{}'", typed_operand.ty())),
+            ),
+        }
+        Spanned(
+            Expr::Unary {
+                kind,
+                operand: Box::new(typed_operand),
+            },
+            span,
+        )
     }
 
     fn type_check_ident(self, env: &Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {
@@ -214,6 +260,7 @@ impl<'src> Spanned<Expr<'src>> {
                 Expr::IntLit {
                     value,
                     ty: Ty::IntLit,
+                    ..
                 },
                 expr_span,
             ) => Spanned(
@@ -223,6 +270,7 @@ impl<'src> Spanned<Expr<'src>> {
                         width:  unsafe { NonZero::new_unchecked(128) },
                     },
                     value,
+                    negated: false,
                 },
                 expr_span,
             ),
@@ -262,18 +310,28 @@ impl<'src> Spanned<Expr<'src>> {
                 Expr::IntLit {
                     value,
                     ty: Ty::IntLit,
+                    negated,
                 },
                 expr_span,
             ) if ty.is_llvm_int() =>
             {
-                if !int_lit_fits(value, ty)
+                if negated && !ty.is_signed()
+                {
+                    diagnostics.push(
+                        Diagnostic::error(ErrorCode::IntLiteralOutOfRange).with_main_label(
+                            expr_span,
+                            "Tried to assign a signed literal to an unsigned type",
+                        ),
+                    );
+                }
+                if !int_lit_fits(value, ty, negated)
                 {
                     diagnostics.push(
                         Diagnostic::error(ErrorCode::IntLiteralOutOfRange)
                             .with_main_label(expr_span, format!("{value} does not fit in '{ty}'")),
                     );
                 }
-                Spanned(Expr::IntLit { ty, value }, expr_span)
+                Spanned(Expr::IntLit { ty, value, negated }, expr_span)
             },
             typed_expr =>
             {

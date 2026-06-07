@@ -202,7 +202,7 @@ where
         {
             Expr::Declaration { .. } => unreachable!("declarations are handled by gen_decl"),
             #[allow(clippy::cast_possible_truncation)]
-            Expr::IntLit { ty, value } => self
+            Expr::IntLit { ty, value, .. } => self
                 .int_type(ty)
                 .const_int_arbitrary_precision(&[value as u64, (value >> 64) as u64])
                 .into(),

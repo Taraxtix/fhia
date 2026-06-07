@@ -21,7 +21,12 @@ pub enum Ty {
 
 impl Ty {
     pub const fn is_signed(self) -> bool {
-        matches!(self, Self::Int { signed: true, .. } | Self::Isize)
+        match self
+        {
+            Self::Int { signed, .. } => signed,
+            Self::Isize | Self::F32 | Self::F64 | Self::IntLit => true,
+            _ => false,
+        }
     }
 
     pub const fn is_llvm_int(self) -> bool {
@@ -88,8 +93,9 @@ pub enum Expr<'src> {
         expr: Box<Spanned<Self>>,
     },
     IntLit {
-        ty:    Ty,
-        value: u128,
+        ty:      Ty,
+        value:   u128,
+        negated: bool,
     },
     F64(f64),
     // F128(f128)
@@ -150,6 +156,11 @@ impl Display for Expr<'_> {
                 ty,
                 expr,
             } => f.write_fmt(format_args!("{kind} {name}: {ty} = ({})", expr.0)),
+            Expr::IntLit {
+                value,
+                negated: true,
+                ..
+            } => f.write_fmt(format_args!("-{}", value.wrapping_neg())),
             Expr::IntLit { value, .. } => f.write_fmt(format_args!("{value}")),
             Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
             Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.0)),

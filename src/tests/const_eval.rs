@@ -332,29 +332,26 @@ fn cast_float_to_float_identity() {
 // =============================================================================
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_signed_int() {
     assert_eq!(
-        eval_const("const x: i64 = -42", "x"),
+        eval_const("let main: i32 = 0 const x: i64 = -42", "x"),
         Some(ConstValue::Int(-42))
     );
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_signed_int_zero() {
     assert_eq!(
-        eval_const("const x: i64 = -0", "x"),
+        eval_const("let main: i32 = 0 const x: i64 = -0", "x"),
         Some(ConstValue::Int(0))
     );
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_signed_int_min_boundary() {
     // -127 fits comfortably in i8
     assert_eq!(
-        eval_const("const x: i8 = -127", "x"),
+        eval_const("let main: i32 = 0 const x: i8 = -127", "x"),
         Some(ConstValue::Int(-127))
     );
 }
@@ -364,51 +361,46 @@ fn neg_signed_int_min_boundary() {
     clippy::float_cmp,
     reason = "Exact comparison is intentional for testing const eval behavior"
 )]
-#[ignore = "Pause this feature"]
 fn neg_float() {
     // 2.5 is exactly representable in IEEE 754 and not close to any named constant
     assert!(matches!(
-        eval_const("const x: f64 = -2.5", "x"),
+        eval_const("let main: i32 = 0 const x: f64 = -2.5", "x"),
         Some(ConstValue::Float(v)) if v == -2.5
     ));
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_float_zero() {
     // -0.0 is a distinct IEEE 754 value; matches! uses PartialEq which treats it equal to 0.0
     assert!(matches!(
-        eval_const("const x: f64 = -0.", "x"),
+        eval_const("let main: i32 = 0 const x: f64 = -0.", "x"),
         Some(ConstValue::Float(_))
     ));
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_double_neg() {
     // --10 == 10
     assert_eq!(
-        eval_const("const x: i64 = --10", "x"),
+        eval_const("let main: i32 = 0 const x: i64 = --10", "x"),
         Some(ConstValue::Int(10))
     );
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_of_ident() {
     // negation of a previously defined constant
     assert_eq!(
-        eval_const("const a: i64 = 5  const x: i64 = -a", "x"),
+        eval_const("let main: i32 = 0 const a: i64 = 5  const x: i64 = -a", "x"),
         Some(ConstValue::Int(-5))
     );
 }
 
 #[test]
-#[ignore = "Pause this feature"]
 fn neg_forward_ref() {
     // neg of a forward reference — const_eval resolves deps via topo-sort
     assert_eq!(
-        eval_const("const x: i64 = -a  const a: i64 = 7", "x"),
+        eval_const("let main: i32 = 0 const x: i64 = -a  const a: i64 = 7", "x"),
         Some(ConstValue::Int(-7))
     );
 }
@@ -420,7 +412,7 @@ fn neg_forward_ref() {
 #[test]
 fn const_eval_int_literal() {
     assert_eq!(
-        eval_const("let main: i32 = i32 0  const x: i64 = 42", "x"),
+        eval_const("let main: i32 = 0 const x: i64 = 42", "x"),
         Some(ConstValue::Int(42))
     );
 }
@@ -429,7 +421,7 @@ fn const_eval_int_literal() {
 fn const_eval_let_also_evaluable() {
     // `let` declarations are const-evaluated too, not only `const`
     assert_eq!(
-        eval_const("let main: i32 = i32 0  let x: i64 = 42", "x"),
+        eval_const("let main: i32 = 0 let x: i64 = 42", "x"),
         Some(ConstValue::Int(42))
     );
 }
@@ -437,7 +429,7 @@ fn const_eval_let_also_evaluable() {
 #[test]
 fn const_eval_unsigned_literal() {
     assert_eq!(
-        eval_const("let main: i32 = i32 0  const x: u64 = 42", "x"),
+        eval_const("let main: i32 = 0 const x: u64 = 42", "x"),
         Some(ConstValue::Uint(42))
     );
 }
@@ -445,7 +437,7 @@ fn const_eval_unsigned_literal() {
 #[test]
 fn const_eval_float_literal() {
     assert_eq!(
-        eval_const("let main: i32 = i32 0  const x: f64 = 1.", "x"),
+        eval_const("let main: i32 = 0 const x: f64 = 1.", "x"),
         Some(ConstValue::Float(1.0))
     );
 }
@@ -454,7 +446,7 @@ fn const_eval_float_literal() {
 fn const_eval_cast_wraps() {
     // i8 200 truncates to -56 at const-eval time
     assert_eq!(
-        eval_const("let main: i32 = i32 0  const x: i8 = i8 200", "x"),
+        eval_const("let main: i32 = 0 const x: i8 = i8 200", "x"),
         Some(ConstValue::Int(-56))
     );
 }
@@ -462,10 +454,7 @@ fn const_eval_cast_wraps() {
 #[test]
 fn const_eval_ident_reference() {
     assert_eq!(
-        eval_const(
-            "let main: i32 = i32 0  const y: i64 = 42  const x: i64 = y",
-            "x"
-        ),
+        eval_const("let main: i32 = 0 const y: i64 = 42  const x: i64 = y", "x"),
         Some(ConstValue::Int(42))
     );
 }
@@ -474,10 +463,7 @@ fn const_eval_ident_reference() {
 fn const_eval_forward_reference() {
     // x is declared before y but depends on it — topo sort handles this
     assert_eq!(
-        eval_const(
-            "let main: i32 = i32 0  const x: i64 = y  const y: i64 = 42",
-            "x"
-        ),
+        eval_const("let main: i32 = 0 const x: i64 = y  const y: i64 = 42", "x"),
         Some(ConstValue::Int(42))
     );
 }
@@ -489,7 +475,7 @@ fn const_eval_forward_reference() {
 #[test]
 fn const_eval_cyclic_declaration() {
     const_err(
-        "let main: i32 = i32 0  let x: i64 = y  let y: i64 = x",
+        "let main: i32 = 0 let x: i64 = y  let y: i64 = x",
         ErrorCode::CyclicDeclaration,
     );
 }

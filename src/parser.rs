@@ -160,8 +160,9 @@ fn parse_expr<'src>(
         ),
         Token::ILit(lit) => Spanned(
             Expr::IntLit {
-                ty:    Ty::IntLit,
-                value: lit,
+                ty:      Ty::IntLit,
+                value:   lit,
+                negated: false,
             },
             span,
         ),

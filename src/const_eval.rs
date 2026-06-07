@@ -4,7 +4,7 @@ use inkwell::values::BasicValueEnum;
 
 use crate::{
     Spanned,
-    parser::expr::{DeclKind, Expr, Ty},
+    parser::expr::{DeclKind, Expr, Ty, UnaryOpKind},
     program::{
         Program,
         diagnostics::{Diagnostic, ErrorCode, Reportable},
@@ -64,46 +64,43 @@ impl<'src> Program<'src, Typer<'src>> {
 }
 
 impl<'src> Expr<'src> {
-    #[expect(clippy::only_used_in_recursion, reason = "Used for [iu]size")]
+    fn handle_error(
+        span: Range<usize>,
+        kind: DeclKind,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> Option<ConstValue> {
+        if kind == DeclKind::Const
+        {
+            diagnostics.push(
+                Diagnostic::error(ErrorCode::NotConstInConst)
+                    .with_context_label(span, "expression was expected to be const"),
+            );
+        }
+        None
+    }
+
     pub fn const_value<'a>(
         &'a self,
         span: &Range<usize>,
         env: &'a mut Env<'src>,
-        kind: DeclKind,
+        decl_kind: DeclKind,
         diagnostics: &mut Vec<Diagnostic>,
         ptr_size: usize,
     ) -> Option<ConstValue> {
-        fn handle_error(
-            span: Range<usize>,
-            kind: DeclKind,
-            diagnostics: &mut Vec<Diagnostic>,
-        ) -> Option<ConstValue> {
-            if kind == DeclKind::Const
-            {
-                diagnostics.push(
-                    Diagnostic::error(ErrorCode::NotConstInConst)
-                        .with_context_label(span, "expression was expected to be const"),
-                );
-            }
-            None
-        }
-
         match self
         {
             Self::Declaration { name, expr, .. } =>
             {
                 let Spanned(expr, span) = expr.as_ref();
-                let value = expr.const_value(span, env, kind, diagnostics, ptr_size)?;
+                let value = expr.const_value(span, env, decl_kind, diagnostics, ptr_size)?;
                 env.declare_const(name, value);
                 Some(value)
             },
-            Self::IntLit { ty, value } => match ty
+            Self::IntLit { ty, value, .. } => match ty
             {
                 Ty::Isize | Ty::Int { signed: true, .. } =>
                 {
-                    Some(ConstValue::Int(i128::try_from(*value).expect(
-                        "Should not happend. This should be caught by earlier stage of the typer",
-                    )))
+                    Some(ConstValue::Int((*value).cast_signed()))
                 },
                 Ty::Usize | Ty::Int { signed: false, .. } => Some(ConstValue::Uint(*value)),
                 Ty::F32 | Ty::F64 | Ty::Unit | Ty::Unknown | Ty::IntLit =>
@@ -116,17 +113,48 @@ impl<'src> Expr<'src> {
             {
                 let Spanned(expr, span) = s_expr.as_ref();
                 Some(
-                    expr.const_value(span, env, kind, diagnostics, ptr_size)
-                        .or_else(|| handle_error(*span, kind, diagnostics))?
+                    expr.const_value(span, env, decl_kind, diagnostics, ptr_size)
+                        .or_else(|| Self::handle_error(*span, decl_kind, diagnostics))?
                         .cast_to(s_expr.ty(), *ty, 64),
                 )
             },
             Self::Ident { name, .. } => env
                 .lookup_const(name)
                 .copied()
-                .or_else(|| handle_error(*span, kind, diagnostics)),
-            Self::Unary { kind, .. } => todo!("Const eval unary operator '{kind}'"),
+                .or_else(|| Self::handle_error(*span, decl_kind, diagnostics)),
+            Self::Unary { .. } =>
+            {
+                self.const_eval_unary(span, env, decl_kind, diagnostics, ptr_size)
+            },
         }
+    }
+
+    fn const_eval_unary(
+        &self,
+        span: &Range<usize>,
+        env: &mut Env<'src>,
+        decl_kind: DeclKind,
+        diagnostics: &mut Vec<Diagnostic>,
+        ptr_size: usize,
+    ) -> Option<ConstValue> {
+        let Expr::Unary { kind, operand } = self
+        else
+        {
+            unreachable!("Ensured by caller")
+        };
+        let Spanned(operand, expr_span) = operand.as_ref();
+        let const_operand = operand
+            .const_value(span, env, DeclKind::Const, diagnostics, ptr_size)
+            .or_else(|| Self::handle_error(*expr_span, decl_kind, diagnostics))?;
+        Some(match kind
+        {
+            UnaryOpKind::Neg => match const_operand
+            {
+                ConstValue::Uint(val) => ConstValue::Int(val.wrapping_neg().cast_signed()),
+                ConstValue::Int(val) => ConstValue::Int(val.wrapping_neg()),
+                ConstValue::Float(val) => ConstValue::Float(-val),
+            },
+        })
     }
 }
 
