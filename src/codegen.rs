@@ -19,7 +19,7 @@ use inkwell::{
 
 use crate::{
     Spanned,
-    parser::expr::{Expr, Ty},
+    parser::expr::{Expr, Ty, UnaryOpKind},
     program::Program,
     topo_order::topo_order,
     typer::Typer,
@@ -233,7 +233,38 @@ where
                 }
                 load
             },
-            Expr::Unary { kind, .. } => todo!("Codegen unary operator '{kind}'"),
+            Expr::Unary { kind, operand } => self.gen_unary_op(kind, *operand),
+        }
+    }
+
+    fn gen_unary_op(
+        &mut self,
+        kind: UnaryOpKind,
+        operand: Spanned<Expr<'src>>,
+    ) -> BasicValueEnum<'ctx> {
+        let operand = self.gen_expr(operand);
+        match kind
+        {
+            UnaryOpKind::Neg => match operand
+            {
+                BasicValueEnum::IntValue(int_value) => self
+                    .builder
+                    .build_int_neg(int_value, "neg")
+                    .expect("Unale to build int_neg")
+                    .into(),
+                BasicValueEnum::FloatValue(float_value) => self
+                    .builder
+                    .build_float_neg(float_value, "fneg")
+                    .expect("Unable to build float_neg")
+                    .into(),
+                BasicValueEnum::ArrayValue(_) => todo!("Arr arithmetic?"),
+                BasicValueEnum::PointerValue(_) => todo!("To offset?"),
+                BasicValueEnum::ScalableVectorValue(_) | BasicValueEnum::VectorValue(_) =>
+                {
+                    todo!("SIMD?")
+                },
+                BasicValueEnum::StructValue(_) => unreachable!("Should never be allowed by typer"),
+            },
         }
     }
 
