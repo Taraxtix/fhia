@@ -38,7 +38,7 @@ fn to_f64<'a>(lex: &LogosLexer<'a, Token<'a>>) -> f64 {
 
 fn to_ty<'a>(lex: &LogosLexer<'a, Token<'a>>) -> Option<Ty> { lex.slice().try_into().ok() }
 
-#[derive(Logos, Clone, PartialEq, Debug)]
+#[derive(Logos, Clone, Copy, PartialEq, Debug)]
 #[logos(skip(r"(\s+)|//[^\n]*|/\*(.|\n)*\*/", allow_greedy = true))]
 pub enum Token<'src> {
     #[token(r"let")]
@@ -61,6 +61,8 @@ pub enum Token<'src> {
     Colon,
     #[token("-")]
     Minus,
+    #[token("as")]
+    As,
 
     #[regex(r"(f(32|64))|([iu](([1-9][0-9]*)|size))", to_ty, priority = 200)]
     Ty(Ty),
@@ -96,6 +98,7 @@ impl Display for Token<'_> {
             Self::Const => f.write_str("const"),
             Self::Mut => f.write_str("mut"),
             Self::Minus => f.write_str("-"),
+            Self::As => f.write_str("as"),
         }
     }
 }

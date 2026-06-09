@@ -207,7 +207,6 @@ where
                 .const_int_arbitrary_precision(&[value as u64, (value >> 64) as u64])
                 .into(),
             Expr::F64(value) => self.context.f64_type().const_float(value).into(),
-            Expr::Cast(ty, expr) => self.gen_cast(ty, *expr),
             Expr::Ident { name, .. } =>
             {
                 let (ptr, ty) = *self.vars.get(name).expect("undefined var");
@@ -234,6 +233,7 @@ where
                 load
             },
             Expr::Unary { kind, operand } => self.gen_unary_op(kind, *operand),
+            Expr::Atom(_) => unreachable!("Flatten out"),
         }
     }
 
@@ -242,29 +242,36 @@ where
         kind: UnaryOpKind,
         operand: Spanned<Expr<'src>>,
     ) -> BasicValueEnum<'ctx> {
-        let operand = self.gen_expr(operand);
         match kind
         {
-            UnaryOpKind::Neg => match operand
+            UnaryOpKind::Neg =>
             {
-                BasicValueEnum::IntValue(int_value) => self
-                    .builder
-                    .build_int_neg(int_value, "neg")
-                    .expect("Unale to build int_neg")
-                    .into(),
-                BasicValueEnum::FloatValue(float_value) => self
-                    .builder
-                    .build_float_neg(float_value, "fneg")
-                    .expect("Unable to build float_neg")
-                    .into(),
-                BasicValueEnum::ArrayValue(_) => todo!("Arr arithmetic?"),
-                BasicValueEnum::PointerValue(_) => todo!("To offset?"),
-                BasicValueEnum::ScalableVectorValue(_) | BasicValueEnum::VectorValue(_) =>
+                let operand = self.gen_expr(operand);
+                match operand
                 {
-                    todo!("SIMD?")
-                },
-                BasicValueEnum::StructValue(_) => unreachable!("Should never be allowed by typer"),
+                    BasicValueEnum::IntValue(int_value) => self
+                        .builder
+                        .build_int_neg(int_value, "neg")
+                        .expect("Unale to build int_neg")
+                        .into(),
+                    BasicValueEnum::FloatValue(float_value) => self
+                        .builder
+                        .build_float_neg(float_value, "fneg")
+                        .expect("Unable to build float_neg")
+                        .into(),
+                    BasicValueEnum::ArrayValue(_) => todo!("Arr arithmetic?"),
+                    BasicValueEnum::PointerValue(_) => todo!("To offset?"),
+                    BasicValueEnum::ScalableVectorValue(_) | BasicValueEnum::VectorValue(_) =>
+                    {
+                        todo!("SIMD?")
+                    },
+                    BasicValueEnum::StructValue(_) =>
+                    {
+                        unreachable!("Should never be allowed by typer")
+                    },
+                }
             },
+            UnaryOpKind::As(ty) => self.gen_cast(ty, operand),
         }
     }
 

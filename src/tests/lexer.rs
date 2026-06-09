@@ -20,6 +20,7 @@ fn lex_keyword() {
     assert_eq!(lex_one("let"), Ok(Token::Let));
     assert_eq!(lex_one("mut"), Ok(Token::Mut));
     assert_eq!(lex_one("const"), Ok(Token::Const));
+    assert_eq!(lex_one("as"), Ok(Token::As));
 
     // must be an exact word — prefix/suffix disqualify it
     assert_ne!(lex_one("lett"), Ok(Token::Let));
@@ -33,7 +34,7 @@ fn lex_keyword() {
 #[test]
 fn lex_symbols() {
     assert_eq!(
-        lex_all("=(){}:"),
+        lex_all("=(){}:-"),
         Ok(vec![
             Token::Assign,
             Token::LParen,
@@ -41,6 +42,7 @@ fn lex_symbols() {
             Token::LBrace,
             Token::RBrace,
             Token::Colon,
+            Token::Minus,
         ])
     );
 }
@@ -157,11 +159,11 @@ fn lex_float_scientific() {
 }
 
 // TODO: Bring back this test once `UnaryMinus` is on
-// #[test]
-// fn lex_float_negative() {
-//     assert_eq!(lex_one("-1.5"), Ok(Token::FLit(-1.5)));
-//     assert_eq!(lex_one("-0.0"), Ok(Token::FLit(-0.0)));
-// }
+#[test]
+fn lex_float_negative() {
+    assert_eq!(lex_all("-1.5"), Ok(vec![Token::Minus, Token::FLit(1.5)]));
+    assert_eq!(lex_all("-0.0"), Ok(vec![Token::Minus, Token::FLit(0.0)]));
+}
 
 #[test]
 fn lex_float_not_integer() {

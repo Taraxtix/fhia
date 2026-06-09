@@ -1,7 +1,7 @@
 -------------------------------------------------
 let x: i64 = (1)
 let x: i64 = (2)
-let main: i32 = (i32 (0))
+let main: i32 = ((0 as i32))
 [31m[04] Error:[0m Duplicate declaration
    [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m /home/taraxtix/Projects/fhia/examples/fails/type/03_duplicate_same_type.fhia:2:1 [38;5;246m][0m
    [38;5;246m│[0m

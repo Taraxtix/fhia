@@ -1,12 +1,10 @@
 pub mod expr;
 use std::{iter::Peekable, range::Range};
 
-use expr::{DeclKind, Expr};
-
 use crate::{
     Spanned,
     lexer::Token,
-    parser::expr::Ty,
+    parser::expr::{DeclKind, Expr, Ty, UnaryOpKind, operators::OpKind},
     program::{
         Lexer,
         Parsed,
@@ -76,7 +74,7 @@ fn parse_decla<'src>(
     expect!(let Spanned(Token::Colon, _) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected `:`");
     expect!(let Spanned(Token::Ty(ty), _) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected a type");
     expect!(let Spanned(Token::Assign, assign_span) = input.next(), span, ErrorCode::DeclarationMalformed, "Expected `=`");
-    let expr = parse_expr(input, Range::from(span.start..assign_span.end))?;
+    let expr = parse_expr(None, input, Range::from(span.start..assign_span.end))?;
     let expr_span = expr.1;
     Ok(Spanned(
         Expr::Declaration {
@@ -94,49 +92,87 @@ fn parse_surrounded_expr<'src>(
     tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
     span: Range<usize>,
 ) -> Result<Spanned<Expr<'src>>, Diagnostic> {
-    let Spanned(expr, span) = parse_expr(tokens, span)?;
+    let Spanned(expr, expr_span) = parse_expr(None, tokens, span)?;
     let end_span = match end
     {
         Token::RParen =>
         {
-            expect!(let Spanned(Token::RParen, end_span) = tokens.next(), span, ErrorCode::UnclosedDelimiter, "Expected `)`");
+            expect!(let Spanned(Token::RParen, end_span) = tokens.next(), Range::from(expr_span.end-1..expr_span.end), ErrorCode::UnclosedDelimiter, "Expected `)`");
             end_span
         },
         Token::RBrace =>
         {
-            expect!(let Spanned(Token::RBrace, end_span) = tokens.next(), span, ErrorCode::UnclosedDelimiter, "Expected `}`");
+            expect!(let Spanned(Token::RBrace, end_span) = tokens.next(), Range::from(expr_span.end-1..expr_span.end), ErrorCode::UnclosedDelimiter, "Expected `}`");
             end_span
         },
         _ => unreachable!("Ensured by caller"),
     };
-    Ok(Spanned(expr, Range::from(span.start..end_span.end)))
+    Ok(Spanned(
+        Expr::Atom(Box::new(Spanned(expr, expr_span))),
+        Range::from(span.start..end_span.end),
+    ))
 }
 
 fn parse_op<'src>(
     prev_expr: Option<Spanned<Expr<'src>>>,
-    op: &Token,
+    op: Token,
     tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
     span: Range<usize>,
 ) -> Result<Spanned<Expr<'src>>, Diagnostic> {
-    Ok(match op
+    match op
     {
         Token::Minus if prev_expr.is_none() =>
         {
-            let Spanned(operand, operand_span) = parse_expr(tokens, span)?;
-            Spanned(
+            let Spanned(operand, operand_span) = parse_expr(None, tokens, span)?;
+            Ok(match operand
+            {
                 Expr::Unary {
-                    kind:    expr::UnaryOpKind::Neg,
-                    operand: Box::new(Spanned(operand, operand_span)),
+                    kind,
+                    operand: inner_operand,
+                } if UnaryOpKind::Neg.binding_force().1 > kind.binding_force().0 =>
+                {
+                    let Spanned(inner_operand, inner_operand_span) = *inner_operand;
+                    Spanned(
+                        kind.to_expr_with_operand(Box::new(Spanned(
+                            Expr::Unary {
+                                operand: Box::new(Spanned(inner_operand, inner_operand_span)),
+                                kind:    UnaryOpKind::Neg,
+                            },
+                            Range::from(span.start..inner_operand_span.end),
+                        ))),
+                        Range::from(span.start..operand_span.end),
+                    )
                 },
-                Range::from(span.start..operand_span.end),
-            )
+                _ => Spanned(
+                    Expr::Unary {
+                        kind:    expr::UnaryOpKind::Neg,
+                        operand: Box::new(Spanned(operand, operand_span)),
+                    },
+                    Range::from(span.start..operand_span.end),
+                ),
+            })
         },
         Token::Minus => todo!("Binary minus"),
+        Token::As if prev_expr.is_none() => Err(Diagnostic::error(ErrorCode::DeclarationMalformed)
+            .with_main_label(span, "Expected an expression, but found `as`")),
+        Token::As =>
+        {
+            expect!(let Spanned(Token::Ty(ty), ty_span) = tokens.next(), span, ErrorCode::DeclarationMalformed, "Expected a type after `as`");
+            let operand = Box::new(unsafe { prev_expr.unwrap_unchecked() });
+            Ok(Spanned(
+                Expr::Unary {
+                    kind: UnaryOpKind::As(ty),
+                    operand,
+                },
+                Range::from(span.start..ty_span.end),
+            ))
+        },
         _ => unreachable!("Ensured by caller"),
-    })
+    }
 }
 
 fn parse_expr<'src>(
+    prev_expr: Option<Spanned<Expr<'src>>>,
     tokens: &mut Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
     span: Range<usize>,
 ) -> Result<Spanned<Expr<'src>>, Diagnostic> {
@@ -147,7 +183,7 @@ fn parse_expr<'src>(
         )
     })?;
 
-    Ok(match first_tok
+    let expr = match first_tok
     {
         Token::Let => parse_decla(DeclKind::Let { is_mut: false }, span, tokens)?,
         Token::Const => parse_decla(DeclKind::Const, span, tokens)?,
@@ -169,23 +205,43 @@ fn parse_expr<'src>(
         Token::FLit(lit) => Spanned(Expr::F64(lit), span),
         Token::LParen => parse_surrounded_expr(&Token::RParen, tokens, span)?,
         Token::LBrace => parse_surrounded_expr(&Token::RBrace, tokens, span)?,
-        Token::Ty(ty) =>
-        {
-            let Spanned(expr, expr_span) = parse_expr(tokens, span)?;
-            Spanned(
-                Expr::Cast(ty, Box::new(Spanned(expr, expr_span))),
-                Range::from(span.start..expr_span.end),
-            )
-        },
-        Token::Minus => parse_op(None, &Token::Minus, tokens, span)?,
+        Token::As | Token::Minus => parse_op(prev_expr, first_tok, tokens, span)?,
         tok @ (Token::Mut
+        | Token::Ty(_)
         | Token::Assign
         | Token::RParen
         | Token::RBrace
         | Token::Colon
-        | Token::Error) => Err(Diagnostic::error(ErrorCode::DeclarationMalformed)
-            .with_main_label(span, format!("Expected an expression but found {tok}")))?,
-    })
+        | Token::Error) =>
+        {
+            return Err(Diagnostic::error(ErrorCode::DeclarationMalformed)
+                .with_main_label(span, format!("Expected an expression but found {tok}")))?;
+        },
+    };
+
+    if let Some(Spanned(peeked, peeked_span)) = tokens.peek()
+    {
+        let span = *peeked_span;
+        match *peeked
+        {
+            Token::Ty(_)
+            | Token::ILit(_)
+            | Token::FLit(_)
+            | Token::Ident(_)
+            | Token::Let
+            | Token::Const
+            | Token::Mut
+            | Token::Assign
+            | Token::LParen
+            | Token::RParen
+            | Token::LBrace
+            | Token::RBrace
+            | Token::Colon
+            | Token::Error => (),
+            Token::As | Token::Minus => return parse_expr(Some(expr), tokens, span),
+        }
+    }
+    Ok(expr)
 }
 
 fn parse_top_level<'src>(
@@ -230,6 +286,9 @@ impl<'src> Program<'src, Lexer<'src>> {
             Err(diag) => diagnostics.push(diag),
         });
 
+        let exprs: Vec<Spanned<Expr<'_>>> =
+            exprs.into_iter().map(super::Spanned::flatten).collect();
+
         if self.args.parser
         {
             println!("-------------------------------------------------");
@@ -246,5 +305,34 @@ impl<'src> Program<'src, Lexer<'src>> {
             source:         self.source,
             state:          exprs,
         }
+    }
+}
+
+impl Spanned<Expr<'_>> {
+    fn flatten(self) -> Self {
+        let Spanned(expr, span) = self;
+        Spanned(
+            match expr
+            {
+                Expr::Atom(spanned) => return spanned.clone().flatten(),
+                Expr::Declaration {
+                    kind,
+                    name,
+                    ty,
+                    expr,
+                } => Expr::Declaration {
+                    kind,
+                    name,
+                    ty,
+                    expr: Box::new(expr.flatten()),
+                },
+                Expr::Unary { kind, operand } => Expr::Unary {
+                    kind,
+                    operand: Box::new(operand.flatten()),
+                },
+                Expr::IntLit { .. } | Expr::F64(_) | Expr::Ident { .. } => expr,
+            },
+            span,
+        )
     }
 }

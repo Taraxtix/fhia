@@ -109,15 +109,6 @@ impl<'src> Expr<'src> {
                 },
             },
             Self::F64(val) => Some(ConstValue::Float(*val)),
-            Self::Cast(ty, s_expr) =>
-            {
-                let Spanned(expr, span) = s_expr.as_ref();
-                Some(
-                    expr.const_value(span, env, decl_kind, diagnostics, ptr_size)
-                        .or_else(|| Self::handle_error(*span, decl_kind, diagnostics))?
-                        .cast_to(s_expr.ty(), *ty, 64),
-                )
-            },
             Self::Ident { name, .. } => env
                 .lookup_const(name)
                 .copied()
@@ -126,6 +117,7 @@ impl<'src> Expr<'src> {
             {
                 self.const_eval_unary(span, env, decl_kind, diagnostics, ptr_size)
             },
+            Self::Atom(_) => unreachable!("Flatten out"),
         }
     }
 
@@ -142,8 +134,8 @@ impl<'src> Expr<'src> {
         {
             unreachable!("Ensured by caller")
         };
-        let Spanned(operand, expr_span) = operand.as_ref();
-        let const_operand = operand
+        let Spanned(inner_operand, expr_span) = operand.as_ref();
+        let const_operand = inner_operand
             .const_value(span, env, DeclKind::Const, diagnostics, ptr_size)
             .or_else(|| Self::handle_error(*expr_span, decl_kind, diagnostics))?;
         Some(match kind
@@ -154,6 +146,7 @@ impl<'src> Expr<'src> {
                 ConstValue::Int(val) => ConstValue::Int(val.wrapping_neg()),
                 ConstValue::Float(val) => ConstValue::Float(-val),
             },
+            UnaryOpKind::As(ty) => const_operand.cast_to(operand.ty(), *ty, 64),
         })
     }
 }

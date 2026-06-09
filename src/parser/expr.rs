@@ -1,4 +1,4 @@
-mod operators;
+pub mod operators;
 use std::{fmt::Display, num::NonZero};
 
 pub use operators::UnaryOpKind;
@@ -86,6 +86,7 @@ impl Display for Ty {
 
 #[derive(Clone, Debug)]
 pub enum Expr<'src> {
+    Atom(Box<Spanned<Self>>),
     Declaration {
         kind: DeclKind,
         name: &'src str,
@@ -99,9 +100,6 @@ pub enum Expr<'src> {
     },
     F64(f64),
     // F128(f128)
-
-    // Ex: `u32 42` would turn into `Cast(U32, IntLit { ty: U32, value: 42 })`
-    Cast(Ty, Box<Spanned<Self>>),
     Ident {
         name: &'src str,
         ty:   Ty,
@@ -119,9 +117,9 @@ impl<'src> Expr<'src> {
             Self::Declaration { .. } => "declaration",
             Self::IntLit { .. } => "int literal",
             Self::F64(_) => "f64 litteral",
-            Self::Cast(_, _) => "cast expression",
             Self::Ident { .. } => "identifier",
             Self::Unary { kind, .. } => kind.kind_name(),
+            Self::Atom(spanned) => spanned.0.kind_name(),
         }
     }
 
@@ -137,11 +135,11 @@ impl<'src> Expr<'src> {
         match self
         {
             Self::Ident { name, .. } => out.push(name),
-            Self::Cast(_, inner) => inner.0.collect_deps(out),
             Self::IntLit { .. } | Self::F64(_) =>
             {},
             Self::Declaration { .. } => unreachable!("nested declaration in dep collection"),
             Self::Unary { operand, .. } => operand.0.collect_deps(out),
+            Self::Atom(spanned) => spanned.0.collect_deps(out),
         }
     }
 }
@@ -150,25 +148,25 @@ impl Display for Expr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self
         {
-            Expr::Declaration {
+            Self::Declaration {
                 kind,
                 name,
                 ty,
                 expr,
             } => f.write_fmt(format_args!("{kind} {name}: {ty} = ({})", expr.0)),
-            Expr::IntLit {
+            Self::IntLit {
                 value,
                 negated: true,
                 ..
             } => f.write_fmt(format_args!("-{}", value.wrapping_neg())),
-            Expr::IntLit { value, .. } => f.write_fmt(format_args!("{value}")),
-            Expr::F64(lit) => f.write_fmt(format_args!("f{lit}")),
-            Expr::Cast(ty, expr) => f.write_fmt(format_args!("{ty} ({})", expr.0)),
-            Expr::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
-            Expr::Unary { kind, operand } =>
+            Self::IntLit { value, .. } => f.write_fmt(format_args!("{value}")),
+            Self::F64(lit) => f.write_fmt(format_args!("f{lit}")),
+            Self::Ident { name, ty } => f.write_fmt(format_args!("{name}: {ty}")),
+            Self::Unary { kind, operand } =>
             {
                 f.write_fmt(format_args!("{}", kind.display(&operand.0)))
             },
+            Self::Atom(expr) => f.write_fmt(format_args!("{}", expr.0)),
         }
     }
 }

@@ -182,17 +182,23 @@ fn parse_ident_in_rhs() {
 
 #[test]
 fn parse_cast_expression() {
-    let exprs = parse_ok("let x: u32 = u32 42");
+    let exprs = parse_ok("let x: u32 = 42 as u32");
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
         Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
         {
-            Spanned(Expr::Cast(ty, inner), _) =>
+            Spanned(
+                Expr::Unary {
+                    kind: UnaryOpKind::As(ty),
+                    operand,
+                },
+                _,
+            ) =>
             {
                 assert_eq!(*ty, int_ty(false, 32));
                 assert!(matches!(
-                    inner.as_ref(),
+                    operand.as_ref(),
                     Spanned(Expr::IntLit { value: 42, .. }, _)
                 ));
             },
@@ -211,11 +217,17 @@ fn parse_nested_cast() {
         {
             Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
             {
-                Spanned(Expr::Cast(outer_ty, inner), _) =>
+                Spanned(
+                    Expr::Unary {
+                        kind: UnaryOpKind::As(outer_ty),
+                        operand,
+                    },
+                    _,
+                ) =>
                 {
                     assert_eq!(*outer_ty, int_ty(true, 64));
                     assert!(
-                        matches!(inner.as_ref(), Spanned(Expr::Cast(ty, _), _) if *ty == int_ty(false, 32))
+                        matches!(operand.as_ref(), Spanned(Expr::Unary{kind: UnaryOpKind::As(ty), ..}, _) if *ty == int_ty(false, 32))
                     );
                 },
                 _ => panic!("expected outer cast"),
@@ -223,8 +235,8 @@ fn parse_nested_cast() {
             _ => panic!("expected declaration"),
         }
     };
-    check(parse_ok("let x: i64 = i64 (u32 42)"));
-    check(parse_ok("let x: i64 = i64 u32 42"));
+    check(parse_ok("let x: i64 = (42 as u32) as i64"));
+    check(parse_ok("let x: i64 = 42 as u32 as i64"));
 }
 
 #[test]
@@ -342,7 +354,7 @@ fn parse_keyword_as_name() {
 #[test]
 fn parse_incomplete_cast() {
     // a type token with no following expression is not valid
-    parse_err("let x: i64 = i64", ErrorCode::UnexpectedEof);
+    parse_err("let x: i64 = i64", ErrorCode::DeclarationMalformed);
 }
 
 #[test]
@@ -506,17 +518,23 @@ fn parse_neg_grouped() {
 #[test]
 fn parse_neg_in_cast() {
     // `i64 -42` — the cast's operand is the whole negation expression
-    let exprs = parse_ok("let x: i64 = i64 -42");
+    let exprs = parse_ok("let x: i64 = -42 as i64");
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
         Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
         {
-            Spanned(Expr::Cast(ty, inner), _) =>
+            Spanned(
+                Expr::Unary {
+                    kind: UnaryOpKind::As(ty),
+                    operand,
+                },
+                _,
+            ) =>
             {
                 assert_eq!(*ty, int_ty(true, 64));
                 assert!(matches!(
-                    inner.as_ref(),
+                    operand.as_ref(),
                     Spanned(
                         Expr::Unary {
                             kind: UnaryOpKind::Neg,
@@ -526,7 +544,7 @@ fn parse_neg_in_cast() {
                     )
                 ));
             },
-            _ => panic!("expected Cast"),
+            other => panic!("expected Cast, got {other:?}"),
         },
         _ => panic!("expected declaration"),
     }
@@ -535,7 +553,7 @@ fn parse_neg_in_cast() {
 #[test]
 fn parse_neg_of_cast() {
     // `-i64 42` — the negation wraps the whole cast expression
-    let exprs = parse_ok("let x: i64 = -i64 42");
+    let exprs = parse_ok("let x: i64 = -(42 as i64)");
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
@@ -549,7 +567,16 @@ fn parse_neg_of_cast() {
                 _,
             ) =>
             {
-                assert!(matches!(operand.as_ref(), Spanned(Expr::Cast(..), _)));
+                assert!(matches!(
+                    operand.as_ref(),
+                    Spanned(
+                        Expr::Unary {
+                            kind: UnaryOpKind::As(_),
+                            ..
+                        },
+                        _
+                    )
+                ));
             },
             _ => panic!("expected Unary::Neg"),
         },

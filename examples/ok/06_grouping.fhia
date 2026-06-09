@@ -1,6 +1,6 @@
 let paren:       i64 = (42)
 let brace:       i64 = {42}
 let nested:      i64 = ({(42)})
-let cast_paren:  i64 = i64 (42)
-let cast_brace:  i64 = i64 {42}
-let main:        i32 = i32 0
+let cast_paren:  i64 = (42) as i64
+let cast_brace:  i64 = {42} as i64
+let main:        i32 = 0

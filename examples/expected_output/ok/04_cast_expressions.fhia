@@ -1,14 +1,16 @@
 -------------------------------------------------
-let int_narrowed: u32 = (u32 (42))
-let int_to_float: f64 = (f64 (42))
-let float_to_int: i32 = (i32 (f1.5))
-let cross_int_sizes: i8 = (i8 (1000))
+let int_narrowed: u32 = ((42 as u32))
+let int_to_float: f64 = ((42 as f64))
+let float_to_int: i32 = ((f1.5 as i32))
+let neg_to_unsigned: u8 = ((-(5) as u8))
+let cross_int_sizes: i8 = ((1000 as i8))
 let main: i32 = (float_to_int: ?)
 -------------------------------------------------
-let int_narrowed: u32 = (u32 (42))
-let int_to_float: f64 = (f64 (42))
-let float_to_int: i32 = (i32 (f1.5))
-let cross_int_sizes: i8 = (i8 (1000))
+let int_narrowed: u32 = ((42 as u32))
+let int_to_float: f64 = ((42 as f64))
+let float_to_int: i32 = ((f1.5 as i32))
+let neg_to_unsigned: u8 = ((340282366920938463463374607431768211451 as u8))
+let cross_int_sizes: i8 = ((1000 as i8))
 let main: i32 = (float_to_int: i32)
 -------------------------------------------------
 ; ModuleID = 'main'
@@ -17,6 +19,7 @@ source_filename = "main"
 @int_narrowed = constant i32 42
 @int_to_float = constant double 4.200000e+01
 @float_to_int = constant i32 1
+@neg_to_unsigned = constant i8 -5
 @cross_int_sizes = constant i8 -24
 
 define i32 @main() {

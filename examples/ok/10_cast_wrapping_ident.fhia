@@ -1,3 +1,3 @@
 let raw:  i64 = 42
-let cast: i64 = i64 raw
-let main: i32 = i32 cast
+let cast: i64 = raw as i64
+let main: i32 = cast as i32

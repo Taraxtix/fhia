@@ -153,10 +153,14 @@ impl<'src> Spanned<Expr<'src>> {
                 Expr::IntLit { ty, .. }
                 | Expr::Ident { ty, .. }
                 | Expr::Declaration { ty, .. }
-                | Expr::Cast(ty, _),
+                | Expr::Unary {
+                    kind: UnaryOpKind::As(ty),
+                    ..
+                },
                 _,
             ) => *ty,
             Spanned(Expr::Unary { operand, .. }, _) => operand.ty(),
+            Spanned(Expr::Atom(expr), _) => expr.ty(),
         }
     }
 
@@ -166,9 +170,16 @@ impl<'src> Spanned<Expr<'src>> {
         {
             Spanned(Expr::IntLit { .. } | Expr::F64(_), _) => self,
             Spanned(Expr::Ident { .. }, ..) => self.type_check_ident(env, &mut diagnostics),
-            Spanned(Expr::Cast(..), ..) => self.type_check_cast(env, &mut diagnostics),
             Spanned(Expr::Declaration { .. }, ..) => self.type_check_decla(env, &mut diagnostics),
+            Spanned(
+                Expr::Unary {
+                    kind: UnaryOpKind::As(_),
+                    ..
+                },
+                ..,
+            ) => self.type_check_cast(env, &mut diagnostics),
             Spanned(Expr::Unary { .. }, _) => self.type_unary_op(env, &mut diagnostics),
+            Spanned(Expr::Atom(_), _) => unreachable!("Flatten out"),
         };
         (expr, diagnostics)
     }
@@ -204,6 +215,7 @@ impl<'src> Spanned<Expr<'src>> {
                 Diagnostic::error(ErrorCode::TypeMismatch)
                     .with_main_label(span, format!("cannot negate '{}'", typed_operand.ty())),
             ),
+            UnaryOpKind::As(_) => unreachable!("Handled in `type_check`"),
         }
         Spanned(
             Expr::Unary {
@@ -247,14 +259,20 @@ impl<'src> Spanned<Expr<'src>> {
     }
 
     fn type_check_cast(self, env: &mut Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {
-        let Spanned(Expr::Cast(ty, expr), span) = self
+        let Spanned(
+            Expr::Unary {
+                kind: UnaryOpKind::As(ty),
+                operand,
+            },
+            span,
+        ) = self
         else
         {
             unreachable!()
         };
-        let (typed_expr, expr_diagnostics) = expr.type_check(env);
+        let (typed_expr, expr_diagnostics) = operand.type_check(env);
         diagnostics.extend(expr_diagnostics);
-        let typed_expr = match typed_expr
+        let typed_operand = match typed_expr
         {
             Spanned(
                 Expr::IntLit {
@@ -276,14 +294,20 @@ impl<'src> Spanned<Expr<'src>> {
             ),
             other => other,
         };
-        if typed_expr.ty() == Ty::Unit
+        if typed_operand.ty() == Ty::Unit
         {
             diagnostics.push(
                 Diagnostic::error(ErrorCode::InvalidCastOperand)
-                    .with_main_label(typed_expr.1, "cannot cast a `()` value"),
+                    .with_main_label(typed_operand.1, "cannot cast a `()` value"),
             );
         }
-        Spanned(Expr::Cast(ty, Box::new(typed_expr)), span)
+        Spanned(
+            Expr::Unary {
+                kind:    UnaryOpKind::As(ty),
+                operand: Box::new(typed_operand),
+            },
+            span,
+        )
     }
 
     fn type_check_decla(self, env: &mut Env<'src>, diagnostics: &mut Vec<Diagnostic>) -> Self {

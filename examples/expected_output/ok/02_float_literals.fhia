@@ -6,7 +6,9 @@ let zero: f64 = (f0)
 let scientific: f64 = (f1000)
 let sci_neg_exp: f64 = (f0.001)
 let sci_upper: f64 = (f1000)
-let main: i32 = (i32 (0))
+let negative: f64 = (-(f1.5))
+let neg_zero: f64 = (-(f0))
+let main: i32 = (0)
 -------------------------------------------------
 let simple: f64 = (f3.14)
 let trailing_dot: f64 = (f1)
@@ -15,7 +17,9 @@ let zero: f64 = (f0)
 let scientific: f64 = (f1000)
 let sci_neg_exp: f64 = (f0.001)
 let sci_upper: f64 = (f1000)
-let main: i32 = (i32 (0))
+let negative: f64 = (-(f1.5))
+let neg_zero: f64 = (-(f0))
+let main: i32 = (0)
 -------------------------------------------------
 ; ModuleID = 'main'
 source_filename = "main"
@@ -27,6 +31,8 @@ source_filename = "main"
 @scientific = constant double 1.000000e+03
 @sci_neg_exp = constant double 1.000000e-03
 @sci_upper = constant double 1.000000e+03
+@negative = constant double -1.500000e+00
+@neg_zero = constant double -0.000000e+00
 
 define i32 @main() {
 entry:

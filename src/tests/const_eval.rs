@@ -446,7 +446,7 @@ fn const_eval_float_literal() {
 fn const_eval_cast_wraps() {
     // i8 200 truncates to -56 at const-eval time
     assert_eq!(
-        eval_const("let main: i32 = 0 const x: i8 = i8 200", "x"),
+        eval_const("let main: i32 = 0 const x: i8 = 200 as i8", "x"),
         Some(ConstValue::Int(-56))
     );
 }

@@ -1,11 +1,11 @@
 -------------------------------------------------
 let raw: i64 = (42)
-let cast: i64 = (i64 (raw: ?))
-let main: i32 = (i32 (cast: ?))
+let cast: i64 = ((raw: ? as i64))
+let main: i32 = ((cast: ? as i32))
 -------------------------------------------------
 let raw: i64 = (42)
-let cast: i64 = (i64 (raw: i64))
-let main: i32 = (i32 (cast: i64))
+let cast: i64 = ((raw: i64 as i64))
+let main: i32 = ((cast: i64 as i32))
 -------------------------------------------------
 ; ModuleID = 'main'
 source_filename = "main"
