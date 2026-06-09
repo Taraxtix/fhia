@@ -16,3 +16,5 @@ tmp*.txt
 test
 export/**
 parser.svg
+
+README.md.bak

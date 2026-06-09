@@ -1,135 +1,156 @@
-# FHIA Programming language
+> [!WARNING]
+> This README is heavily AI-generated and will need manual work later on.
+
+# FHIA Programming Language
 
 <!--toc:start-->
-- [FHIA Programming language](#fhia-programming-language)
+- [FHIA Programming Language](#fhia-programming-language)
   - [Goals](#goals)
-  - [Targeted](#targeted)
-    - [Syntax](#syntax)
+  - [Status](#status)
+  - [Building](#building)
+  - [Usage](#usage)
+  - [Language Reference](#language-reference)
+    - [Declarations](#declarations)
     - [Types](#types)
+    - [Expressions](#expressions)
     - [Operators](#operators)
-      - [Arithmetic](#arithmetic)
-      - [Logical](#logical)
-      - [Comparison](#comparison)
-      - [Bitwise](#bitwise)
-      - [Other](#other)
-    - [Reserved functions](#reserved-functions)
-      - [Debug printing](#debug-printing)
+    - [Comments](#comments)
+  - [Diagnostics](#diagnostics)
 <!--toc:end-->
 
 ## Goals
 
-- [ ] Compile to native code
+- [x] Compile to native code
 - [ ] Compile to WASM
-- [ ] Statically typed
+- [x] Statically typed
 - [ ] Type inference
 - [ ] Turing complete
 - [ ] Self-hosted
 
-## Targeted
+## Status
 
-### Syntax
+Early-stage compiler that translates a small, statically-typed language to native binaries via LLVM.
+The pipeline is fully wired end-to-end: lex → parse → type-check → const-eval → codegen → link.
 
-Everything can be either:
+Currently implemented:
 
-- An expression `<expr>` that evaluates to a value
+- Global declarations (`let`, `let mut`, `const`)
+- All numeric types (`i8`–`i128`, `u8`–`u128`, `isize`, `usize`, `f32`, `f64`)
+- Integer literals (decimal, binary, octal, hex) and float literals (decimal, scientific notation)
+- Unary negation (`-`)
+- Type cast expressions (`as`)
+- Forward references between declarations (resolved via topological sort)
+- Constant folding for `const` declarations and const-evaluable `let` declarations
+- Cross-compilation via `--target`
+- Rich error diagnostics (ariadne) with source spans
 
-  An expression followed by a semicolon is a statement evaluates to `()`.
+Not yet implemented: functions with arguments, binary operators, control flow, `bool`, `char`, `str`, arrays, pointers.
 
-  A block is also an expression, it is a sequence of expressions between `{` and `}`, every expression in a block except the last expression must evaluate to `()` or `!`.
+## Building
 
-- A function definition :
+Requires a Rust nightly toolchain and LLVM 22.
 
-```fhia
-let <name> [pattern*] [: <return_type>] = <expr>
+```sh
+cargo build --release
 ```
 
-Where:
+## Usage
 
-- `<name>` is the name of the function (must not be a reserved keyword or function)
-- `[pattern*]` is 0 or more patterns that matches the arguments of the function. There are 3 types of patterns:
-  - `<ident> [: <type>]` is a variable name of type `<type>` (if not specified, the type is inferred if possible)
-  - `literal` A literal value
-  - `_` is a wildcard pattern
-  If no patterns are specified, the function takes no arguments and is essentially a constant variable
-- `<return_type>` is the type of the return value of the function (if not specified, the type is inferred if possible)
-- `<expr>` is the expression that evaluates to the return value of the function
+```sh
+fhia [OPTIONS] [INPUT]
+```
 
-A function can have multiple definitions, that matches different patterns.
+| Option | Default | Description |
+|---|---|---|
+| `[INPUT]` | `test.fhia` | Source file to compile |
+| `-o`, `--output <FILE>` | `a.out` | Output binary path |
+| `--target <TRIPLE>` | host triple | Cross-compilation target |
+| `--parser` | off | Print the parsed AST |
+| `--typer` | off | Print the typed AST |
+| `--llvm-ir` | off | Print the generated LLVM IR |
 
-Additionally, you can define a mutable variable with `let mut <name> = <expr>`.
+Every program must declare a `main` of an integer type. Its value becomes the process exit code.
+
+```fhia
+let x: i64 = 42
+let main: i32 = x as i32
+```
+
+## Language Reference
+
+### Declarations
+
+```fhia
+let <name>: <type> = <expr>
+let mut <name>: <type> = <expr>
+const <name>: <type> = <expr>
+```
+
+All declarations are at top level. The type annotation is mandatory. `const` requires a
+compile-time-evaluable expression; `let` and `let mut` may reference non-const values.
+
+Forward references are allowed: declarations are evaluated in dependency order, not source order.
 
 ### Types
 
-- `i8`, `i16`, `i32`, `i64`, `i128` (signed integers)
-- `u8`, `u16`, `u32`, `u64`, `u128`
-- `size` (unsigned integers)
-- `f32`, `f64`, `f128` (floating point numbers)
-- `bool` (boolean)
-- `char` (character)
-- `str` (strings)
-- `()` (unit)
-- `!` (never)
-- `[T, size]` (array of elements of type `T` and size `size`)
-- `&const T` (constant pointer/reference to an element of type `T`)
-- `&mut T` (mutable pointer/reference to an element of type `T`)
+| Type | Description |
+|---|---|
+| `iN` (N = 1–128) | Signed integer of exactly N bits (e.g. `i8`, `i24`, `i128`) |
+| `uN` (N = 1–128) | Unsigned integer of exactly N bits (e.g. `u1`, `u32`, `u128`) |
+| `isize`, `usize` | Pointer-sized signed/unsigned integers |
+| `f32`, `f64` | Floating-point numbers |
+
+### Expressions
+
+- **Integer literals**: `42`, `0b1010`, `0o17`, `0xFF` — type is inferred from the declaration
+- **Float literals**: `3.14`, `1.`, `.5`, `1.0e3`, `1.0e-3`
+- **Identifiers**: reference to a previously declared name
+- **Grouping**: `(expr)` or `{expr}` — both are semantically equivalent
+- **Negation**: `-expr`
+- **Cast**: `expr as <type>` — left-associative, chains as `42 as u32 as i64`
 
 ### Operators
 
-All binary operators will use infix notation (`<expr> <op> <expr>`) but can be used as prefix by surrounding the operator with parentheses (`(<op>) <expr> <expr>`). Furthermore, all binary operators will have a assignment variant (`OP=`) (`x OP= y` is equivalent to `x = x OP y`) which all have a precedence of 14 and associativity to the left.
-
-Operators with lower precedence are evaluated first. If two operators have the same precedence.
-
-precedences and associativity are based on : <https://en.cppreference.com/w/c/language/operator_precedence>
-
 #### Arithmetic
 
-- `X++` postfix increment (precedence: 1 | associativity: left)
-- `X--` postfix decrement (precedence: 1 | associativity: left)
-- `++X` prefix increment  (precedence: 2 | associativity: right)
-- `--X` prefix decrement  (precedence: 2 | associativity: right)
-- `-` unary minus         (precedence: 2 | associativity: right)
-- `*` multiplication      (precedence: 3 | associativity: left)
-- `/` division            (precedence: 3 | associativity: left)
-- `%` modulo              (precedence: 3 | associativity: left)
-- `+` addition            (precedence: 4 | associativity: left)
-- `-` subtraction         (precedence: 4 | associativity: left)
+| Operator | Description | Precedence | Associativity |
+|---|---|---|---|
+| `-` | unary minus | 2 | right |
 
-#### Logical
+#### Cast
 
-- `!` logical not   (precedence: 2  | associativity: right)
-- `&&` logical and  (precedence: 11 | associativity: left)
-- `||` logical or   (precedence: 12 | associativity: left)
+| Operator | Description | Precedence | Associativity |
+|---|---|---|---|
+| `as` | type cast | 2 | left |
 
-#### Comparison
+Cast semantics follow Rust: truncation, sign extension/zero extension, and float↔integer
+conversions are all well-defined and explicit.
 
-- `<` less than               (precedence: 6 | associativity: left)
-- `>` greater than            (precedence: 6 | associativity: left)
-- `<=` less or equal than     (precedence: 6 | associativity: left)
-- `>=` greater or equal than  (precedence: 6 | associativity: left)
-- `==` equals to              (precedence: 7 | associativity: left)
-- `!=` not equals to          (precedence: 7 | associativity: left)
-
-#### Bitwise
-
-- `~` bitwise not   (precedence: 2 | associativity: left)
-- `<<` left shift   (precedence: 5 | associativity: left)
-- `>>` right shift  (precedence: 5 | associativity: left)
-- `&` bitwise and   (precedence: 8 | associativity: left)
-- `^` bitwise xor   (precedence: 9 | associativity: left)
-- `|` bitwise or    (precedence: 10 | associativity: left)
-
-#### Other
-
-- `=` assignment (precedence: 14 | associativity: left)
-- `*` constant dereference (precedence: 2 | associativity: left)
-- `.` member access/function call (precedence: 1 | associativity: left)
-
-### Reserved functions
-
-#### Debug printing
+### Comments
 
 ```fhia
-dbg <expr>
+// line comment
+
+/* block
+   comment */
 ```
 
-Prints the value of the expression to standard output with a newline.
+## Diagnostics
+
+Errors are reported with source spans using [ariadne](https://github.com/zesterer/ariadne).
+Multiple errors are collected and reported together rather than stopping at the first failure.
+
+Detected error classes:
+
+- Invalid token
+- Malformed declaration (missing name, colon, type, or `=`)
+- Unclosed delimiter (`(`, `{`)
+- Duplicate declaration
+- Undefined variable
+- Type mismatch between declared type and expression type
+- Integer literal out of range for declared type
+- Assigning a signed (negated) literal to an unsigned type
+- Missing `main` declaration
+- `main` declared with a non-integer type
+- Non-const expression in a `const` declaration
+- Invalid cast operand (e.g. casting `()`)
