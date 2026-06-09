@@ -7,7 +7,6 @@
       "y": -1040,
       "width": 153,
       "height": 63,
-      "color": "2",
       "text": "Main function"
     },
     {
@@ -76,6 +75,7 @@
       "y": 155.7068416128102,
       "width": 205,
       "height": 63,
+      "color": "4",
       "text": "Operator precedence"
     },
     {
@@ -131,6 +131,7 @@
       "y": -282.2931583871898,
       "width": 146,
       "height": 63,
+      "color": "4",
       "text": "Unary minus"
     },
     {
@@ -158,6 +159,7 @@
       "y": -500,
       "width": 242,
       "height": 63,
+      "color": "2",
       "text": "Binary arithmetic operators"
     },
     {
