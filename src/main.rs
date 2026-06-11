@@ -1,5 +1,6 @@
 #![feature(stmt_expr_attributes)]
 #![feature(const_trait_impl)]
+#![feature(box_patterns)]
 
 use std::{fs::read_to_string, range::Range};
 

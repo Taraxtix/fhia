@@ -73,18 +73,19 @@ where
         let mut main_body = None;
         for name in order
         {
-            let Spanned(Expr::Declaration { expr: body, .. }, _) = decl_map.remove(name).unwrap()
+            let Spanned(Expr::Declaration { expr: box body, .. }, _) =
+                decl_map.remove(name).unwrap()
             else
             {
                 unreachable!()
             };
             if name == "main"
             {
-                main_body = Some(*body);
+                main_body = Some(body);
             }
             else
             {
-                self.gen_decl(name, *body);
+                self.gen_decl(name, body);
             }
         }
 
@@ -196,8 +197,10 @@ where
             .expect("set_alignment failed");
     }
 
-    fn gen_expr(&mut self, expr: Spanned<Expr<'src>>) -> inkwell::values::BasicValueEnum<'ctx> {
-        let Spanned(expr, _span) = expr;
+    fn gen_expr(
+        &mut self,
+        Spanned(expr, _span): Spanned<Expr<'src>>,
+    ) -> inkwell::values::BasicValueEnum<'ctx> {
         match expr
         {
             Expr::Declaration { .. } => unreachable!("declarations are handled by gen_decl"),

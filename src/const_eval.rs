@@ -89,9 +89,12 @@ impl<'src> Expr<'src> {
     ) -> Option<ConstValue> {
         match self
         {
-            Self::Declaration { name, expr, .. } =>
+            Self::Declaration {
+                name,
+                expr: box Spanned(expr, span),
+                ..
+            } =>
             {
-                let Spanned(expr, span) = expr.as_ref();
                 let value = expr.const_value(span, env, decl_kind, diagnostics, ptr_size)?;
                 env.declare_const(name, value);
                 Some(value)
@@ -129,12 +132,14 @@ impl<'src> Expr<'src> {
         diagnostics: &mut Vec<Diagnostic>,
         ptr_size: usize,
     ) -> Option<ConstValue> {
-        let Expr::Unary { kind, operand } = self
+        let Expr::Unary {
+            kind,
+            operand: operand @ box Spanned(inner_operand, expr_span),
+        } = self
         else
         {
             unreachable!("Ensured by caller")
         };
-        let Spanned(inner_operand, expr_span) = operand.as_ref();
         let const_operand = inner_operand
             .const_value(span, env, DeclKind::Const, diagnostics, ptr_size)
             .or_else(|| Self::handle_error(*expr_span, decl_kind, diagnostics))?;

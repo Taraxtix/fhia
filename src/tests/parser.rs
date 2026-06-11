@@ -79,8 +79,8 @@ fn parse_declaration_i64() {
             assert_eq!(*name, "x");
             assert_eq!(*ty, int_ty(true, 64));
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(Expr::IntLit { value: 42, .. }, _)
+                expr,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
             ));
         },
         _ => panic!("expected declaration"),
@@ -107,8 +107,8 @@ fn parse_declaration_let_mut() {
             assert_eq!(*name, "x");
             assert_eq!(*ty, int_ty(true, 64));
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(Expr::IntLit { value: 42, .. }, _)
+                expr,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
             ));
         },
         _ => panic!("expected declaration"),
@@ -135,8 +135,8 @@ fn parse_declaration_const() {
             assert_eq!(*name, "x");
             assert_eq!(*ty, int_ty(true, 64));
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(Expr::IntLit { value: 42, .. }, _)
+                expr,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
             ));
         },
         _ => panic!("expected declaration"),
@@ -154,7 +154,7 @@ fn parse_declaration_f64() {
         {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::F64);
-            assert!(matches!(expr.as_ref(), Spanned(Expr::F64(f), _) if (*f - 3.14).abs() < 1e-9));
+            assert!(matches!(expr, box Spanned(Expr::F64(f), _) if (*f - 3.14).abs() < 1e-9));
         },
         _ => panic!("expected declaration"),
     }
@@ -167,14 +167,16 @@ fn parse_ident_in_rhs() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(Expr::Ident { name, ty }, _) =>
-            {
-                assert_eq!(*name, "y");
-                assert_eq!(*ty, Ty::Unknown);
+        Spanned(
+            Expr::Declaration {
+                expr: box Spanned(Expr::Ident { name, ty }, _),
+                ..
             },
-            _ => panic!("expected ident"),
+            _,
+        ) =>
+        {
+            assert_eq!(*name, "y");
+            assert_eq!(*ty, Ty::Unknown);
         },
         _ => panic!("expected declaration"),
     }
@@ -186,23 +188,26 @@ fn parse_cast_expression() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::As(ty),
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert_eq!(*ty, int_ty(false, 32));
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(Expr::IntLit { value: 42, .. }, _)
-                ));
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
+                        Expr::Unary {
+                            kind: UnaryOpKind::As(ty),
+                            operand,
+                        },
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected cast"),
+            _,
+        ) =>
+        {
+            assert_eq!(*ty, int_ty(false, 32));
+            assert!(matches!(
+                operand,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -215,22 +220,25 @@ fn parse_nested_cast() {
         assert_eq!(exprs.len(), 1);
         match &exprs[0]
         {
-            Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-            {
-                Spanned(
-                    Expr::Unary {
-                        kind: UnaryOpKind::As(outer_ty),
-                        operand,
-                    },
-                    _,
-                ) =>
-                {
-                    assert_eq!(*outer_ty, int_ty(true, 64));
-                    assert!(
-                        matches!(operand.as_ref(), Spanned(Expr::Unary{kind: UnaryOpKind::As(ty), ..}, _) if *ty == int_ty(false, 32))
-                    );
+            Spanned(
+                Expr::Declaration {
+                    expr:
+                        box Spanned(
+                            Expr::Unary {
+                                kind: UnaryOpKind::As(outer_ty),
+                                operand,
+                            },
+                            _,
+                        ),
+                    ..
                 },
-                _ => panic!("expected outer cast"),
+                _,
+            ) =>
+            {
+                assert_eq!(*outer_ty, int_ty(true, 64));
+                assert!(
+                    matches!(operand, box Spanned(Expr::Unary { kind: UnaryOpKind::As(ty), .. }, _) if *ty == int_ty(false, 32))
+                );
             },
             _ => panic!("expected declaration"),
         }
@@ -248,8 +256,8 @@ fn parse_parenthesized_expression() {
         Spanned(Expr::Declaration { expr, .. }, _) =>
         {
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(Expr::IntLit { value: 42, .. }, _)
+                expr,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
             ));
         },
         _ => panic!("expected declaration"),
@@ -265,8 +273,8 @@ fn parse_braced_expression() {
         Spanned(Expr::Declaration { expr, .. }, _) =>
         {
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(Expr::IntLit { value: 42, .. }, _)
+                expr,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
             ));
         },
         _ => panic!("expected declaration"),
@@ -284,7 +292,7 @@ fn parse_nested_grouping() {
     {
         let exprs = parse_ok(input);
         assert!(
-            matches!(&exprs[0], Spanned(Expr::Declaration { expr, .. }, _) if matches!(expr.as_ref(), Spanned(Expr::IntLit { value: 42, .. }, _))),
+            matches!(&exprs[0], Spanned(Expr::Declaration { expr, .. }, _) if matches!(expr, box Spanned(Expr::IntLit { value: 42, .. }, _))),
             "failed on: {input}"
         );
     }
@@ -377,22 +385,25 @@ fn parse_neg_int_lit() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::Neg,
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(Expr::IntLit { value: 42, .. }, _)
-                ));
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
+                        Expr::Unary {
+                            kind: UnaryOpKind::Neg,
+                            operand,
+                        },
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected Unary::Neg"),
+            _,
+        ) =>
+        {
+            assert!(matches!(
+                operand,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -405,22 +416,22 @@ fn parse_neg_float_lit() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::Neg,
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(Expr::F64(v), _) if (*v - 3.14).abs() < 1e-9
-                ));
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
+                        Expr::Unary {
+                            kind: UnaryOpKind::Neg,
+                            operand,
+                        },
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected Unary::Neg"),
+            _,
+        ) =>
+        {
+            assert!(matches!(operand, box Spanned(Expr::F64(v), _) if (*v - 3.14).abs() < 1e-9));
         },
         _ => panic!("expected declaration"),
     }
@@ -432,22 +443,25 @@ fn parse_neg_ident() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::Neg,
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(Expr::Ident { name: "y", .. }, _)
-                ));
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
+                        Expr::Unary {
+                            kind: UnaryOpKind::Neg,
+                            operand,
+                        },
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected Unary::Neg"),
+            _,
+        ) =>
+        {
+            assert!(matches!(
+                operand,
+                box Spanned(Expr::Ident { name: "y", .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -460,28 +474,31 @@ fn parse_double_neg() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::Neg,
-                    operand: outer,
-                },
-                _,
-            ) =>
-            {
-                assert!(matches!(
-                    outer.as_ref(),
-                    Spanned(
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
                         Expr::Unary {
                             kind: UnaryOpKind::Neg,
-                            ..
+                            operand: outer,
                         },
-                        _
-                    )
-                ));
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected outer Unary::Neg"),
+            _,
+        ) =>
+        {
+            assert!(matches!(
+                outer,
+                box Spanned(
+                    Expr::Unary {
+                        kind: UnaryOpKind::Neg,
+                        ..
+                    },
+                    _,
+                )
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -494,22 +511,25 @@ fn parse_neg_grouped() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::Neg,
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(Expr::IntLit { value: 42, .. }, _)
-                ));
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
+                        Expr::Unary {
+                            kind: UnaryOpKind::Neg,
+                            operand,
+                        },
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected Unary::Neg"),
+            _,
+        ) =>
+        {
+            assert!(matches!(
+                operand,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -522,29 +542,32 @@ fn parse_neg_in_cast() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::As(ty),
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert_eq!(*ty, int_ty(true, 64));
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
                         Expr::Unary {
-                            kind: UnaryOpKind::Neg,
-                            ..
+                            kind: UnaryOpKind::As(ty),
+                            operand,
                         },
-                        _
-                    )
-                ));
+                        _,
+                    ),
+                ..
             },
-            other => panic!("expected Cast, got {other:?}"),
+            _,
+        ) =>
+        {
+            assert_eq!(*ty, int_ty(true, 64));
+            assert!(matches!(
+                operand,
+                box Spanned(
+                    Expr::Unary {
+                        kind: UnaryOpKind::Neg,
+                        ..
+                    },
+                    _,
+                )
+            ));
         },
         _ => panic!("expected declaration"),
     }
@@ -557,28 +580,31 @@ fn parse_neg_of_cast() {
     assert_eq!(exprs.len(), 1);
     match &exprs[0]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(
-                Expr::Unary {
-                    kind: UnaryOpKind::Neg,
-                    operand,
-                },
-                _,
-            ) =>
-            {
-                assert!(matches!(
-                    operand.as_ref(),
-                    Spanned(
+        Spanned(
+            Expr::Declaration {
+                expr:
+                    box Spanned(
                         Expr::Unary {
-                            kind: UnaryOpKind::As(_),
-                            ..
+                            kind: UnaryOpKind::Neg,
+                            operand,
                         },
-                        _
-                    )
-                ));
+                        _,
+                    ),
+                ..
             },
-            _ => panic!("expected Unary::Neg"),
+            _,
+        ) =>
+        {
+            assert!(matches!(
+                operand,
+                box Spanned(
+                    Expr::Unary {
+                        kind: UnaryOpKind::As(_),
+                        ..
+                    },
+                    _,
+                )
+            ));
         },
         _ => panic!("expected declaration"),
     }

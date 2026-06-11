@@ -128,21 +128,17 @@ fn parse_op<'src>(
             {
                 Expr::Unary {
                     kind,
-                    operand: inner_operand,
-                } if UnaryOpKind::Neg.binding_force().1 > kind.binding_force().0 =>
-                {
-                    let Spanned(inner_operand, inner_operand_span) = *inner_operand;
-                    Spanned(
-                        kind.to_expr_with_operand(Box::new(Spanned(
-                            Expr::Unary {
-                                operand: Box::new(Spanned(inner_operand, inner_operand_span)),
-                                kind:    UnaryOpKind::Neg,
-                            },
-                            Range::from(span.start..inner_operand_span.end),
-                        ))),
-                        Range::from(span.start..operand_span.end),
-                    )
-                },
+                    operand: box Spanned(inner_operand, inner_operand_span),
+                } if UnaryOpKind::Neg.binding_force().1 > kind.binding_force().0 => Spanned(
+                    kind.to_expr_with_operand(Box::new(Spanned(
+                        Expr::Unary {
+                            operand: Box::new(Spanned(inner_operand, inner_operand_span)),
+                            kind:    UnaryOpKind::Neg,
+                        },
+                        Range::from(span.start..inner_operand_span.end),
+                    ))),
+                    Range::from(span.start..operand_span.end),
+                ),
                 _ => Spanned(
                     Expr::Unary {
                         kind:    expr::UnaryOpKind::Neg,

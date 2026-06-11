@@ -56,8 +56,8 @@ fn type_i64_declaration() {
             assert_eq!(*name, "x");
             assert_eq!(*ty, int_ty(true, 64));
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(Expr::IntLit { value: 42, .. }, _)
+                expr,
+                box Spanned(Expr::IntLit { value: 42, .. }, _)
             ));
         },
         _ => panic!("expected declaration"),
@@ -74,7 +74,7 @@ fn type_f64_declaration() {
         {
             assert_eq!(*name, "x");
             assert_eq!(*ty, Ty::F64);
-            assert!(matches!(expr.as_ref(), Spanned(Expr::F64(_), _)));
+            assert!(matches!(expr, box Spanned(Expr::F64(_), _)));
         },
         _ => panic!("expected declaration"),
     }
@@ -112,14 +112,16 @@ fn type_ident_resolved_from_env() {
     assert_eq!(exprs.len(), 3);
     match &exprs[2]
     {
-        Spanned(Expr::Declaration { expr, .. }, _) => match expr.as_ref()
-        {
-            Spanned(Expr::Ident { name, ty }, _) =>
-            {
-                assert_eq!(*name, "x");
-                assert_eq!(*ty, int_ty(true, 64));
+        Spanned(
+            Expr::Declaration {
+                expr: box Spanned(Expr::Ident { name, ty }, _),
+                ..
             },
-            _ => panic!("expected ident inside declaration"),
+            _,
+        ) =>
+        {
+            assert_eq!(*name, "x");
+            assert_eq!(*ty, int_ty(true, 64));
         },
         _ => panic!("expected declaration"),
     }
@@ -136,18 +138,14 @@ fn type_ident_chain_resolved() {
         Spanned(Expr::Declaration { expr, .. }, _) =>
         {
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(
+                expr,
+                box Spanned(
                     Expr::Ident {
-                        ty:
-                            Ty::Int {
-                            signed: true,
-                            width,
-                        } ,
+                        ty: Ty::Int { signed: true, width },
                         ..
                     },
                     _,
-                ) if width == &NonZero::new(64).unwrap()
+                ) if *width == NonZero::new(64).unwrap()
             ));
         },
         _ => panic!("expected declaration"),
@@ -170,14 +168,14 @@ fn type_forward_reference() {
         Spanned(Expr::Declaration { expr, .. }, _) =>
         {
             assert!(matches!(
-                expr.as_ref(),
-                Spanned(
+                expr,
+                box Spanned(
                     Expr::Ident {
                         name: "y",
-                        ty:   Ty::Int{signed:true, width},
+                        ty:   Ty::Int { signed: true, width },
                     },
                     _
-                )if width == &NonZero::new(64).unwrap()
+                ) if *width == NonZero::new(64).unwrap()
             ));
         },
         _ => panic!("expected declaration"),

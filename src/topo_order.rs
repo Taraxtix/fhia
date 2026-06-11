@@ -15,10 +15,12 @@ fn maps<'a>(exprs: &'_ VecDeque<Spanned<Expr<'a>>>) -> (DepMap<'a>, DeclMap<'a>)
     for Spanned(expr, span) in exprs
     {
         if let Expr::Declaration {
-            name, expr: rhs, ..
+            name,
+            expr: box Spanned(rhs, _),
+            ..
         } = expr
         {
-            dep_map.insert(name, rhs.as_ref().0.deps());
+            dep_map.insert(name, rhs.deps());
             decl_map.insert(name, Spanned(expr.clone(), *span));
         }
     }
